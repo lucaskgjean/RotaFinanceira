@@ -40,8 +40,7 @@ export const calculateDailyEntry = (
   const fuel = gross * config.percFuel;
   const food = gross * config.percFood;
   const maintenance = gross * config.percMaintenance;
-  const totalFees = fuel + food + maintenance;
-  const net = gross - totalFees;
+  const net = gross; // O líquido da entrada individual agora é o bruto, as reservas são apenas referência
 
   return {
     id: generateId(),
@@ -119,14 +118,8 @@ export const getWeeklySummary = (entries: DailyEntry[]): WeeklySummary => {
   const totalKm = entries.reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
   const totalLiters = expenseEntries.reduce((acc, curr) => acc + (curr.liters || 0), 0);
 
-  // Excesso
-  const excessFuel = Math.max(0, spentFuel - reservedFuel);
-  const excessFood = Math.max(0, spentFood - reservedFood);
-  const excessMaintenance = Math.max(0, spentMaintenance - reservedMaintenance);
-  const excessOthers = Math.max(0, spentOthers - reservedOthers);
-  const totalExcess = excessFuel + excessFood + excessMaintenance + excessOthers;
-
-  const totalNet = totalGross - totalFees - totalExcess;
+  const totalSpent = spentFuel + spentFood + spentMaintenance + spentOthers;
+  const totalNet = totalGross - totalSpent;
 
   return {
     totalGross,
@@ -139,7 +132,7 @@ export const getWeeklySummary = (entries: DailyEntry[]): WeeklySummary => {
     totalSpentFood: spentFood,
     totalSpentMaintenance: spentMaintenance,
     totalSpentOthers: spentOthers,
-    totalFees: totalFees + totalExcess,
+    totalFees: totalSpent,
     totalKm,
     totalLiters
   };

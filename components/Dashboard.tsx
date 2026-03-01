@@ -58,11 +58,11 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, config, onEdit, onDelete
   const isGoalReached = todaySum.totalGross >= config.dailyGoal;
 
   const pieData = [
-    { name: `Combustível`, value: generalSum.totalFuel, color: '#f43f5e' }, // Rose 500
-    { name: `Alimentação`, value: generalSum.totalFood, color: '#f59e0b' }, // Amber 500
-    { name: `Manutenção`, value: generalSum.totalMaintenance, color: '#3b82f6' }, // Blue 500
-    { name: `Outros`, value: generalSum.totalOthers || 0, color: '#64748b' }, // Slate 500
-    { name: `Líquido`, value: generalSum.totalNet, color: '#10b981' }, // Emerald 500
+    { name: `Gasto Comb.`, value: generalSum.totalSpentFuel, color: '#f43f5e' },
+    { name: `Gasto Alim.`, value: generalSum.totalSpentFood, color: '#f59e0b' },
+    { name: `Gasto Manut.`, value: generalSum.totalSpentMaintenance, color: '#3b82f6' },
+    { name: `Gasto Outros`, value: generalSum.totalSpentOthers || 0, color: '#64748b' },
+    { name: `Lucro Líquido`, value: generalSum.totalNet, color: '#10b981' },
   ];
 
   const containerVariants = {
@@ -216,8 +216,8 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, config, onEdit, onDelete
         >
           <div className="flex-1 w-full">
             <div className="mb-6">
-              <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest mb-1">Divisão de Reservas</h3>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Acumulado de todo o período</p>
+              <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest mb-1">Distribuição do Faturamento</h3>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Onde seu dinheiro foi parar (Acumulado)</p>
             </div>
             
             <div className="grid grid-cols-2 gap-3">
