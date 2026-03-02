@@ -23,9 +23,6 @@ import {
   CreditCard,
   MoreHorizontal
 } from 'lucide-react';
-
-import AIReportAssistant from './AIReportAssistant';
-
 interface ReportsProps {
   entries: DailyEntry[];
   timeEntries: TimeEntry[];
@@ -536,13 +533,6 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
           </div>
         )}
       </motion.div>
-
-      {/* IA Analista Financeira */}
-      <AIReportAssistant 
-        reportData={reportData} 
-        onAddEntries={(newEntries) => newEntries.forEach(onAddEntry)}
-        config={config}
-      />
     </motion.div>
   );
 };

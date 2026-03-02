@@ -27,12 +27,14 @@ import {
   ChevronRight,
   Moon,
   Sun,
-  RefreshCw
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { generateId, getLocalDateStr } from './utils/calculations';
+import { generateId, getLocalDateStr, getWeeklySummary } from './utils/calculations';
 
 import { storageService } from './services/storageService';
+import AIReportAssistant from './components/AIReportAssistant';
 
 const App: React.FC = () => {
   const [entries, setEntries] = useState<DailyEntry[]>([]);
@@ -44,6 +46,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
 
   // Scroll to top on tab change
   useEffect(() => {
@@ -108,11 +111,18 @@ const App: React.FC = () => {
         setTimeEntries(savedTimeEntries);
 
         if (savedConfig) {
-          // Garante que os alertas de manutenção existam se não estiverem no salvo
-          if (!savedConfig.maintenanceAlerts) {
-            savedConfig.maintenanceAlerts = DEFAULT_CONFIG.maintenanceAlerts;
+          // Mescla com o padrão para garantir novos campos (como themeMode)
+          const mergedConfig = {
+            ...DEFAULT_CONFIG,
+            ...savedConfig
+          };
+          
+          // Garante que os alertas de manutenção existam
+          if (!mergedConfig.maintenanceAlerts) {
+            mergedConfig.maintenanceAlerts = DEFAULT_CONFIG.maintenanceAlerts;
           }
-          setConfig(savedConfig);
+          
+          setConfig(mergedConfig);
         }
       } catch (e) {
         console.error("Erro ao inicializar banco de dados", e);
@@ -397,6 +407,43 @@ const App: React.FC = () => {
           ))}
         </div>
       </nav>
+
+      {/* Floating AI Button */}
+      <div className="fixed bottom-24 right-6 z-40">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setIsAIChatOpen(true)}
+          className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-200 dark:shadow-none relative group"
+        >
+          <div className="absolute -top-12 right-0 bg-slate-900 text-white text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap uppercase tracking-widest pointer-events-none">
+            Falar com IA
+          </div>
+          <Sparkles size={24} fill="currentColor" />
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-950 animate-pulse"></div>
+        </motion.button>
+      </div>
+
+      {/* AI Chat Modal */}
+      <AnimatePresence>
+        {isAIChatOpen && (
+          <AIReportAssistant 
+            onClose={() => setIsAIChatOpen(false)}
+            onAddEntries={(newEntries) => newEntries.forEach(addEntry)}
+            config={config}
+            reportData={{
+              startDate: 'Últimos 30 dias',
+              endDate: getLocalDateStr(),
+              summary: getWeeklySummary(entries.filter(e => {
+                const date = new Date(e.date);
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                return date >= thirtyDaysAgo;
+              }))
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
