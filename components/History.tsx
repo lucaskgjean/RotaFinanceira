@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { DailyEntry, AppConfig } from '../types';
-import { formatCurrency, getWeeklySummary, getDailyStats } from '../utils/calculations';
+import { formatCurrency, getWeeklySummary, getDailyStats, getLocalDateStr } from '../utils/calculations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -34,11 +34,12 @@ interface HistoryProps {
 }
 
 const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, onUpdate }) => {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [filterStartDate, setFilterStartDate] = useState<string>('');
-  const [filterEndDate, setFilterEndDate] = useState<string>('');
+  const todayStr = getLocalDateStr();
+  const [filterStartDate, setFilterStartDate] = useState<string>(todayStr);
+  const [filterEndDate, setFilterEndDate] = useState<string>(todayStr);
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterPayment, setFilterPayment] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
 
   const todayEntries = entries.filter(e => e.date === todayStr);
 
@@ -54,10 +55,14 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
       
       const matchPayment = filterPayment ? entry.paymentMethod === filterPayment : true;
       
-      return matchRange && matchCategory && matchPayment;
+      const matchStatus = filterStatus ? (
+        filterStatus === 'paid' ? entry.isPaid === true : entry.isPaid === false
+      ) : true;
+      
+      return matchRange && matchCategory && matchPayment && matchStatus;
     }).sort((a, b) => b.index - a.index)
       .map(item => item.entry);
-  }, [entries, filterStartDate, filterEndDate, filterCategory, filterPayment]);
+  }, [entries, filterStartDate, filterEndDate, filterCategory, filterPayment, filterStatus]);
 
   const stats = useMemo(() => getWeeklySummary(filteredEntries), [filteredEntries]);
   const dailyBreakdown = useMemo(() => getDailyStats(filteredEntries, config), [filteredEntries, config]);
@@ -70,10 +75,11 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
   }, [dailyBreakdown]);
 
   const clearFilters = () => {
-    setFilterStartDate('');
-    setFilterEndDate('');
+    setFilterStartDate(todayStr);
+    setFilterEndDate(todayStr);
     setFilterCategory('');
     setFilterPayment('');
+    setFilterStatus('');
   };
 
   const containerVariants = {
@@ -173,6 +179,18 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
               <option value="pix">PIX</option>
               <option value="money">Dinheiro</option>
               <option value="caderno">Caderno</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Status</label>
+            <select 
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 transition outline-none text-sm font-bold text-slate-700 dark:text-slate-200 appearance-none"
+            >
+              <option value="">Todos</option>
+              <option value="paid">Pago</option>
+              <option value="pending">Pendente</option>
             </select>
           </div>
           <button 
