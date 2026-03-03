@@ -86,6 +86,28 @@ const App: React.FC = () => {
     }
   }, [config.themeMode]);
 
+  // Auto-close shifts from previous days at midnight
+  useEffect(() => {
+    if (isLoading || timeEntries.length === 0) return;
+    
+    const today = getLocalDateStr();
+    let hasChanges = false;
+    
+    const updatedTimeEntries = timeEntries.map(entry => {
+      // Se não tem hora de término e a data é anterior a hoje
+      if (!entry.endTime && entry.date < today) {
+        hasChanges = true;
+        return { ...entry, endTime: '23:59' };
+      }
+      return entry;
+    });
+    
+    if (hasChanges) {
+      setTimeEntries(updatedTimeEntries);
+      storageService.saveTimeEntries(updatedTimeEntries);
+    }
+  }, [isLoading, timeEntries, timeEntries.length]);
+
   // Carregamento Inicial Assíncrono (IndexedDB)
   useEffect(() => {
     const initApp = async () => {

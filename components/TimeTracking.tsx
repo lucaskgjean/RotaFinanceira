@@ -12,7 +12,11 @@ import {
   Trash2, 
   Calendar, 
   ChevronRight,
-  Timer
+  Timer,
+  Plus,
+  Edit2,
+  X,
+  Save
 } from 'lucide-react';
 
 interface TimeTrackingProps {
@@ -25,6 +29,15 @@ interface TimeTrackingProps {
 const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdate, onDelete }) => {
   const today = getLocalDateStr();
   const [now, setNow] = useState(new Date());
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+
+  // Form states for manual/edit
+  const [formDate, setFormDate] = useState(today);
+  const [formStart, setFormStart] = useState('08:00');
+  const [formEnd, setFormEnd] = useState('18:00');
+  const [formBreak, setFormBreak] = useState('60');
+  const [formNotes, setFormNotes] = useState('');
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -69,6 +82,44 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
     onUpdate(updatedEntry);
     setBreakInput('0');
     setNotesInput('');
+  };
+
+  const openManualEntry = () => {
+    setEditingEntry(null);
+    setFormDate(today);
+    setFormStart('08:00');
+    setFormEnd('18:00');
+    setFormBreak('60');
+    setFormNotes('');
+    setIsManualModalOpen(true);
+  };
+
+  const openEditEntry = (entry: TimeEntry) => {
+    setEditingEntry(entry);
+    setFormDate(entry.date);
+    setFormStart(entry.startTime);
+    setFormEnd(entry.endTime || currentTime);
+    setFormBreak((entry.breakDuration || 0).toString());
+    setFormNotes(entry.notes || '');
+    setIsManualModalOpen(true);
+  };
+
+  const handleSaveManual = () => {
+    const entryData: TimeEntry = {
+      id: editingEntry ? editingEntry.id : generateId(),
+      date: formDate,
+      startTime: formStart,
+      endTime: formEnd,
+      breakDuration: parseInt(formBreak) || 0,
+      notes: formNotes
+    };
+
+    if (editingEntry) {
+      onUpdate(entryData);
+    } else {
+      onAdd(entryData);
+    }
+    setIsManualModalOpen(false);
   };
 
   const dailyTotals = useMemo(() => {
@@ -126,15 +177,24 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
             </div>
           </div>
 
-          <div className="flex gap-3 w-full md:w-auto">
+          <div className="flex flex-col gap-3 w-full md:w-auto">
             {!activeEntry ? (
-              <motion.button 
-                whileTap={{ scale: 0.95 }}
-                onClick={handleClockIn}
-                className="flex-1 md:flex-none bg-emerald-600 dark:bg-emerald-500 text-white font-black py-5 px-10 rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100 dark:shadow-none flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
-              >
-                <Play size={18} fill="currentColor" /> Iniciar Turno
-              </motion.button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <motion.button 
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleClockIn}
+                  className="flex-1 bg-emerald-600 dark:bg-emerald-500 text-white font-black py-5 px-10 rounded-2xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-100 dark:shadow-none flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                >
+                  <Play size={18} fill="currentColor" /> Iniciar Turno
+                </motion.button>
+                <motion.button 
+                  whileTap={{ scale: 0.95 }}
+                  onClick={openManualEntry}
+                  className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black py-5 px-10 rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                >
+                  <Plus size={18} /> Lançar Manual
+                </motion.button>
+              </div>
             ) : (
               <div className="flex flex-col gap-4 w-full">
                 <div className="grid grid-cols-2 gap-3">
@@ -235,12 +295,20 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
                             </div>
                           </div>
                         </div>
-                        <button 
-                          onClick={() => onDelete(entry.id)}
-                          className="p-2 text-slate-300 dark:text-slate-600 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover/item:opacity-100 transition-all"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-all">
+                          <button 
+                            onClick={() => openEditEntry(entry)}
+                            className="p-2 text-slate-300 dark:text-slate-600 hover:text-indigo-500 dark:hover:text-indigo-400"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            onClick={() => onDelete(entry.id)}
+                            className="p-2 text-slate-300 dark:text-slate-600 hover:text-rose-500 dark:hover:text-rose-400"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                 </div>
@@ -249,6 +317,107 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
           )}
         </div>
       </motion.div>
+
+      {/* Modal de Lançamento Manual / Edição */}
+      <AnimatePresence>
+        {isManualModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsManualModalOpen(false)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden"
+            >
+              <div className="p-6 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between bg-indigo-600 dark:bg-indigo-500 text-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                    {editingEntry ? <Edit2 size={20} /> : <Plus size={20} />}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest">{editingEntry ? 'Editar Ponto' : 'Lançar Ponto'}</h3>
+                    <p className="text-[10px] opacity-70 font-bold uppercase tracking-tight">Preencha os horários manualmente</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsManualModalOpen(false)}
+                  className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Data do Turno</label>
+                  <input 
+                    type="date" 
+                    value={formDate}
+                    onChange={(e) => setFormDate(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 text-sm font-black focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Entrada</label>
+                    <input 
+                      type="time" 
+                      value={formStart}
+                      onChange={(e) => setFormStart(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 text-sm font-black focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white font-mono-num"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Saída</label>
+                    <input 
+                      type="time" 
+                      value={formEnd}
+                      onChange={(e) => setFormEnd(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 text-sm font-black focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white font-mono-num"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Pausa (minutos)</label>
+                    <input 
+                      type="number" 
+                      value={formBreak}
+                      onChange={(e) => setFormBreak(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 text-sm font-black focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white font-mono-num"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Notas</label>
+                    <input 
+                      type="text" 
+                      value={formNotes}
+                      onChange={(e) => setFormNotes(e.target.value)}
+                      placeholder="Ex: Turno extra..."
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleSaveManual}
+                  className="w-full bg-indigo-600 dark:bg-indigo-500 text-white font-black py-5 rounded-2xl hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-100 dark:shadow-none flex items-center justify-center gap-3 uppercase text-xs tracking-widest mt-4"
+                >
+                  <Save size={18} /> {editingEntry ? 'Salvar Alterações' : 'Confirmar Lançamento'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

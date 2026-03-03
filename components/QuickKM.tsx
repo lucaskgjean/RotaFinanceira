@@ -15,13 +15,31 @@ import {
 interface QuickKMProps {
   onAdd: (entry: DailyEntry) => void;
   config: AppConfig;
+  entries: DailyEntry[];
 }
 
-const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config }) => {
+const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
   const [totalKm, setTotalKm] = useState<string>('');
-  const [fuelPrice, setFuelPrice] = useState<string>(config.lastFuelPrice?.toString() || '');
   const [date, setDate] = useState<string>(getLocalDateStr());
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Calculate fuel price based on expenses for the selected date
+  const fuelPrice = React.useMemo(() => {
+    const dayFuelExpenses = entries.filter(e => 
+      e.date === date && 
+      e.category === 'fuel' && 
+      e.liters && 
+      e.liters > 0
+    );
+
+    if (dayFuelExpenses.length > 0) {
+      const totalSpent = dayFuelExpenses.reduce((acc, curr) => acc + curr.fuel, 0);
+      const totalLiters = dayFuelExpenses.reduce((acc, curr) => acc + (curr.liters || 0), 0);
+      return totalSpent / totalLiters;
+    }
+
+    return config.lastFuelPrice || 0;
+  }, [entries, date, config.lastFuelPrice]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +48,6 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config }) => {
 
     const lastKm = config.lastTotalKm || 0;
     const kmDriven = lastKm > 0 ? numTotalKm - lastKm : 0;
-
-    const numFuelPrice = fuelPrice ? parseFloat(fuelPrice) : config.lastFuelPrice;
 
     const newEntry: DailyEntry = {
       id: generateId(),
@@ -46,7 +62,7 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config }) => {
       netAmount: 0,
       kmDriven: kmDriven,
       kmAtMaintenance: numTotalKm, 
-      fuelPrice: numFuelPrice
+      fuelPrice: fuelPrice
     };
 
     onAdd(newEntry);
@@ -106,19 +122,18 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config }) => {
 
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-              <Fuel size={12} className="text-rose-500 dark:text-rose-400" /> Preço da Gasolina (R$/L)
+              <Fuel size={12} className="text-rose-500 dark:text-rose-400" /> Preço da Gasolina (Calculado)
             </label>
-            <div className="relative">
-              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600 font-black text-lg">R$</span>
-              <input
-                type="number"
-                step="0.001"
-                value={fuelPrice}
-                onChange={(e) => setFuelPrice(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl pl-12 pr-5 py-4 focus:outline-none focus:ring-2 focus:ring-rose-500 transition font-black text-slate-800 dark:text-white text-lg font-mono-num"
-                placeholder={config.lastFuelPrice?.toString() || "0.000"}
-              />
+            <div className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 flex items-center justify-between">
+              <span className="text-slate-400 dark:text-slate-500 font-black text-lg">R$</span>
+              <span className="text-slate-800 dark:text-white text-lg font-black font-mono-num">
+                {fuelPrice > 0 ? fuelPrice.toFixed(3) : "---"}
+              </span>
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">/ L</span>
             </div>
+            <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight ml-1">
+              Baseado nos gastos de combustível do dia {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}
+            </p>
           </div>
         </div>
 

@@ -94,6 +94,36 @@ export const calculateManualExpense = (
 };
 
 /**
+ * Cria um registro de fechamento de KM.
+ */
+export const calculateKmClosing = (
+  totalKm: number,
+  lastTotalKm: number,
+  fuelPrice: number,
+  date: string,
+  time: string
+): DailyEntry => {
+  const kmDriven = lastTotalKm > 0 ? totalKm - lastTotalKm : 0;
+  
+  return {
+    id: generateId(),
+    date,
+    time,
+    storeName: 'Fechamento de KM',
+    grossAmount: 0,
+    fuel: 0,
+    food: 0,
+    maintenance: 0,
+    others: 0,
+    netAmount: 0,
+    kmDriven: kmDriven,
+    kmAtMaintenance: totalKm, 
+    fuelPrice: fuelPrice,
+    category: 'others'
+  };
+};
+
+/**
  * Sumário Financeiro:
  * Calcula reservas vs gastos reais.
  */

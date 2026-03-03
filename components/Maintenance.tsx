@@ -75,7 +75,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
     >
       {/* Fechamento de KM */}
       <motion.div variants={itemVariants}>
-        <QuickKM onAdd={onAdd} config={config} />
+        <QuickKM onAdd={onAdd} config={config} entries={entries} />
       </motion.div>
 
       {/* Header de Saldo */}
@@ -162,6 +162,50 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
           );
         })}
       </div>
+
+      {/* Histórico de KM */}
+      <motion.div variants={itemVariants} className="space-y-6 pt-4">
+        <h3 className="text-sm font-black text-slate-800 dark:text-white px-2 flex items-center gap-3 uppercase tracking-widest">
+          <div className="w-1.5 h-5 bg-rose-500 rounded-full"></div>
+          Histórico de KM
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {entries.filter(e => e.storeName === 'Fechamento de KM').length === 0 ? (
+            <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-slate-800">
+              <p className="text-slate-400 dark:text-slate-500 text-xs font-black uppercase tracking-widest">Nenhum fechamento de KM registrado</p>
+            </div>
+          ) : (
+            entries
+              .filter(e => e.storeName === 'Fechamento de KM')
+              .sort((a, b) => b.date.localeCompare(a.date))
+              .map(entry => (
+                <div key={entry.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center group hover:border-rose-100 dark:hover:border-rose-500 transition-all">
+                  <div className="flex gap-4 items-center">
+                    <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 text-rose-500 rounded-2xl flex items-center justify-center group-hover:bg-rose-50 dark:group-hover:bg-rose-500/10 transition-colors">
+                      <Navigation size={20} />
+                    </div>
+                    <div>
+                      <h5 className="font-black text-slate-800 dark:text-white leading-tight">{entry.kmAtMaintenance?.toLocaleString()} KM</h5>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">
+                        {new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR')} • <span className="text-emerald-500">+{entry.kmDriven?.toFixed(1)} KM</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Gasolina</p>
+                    <p className="text-sm font-black text-slate-800 dark:text-white font-mono-num">R$ {entry.fuelPrice?.toFixed(3)}/L</p>
+                    <button 
+                      onClick={() => onEdit(entry)}
+                      className="text-[9px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest flex items-center gap-1 ml-auto mt-1 hover:text-rose-700 dark:hover:text-rose-300"
+                    >
+                      Editar <ChevronRight size={10} />
+                    </button>
+                  </div>
+                </div>
+              ))
+          )}
+        </div>
+      </motion.div>
 
       {/* Histórico de Manutenção */}
       <motion.div variants={itemVariants} className="space-y-6 pt-4">
