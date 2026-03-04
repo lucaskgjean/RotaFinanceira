@@ -2,6 +2,20 @@
 import { CustomNotification } from '../types';
 
 class NotificationService {
+  private callMedian(url: string) {
+    console.log('Chamando ponte Median:', url);
+    // Usa um iframe para a ponte, que é mais confiável que window.location.href
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('src', url);
+    iframe.setAttribute('style', 'display: none;');
+    document.documentElement.appendChild(iframe);
+    setTimeout(() => {
+      if (iframe.parentNode) {
+        iframe.parentNode.removeChild(iframe);
+      }
+    }, 500);
+  }
+
   async requestPermission(): Promise<boolean> {
     const isMedian = (window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative');
     
@@ -13,7 +27,7 @@ class NotificationService {
           (window as any).gonative.oneSignal.register();
         } else {
           // Fallback para o comando universal do Median
-          window.location.href = 'gonative://notifications/register';
+          this.callMedian('gonative://notifications/register');
         }
         return true; 
       } catch (e) {
@@ -50,7 +64,7 @@ class NotificationService {
       try {
         // Tenta criar uma notificação local via ponte Median
         // Isso funciona mesmo se o OneSignal estiver ativo, pois é local
-        window.location.href = `gonative://notifications/create?title=${encodeURIComponent(title)}&body=${encodeURIComponent(options?.body || '')}`;
+        this.callMedian(`gonative://notifications/create?title=${encodeURIComponent(title)}&body=${encodeURIComponent(options?.body || '')}`);
       } catch (e) {
         console.error('Erro ao chamar ponte de notificação Median:', e);
       }

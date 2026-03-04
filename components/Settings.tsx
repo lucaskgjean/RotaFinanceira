@@ -227,6 +227,17 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
           >
             Corrigir Notificações no Android
           </button>
+          
+          <button 
+            onClick={() => {
+              notificationService.sendNotification("Teste de Notificação 🔔", {
+                body: "Se você está vendo isso, as notificações estão funcionando!"
+              });
+            }}
+            className="mt-2 w-full py-2 bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-200 transition-all"
+          >
+            Testar Notificação Agora
+          </button>
         </div>
 
         {config.notificationsEnabled ? (
