@@ -20,19 +20,30 @@ class NotificationService {
 
   private callMedian(url: string) {
     console.log('Comando Android:', url);
-    // Tenta primeiro o método de URL direta (mais compatível com OneSignal/Median)
-    try {
-      window.location.href = url;
-    } catch (e) {
-      // Fallback para iframe se o redirecionamento falhar
-      const iframe = document.createElement('iframe');
-      iframe.setAttribute('src', url);
-      iframe.setAttribute('style', 'display: none;');
-      document.documentElement.appendChild(iframe);
-      setTimeout(() => {
-        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-      }, 500);
+    
+    // 1. Tenta via JavaScript nativo se disponível
+    const isMedian = (window as any).gonative || (window as any).median;
+    if (isMedian) {
+      const title = url.includes('title=') ? decodeURIComponent(url.split('title=')[1].split('&')[0]) : '';
+      const body = url.includes('body=') ? decodeURIComponent(url.split('body=')[1].split('&')[0]) : '';
+
+      // Tenta o objeto de notificações locais (mais estável)
+      if ((window as any).gonative?.notifications?.create) {
+        try {
+          (window as any).gonative.notifications.create({ title, body });
+          return;
+        } catch (e) { console.error(e); }
+      }
     }
+
+    // 2. Fallback para URL Scheme (O método mais compatível)
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('src', url);
+    iframe.setAttribute('style', 'display: none;');
+    document.documentElement.appendChild(iframe);
+    setTimeout(() => {
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    }, 500);
   }
 
   async requestPermission(): Promise<boolean> {
