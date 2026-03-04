@@ -3,8 +3,7 @@ import { CustomNotification } from '../types';
 
 class NotificationService {
   private callMedian(url: string) {
-    console.log('Chamando ponte Median:', url);
-    // Usa um iframe para a ponte, que é mais confiável que window.location.href
+    console.log('Enviando comando para o Android:', url);
     const iframe = document.createElement('iframe');
     iframe.setAttribute('src', url);
     iframe.setAttribute('style', 'display: none;');
@@ -19,19 +18,18 @@ class NotificationService {
   async requestPermission(): Promise<boolean> {
     const isMedian = (window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative');
     
-    // 1. Tenta a ponte nativa do Median (GoNative) + OneSignal
     if (isMedian) {
       try {
-        // Se o OneSignal estiver habilitado no Median, usamos a ponte específica
+        // 1. Tenta registrar no OneSignal nativo
         if ((window as any).gonative?.oneSignal) {
           (window as any).gonative.oneSignal.register();
-        } else {
-          // Fallback para o comando universal do Median
-          this.callMedian('gonative://notifications/register');
         }
+        
+        // 2. Tenta abrir o diálogo de permissão do Android
+        this.callMedian('gonative://notifications/register');
         return true; 
       } catch (e) {
-        console.error('Erro ao chamar ponte Median:', e);
+        console.error('Erro Median Permission:', e);
       }
     }
 
@@ -62,9 +60,14 @@ class NotificationService {
     // 1. Se estiver no Median, tenta a ponte nativa para garantir que chegue no Android
     if (isMedian) {
       try {
-        // Tenta criar uma notificação local via ponte Median
-        // Isso funciona mesmo se o OneSignal estiver ativo, pois é local
-        this.callMedian(`gonative://notifications/create?title=${encodeURIComponent(title)}&body=${encodeURIComponent(options?.body || '')}`);
+        const titleEnc = encodeURIComponent(title);
+        const bodyEnc = encodeURIComponent(options?.body || '');
+        
+        // Tenta o método de notificação local (mais garantido para lembretes)
+        this.callMedian(`gonative://notifications/local/create?title=${titleEnc}&body=${bodyEnc}`);
+        
+        // Tenta também o método de notificação imediata como fallback
+        this.callMedian(`gonative://notifications/create?title=${titleEnc}&body=${bodyEnc}`);
       } catch (e) {
         console.error('Erro ao chamar ponte de notificação Median:', e);
       }
