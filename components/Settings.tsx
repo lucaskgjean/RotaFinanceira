@@ -240,6 +240,23 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
           </button>
         </div>
 
+        {/* PAINEL DE DIAGNÓSTICO (NOVO) */}
+        <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Status Técnico (Diagnóstico)</p>
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(notificationService.getDebugInfo()).map(([key, val]) => (
+              key !== 'userAgent' && (
+                <div key={key} className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800">
+                  <span className="text-[8px] font-bold text-slate-500 uppercase">{key}</span>
+                  <span className={`text-[8px] font-black ${val ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    {typeof val === 'boolean' ? (val ? 'SIM' : 'NÃO') : String(val).toUpperCase()}
+                  </span>
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+
         {config.notificationsEnabled ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-top-2">
             <div className="flex justify-between items-center">

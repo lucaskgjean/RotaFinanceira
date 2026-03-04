@@ -2,35 +2,37 @@
 import { CustomNotification } from '../types';
 
 class NotificationService {
+  // Método para verificar o status técnico (ajuda no diagnóstico)
+  getDebugInfo() {
+    const isMedian = (window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative');
+    const hasOneSignal = !!(window as any).gonative?.oneSignal;
+    const hasNotifications = !!(window as any).gonative?.notifications;
+    const permission = (window as any).Notification?.permission || 'unknown';
+    
+    return {
+      isMedian,
+      hasOneSignal,
+      hasNotifications,
+      permission,
+      userAgent: navigator.userAgent
+    };
+  }
+
   private callMedian(url: string) {
-    const title = url.includes('title=') ? decodeURIComponent(url.split('title=')[1].split('&')[0]) : '';
-    const body = url.includes('body=') ? decodeURIComponent(url.split('body=')[1].split('&')[0]) : '';
-
-    // 1. Tenta a API de objeto JavaScript (Mais moderna e recomendada pelo Median)
-    if ((window as any).gonative?.notifications?.create) {
-      try {
-        (window as any).gonative.notifications.create({
-          title: title,
-          body: body,
-        });
-        console.log('Notificação enviada via JS Object');
-        return;
-      } catch (e) {
-        console.error('Erro via JS Object:', e);
-      }
+    console.log('Comando Android:', url);
+    // Tenta primeiro o método de URL direta (mais compatível com OneSignal/Median)
+    try {
+      window.location.href = url;
+    } catch (e) {
+      // Fallback para iframe se o redirecionamento falhar
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('src', url);
+      iframe.setAttribute('style', 'display: none;');
+      document.documentElement.appendChild(iframe);
+      setTimeout(() => {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      }, 500);
     }
-
-    // 2. Fallback para o método de iframe (Link invisível)
-    console.log('Tentando fallback via URL Scheme:', url);
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('src', url);
-    iframe.setAttribute('style', 'display: none;');
-    document.documentElement.appendChild(iframe);
-    setTimeout(() => {
-      if (iframe.parentNode) {
-        iframe.parentNode.removeChild(iframe);
-      }
-    }, 500);
   }
 
   async requestPermission(): Promise<boolean> {
