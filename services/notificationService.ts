@@ -4,7 +4,7 @@ import { CustomNotification } from '../types';
 class NotificationService {
   // Método para verificar o status técnico (ajuda no diagnóstico)
   getDebugInfo() {
-    const isMedian = (window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative');
+    const isMedian = !!((window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative'));
     const hasOneSignal = !!(window as any).gonative?.oneSignal;
     const hasNotifications = !!(window as any).gonative?.notifications;
     const permission = (window as any).Notification?.permission || 'unknown';
@@ -47,18 +47,20 @@ class NotificationService {
   }
 
   async requestPermission(): Promise<boolean> {
-    const isMedian = (window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative');
+    const isMedian = !!((window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative'));
     
     if (isMedian) {
       try {
-        // 1. Tenta registrar no OneSignal nativo e envia uma tag de teste
+        // 1. Tenta registrar no OneSignal nativo via JS
         if ((window as any).gonative?.oneSignal) {
           (window as any).gonative.oneSignal.register();
-          // Envia uma tag para o OneSignal saber que o usuário está ativo no app
           (window as any).gonative.oneSignal.sendTag({ key: 'app_active', value: 'true' });
         }
         
-        // 2. Tenta abrir o diálogo de permissão do Android
+        // 2. Tenta registrar no OneSignal via URL Scheme (Fallback)
+        this.callMedian('gonative://onesignal/register');
+        
+        // 3. Tenta abrir o diálogo de permissão geral do Android
         this.callMedian('gonative://notifications/register');
         return true; 
       } catch (e) {
@@ -87,7 +89,7 @@ class NotificationService {
   }
 
   sendNotification(title: string, options?: NotificationOptions) {
-    const isMedian = (window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative');
+    const isMedian = !!((window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative'));
     const icon = 'https://cdn-icons-png.flaticon.com/512/1165/1165961.png';
 
     // 1. Se estiver no Median, tenta a ponte nativa para garantir que chegue no Android
@@ -96,6 +98,11 @@ class NotificationService {
         const titleEnc = encodeURIComponent(title);
         const bodyEnc = encodeURIComponent(options?.body || '');
         
+        // Tenta o método de objeto JS (se disponível)
+        if ((window as any).gonative?.notifications?.create) {
+          (window as any).gonative.notifications.create({ title, body: options?.body || '' });
+        }
+
         // Tenta o método de notificação local (mais garantido para lembretes)
         this.callMedian(`gonative://notifications/local/create?title=${titleEnc}&body=${bodyEnc}`);
         
