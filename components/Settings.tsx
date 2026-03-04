@@ -208,6 +208,21 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
           </button>
         </div>
 
+        <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-500/5 rounded-2xl border border-amber-100 dark:border-amber-500/10">
+          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 leading-relaxed">
+            Se as notificações não estiverem aparecendo nas configurações do Android, clique no botão abaixo para forçar o registro no sistema.
+          </p>
+          <button 
+            onClick={async () => {
+              await notificationService.requestPermission();
+              alert("Pedido de registro enviado ao sistema. Verifique as configurações do Android agora.");
+            }}
+            className="mt-3 w-full py-2 bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-200 transition-all"
+          >
+            Corrigir Notificações no Android
+          </button>
+        </div>
+
         {config.notificationsEnabled && (
           <div className="space-y-6 animate-in fade-in slide-in-from-top-2">
             <div className="flex justify-between items-center">

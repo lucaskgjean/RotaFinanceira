@@ -3,6 +3,18 @@ import { CustomNotification } from '../types';
 
 class NotificationService {
   async requestPermission(): Promise<boolean> {
+    // 1. Tenta a ponte nativa do Median (GoNative) se estiver no APK
+    const isMedian = (window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative');
+    if (isMedian) {
+      try {
+        // Comando universal do Median para registrar notificações e pedir permissão nativa
+        window.location.href = 'gonative://notifications/register';
+      } catch (e) {
+        console.error('Erro ao chamar ponte Median:', e);
+      }
+    }
+
+    // 2. Tenta o método padrão da Web
     if (!('Notification' in window)) {
       console.log('Este navegador não suporta notificações desktop');
       return false;
