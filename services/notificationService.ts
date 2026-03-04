@@ -5,12 +5,16 @@ class NotificationService {
   async requestPermission(): Promise<boolean> {
     const isMedian = (window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative');
     
-    // 1. Tenta a ponte nativa do Median (GoNative) se estiver no APK
+    // 1. Tenta a ponte nativa do Median (GoNative) + OneSignal
     if (isMedian) {
       try {
-        window.location.href = 'gonative://notifications/register';
-        // No Median, muitas vezes não conseguimos esperar o retorno síncrono da permissão web
-        // Retornamos true para permitir que o usuário ative a interface no app
+        // Se o OneSignal estiver habilitado no Median, usamos a ponte específica
+        if ((window as any).gonative?.oneSignal) {
+          (window as any).gonative.oneSignal.register();
+        } else {
+          // Fallback para o comando universal do Median
+          window.location.href = 'gonative://notifications/register';
+        }
         return true; 
       } catch (e) {
         console.error('Erro ao chamar ponte Median:', e);
@@ -38,9 +42,21 @@ class NotificationService {
   }
 
   sendNotification(title: string, options?: NotificationOptions) {
-    if (!('Notification' in window)) return;
-    
+    const isMedian = (window as any).gonative || (window as any).median || navigator.userAgent.includes('gonative');
     const icon = 'https://cdn-icons-png.flaticon.com/512/1165/1165961.png';
+
+    // 1. Se estiver no Median, tenta a ponte nativa para garantir que chegue no Android
+    if (isMedian) {
+      try {
+        // Tenta criar uma notificação local via ponte Median
+        // Isso funciona mesmo se o OneSignal estiver ativo, pois é local
+        window.location.href = `gonative://notifications/create?title=${encodeURIComponent(title)}&body=${encodeURIComponent(options?.body || '')}`;
+      } catch (e) {
+        console.error('Erro ao chamar ponte de notificação Median:', e);
+      }
+    }
+
+    if (!('Notification' in window)) return;
     
     if (Notification.permission === 'granted') {
       // Tenta usar o ServiceWorker se disponível (melhor para Android/Median)
