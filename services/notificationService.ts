@@ -21,13 +21,15 @@ class NotificationService {
   private callMedian(url: string) {
     console.log('Comando Android:', url);
     
+    // Tenta o novo prefixo "median://" além do "gonative://"
+    const medianUrl = url.replace('gonative://', 'median://');
+    
     // 1. Tenta via JavaScript nativo se disponível
     const isMedian = (window as any).gonative || (window as any).median;
     if (isMedian) {
       const title = url.includes('title=') ? decodeURIComponent(url.split('title=')[1].split('&')[0]) : '';
       const body = url.includes('body=') ? decodeURIComponent(url.split('body=')[1].split('&')[0]) : '';
 
-      // Tenta o objeto de notificações locais (mais estável)
       if ((window as any).gonative?.notifications?.create) {
         try {
           (window as any).gonative.notifications.create({ title, body });
@@ -37,12 +39,19 @@ class NotificationService {
     }
 
     // 2. Fallback para URL Scheme (O método mais compatível)
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('src', url);
-    iframe.setAttribute('style', 'display: none;');
-    document.documentElement.appendChild(iframe);
+    const iframe1 = document.createElement('iframe');
+    iframe1.setAttribute('src', url);
+    iframe1.setAttribute('style', 'display: none;');
+    document.documentElement.appendChild(iframe1);
+
+    const iframe2 = document.createElement('iframe');
+    iframe2.setAttribute('src', medianUrl);
+    iframe2.setAttribute('style', 'display: none;');
+    document.documentElement.appendChild(iframe2);
+
     setTimeout(() => {
-      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      if (iframe1.parentNode) iframe1.parentNode.removeChild(iframe1);
+      if (iframe2.parentNode) iframe2.parentNode.removeChild(iframe2);
     }, 500);
   }
 
