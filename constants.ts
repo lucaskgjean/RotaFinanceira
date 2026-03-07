@@ -1,6 +1,7 @@
 
 export const ADMIN_EMAILS = [
   'jeanlucasgontijo.15@gmail.com', // Seu email
+  'gabriejvieira@gmail.com',
   'admin@rotafinanceira.com.br',
   'tester@rotafinanceira.com.br'
 ];
