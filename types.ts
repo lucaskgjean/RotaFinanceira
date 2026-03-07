@@ -60,6 +60,16 @@ export interface CustomNotification {
   enabled: boolean;
 }
 
+export interface UserProfile {
+  displayName?: string;
+  nickname?: string;
+  phone?: string;
+  photoURL?: string;
+  isPro?: boolean;
+  subscriptionId?: string;
+  subscriptionStatus?: 'active' | 'canceled' | 'past_due' | 'none';
+}
+
 export interface AppConfig {
   percFuel: number;
   percFood: number;
@@ -71,6 +81,7 @@ export interface AppConfig {
   themeMode?: 'light' | 'dark' | 'auto';
   notificationsEnabled: boolean;
   customNotifications?: CustomNotification[];
+  profile?: UserProfile;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -83,6 +94,12 @@ export const DEFAULT_CONFIG: AppConfig = {
   themeMode: 'auto',
   notificationsEnabled: false,
   customNotifications: [],
+  profile: {
+    displayName: '',
+    nickname: '',
+    phone: '',
+    photoURL: ''
+  },
   maintenanceAlerts: [
     { id: '1', description: 'Troca de Óleo', kmInterval: 10000, lastKm: 0 },
     { id: '2', description: 'Pneus', kmInterval: 40000, lastKm: 0 },

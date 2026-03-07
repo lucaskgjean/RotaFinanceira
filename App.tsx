@@ -12,7 +12,9 @@ import TimeTracking from './components/TimeTracking';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
 import EditModal from './components/EditModal';
-import { motion, AnimatePresence } from 'framer-motion';
+import SubscriptionModal from './components/SubscriptionModal';
+import { motion, AnimatePresence } from 'motion/react';
+import CustomDialog from './components/CustomDialog';
 import { 
   Home, 
   ArrowUpRight, 
@@ -28,7 +30,8 @@ import {
   Moon,
   Sun,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatCurrency, generateId, getLocalDateStr, getWeeklySummary } from './utils/calculations';
@@ -36,18 +39,97 @@ import { formatCurrency, generateId, getLocalDateStr, getWeeklySummary } from '.
 import { storageService } from './services/storageService';
 import AIReportAssistant from './components/AIReportAssistant';
 import { notificationService } from './services/notificationService';
+import { authService } from './services/authService';
+import Login from './components/Login';
+import { User as FirebaseUser } from 'firebase/auth';
+import { isUserAdmin } from './constants';
 
 const App: React.FC = () => {
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [entries, setEntries] = useState<DailyEntry[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'expenses' | 'maintenance' | 'ponto' | 'history' | 'reports' | 'settings'>('dashboard');
+  const [prevTab, setPrevTab] = useState<'dashboard' | 'expenses' | 'maintenance' | 'ponto' | 'history' | 'reports' | 'settings'>('dashboard');
   const [editingEntry, setEditingEntry] = useState<DailyEntry | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+  const [dialog, setDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: 'info' | 'warning' | 'danger' | 'success';
+    onConfirm: (val?: string) => void;
+    showInput?: boolean;
+    inputValidation?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  // Auth subscription
+  useEffect(() => {
+    const unsubscribe = authService.subscribeToAuthChanges((u) => {
+      setUser(u);
+      setAuthChecked(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Handle Stripe Success Callback (Message based for Popups)
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Validação básica de origem
+      if (!event.origin.endsWith('.run.app') && !event.origin.includes('localhost')) return;
+
+      if (event.data?.type === 'STRIPE_CHECKOUT_COMPLETED') {
+        const { status, sessionId } = event.data;
+
+        if (status === 'success' && sessionId) {
+          const verifyPayment = async () => {
+            try {
+              const response = await fetch(`/api/verify-session?session_id=${sessionId}`);
+              const data = await response.json();
+              
+              if (data.success && data.userId === user?.uid) {
+                setConfig(prev => ({
+                  ...prev,
+                  profile: {
+                    ...prev.profile,
+                    isPro: true,
+                    subscriptionStatus: 'active'
+                  }
+                }));
+                
+                confetti({
+                  particleCount: 200,
+                  spread: 100,
+                  origin: { y: 0.6 }
+                });
+                showToast("Parabéns! Você agora é PRO! 💎");
+                setIsSubModalOpen(false);
+              }
+            } catch (error) {
+              console.error("Erro ao verificar pagamento:", error);
+            }
+          };
+          verifyPayment();
+        } else if (status === 'cancel') {
+          showToast("Assinatura cancelada.", "error");
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [user]);
 
   // Scroll to top on tab change
   useEffect(() => {
@@ -71,21 +153,79 @@ const App: React.FC = () => {
 
       if (isDark) {
         document.documentElement.classList.add('dark');
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#020617');
+        localStorage.setItem('theme_hint', 'dark');
       } else {
         document.documentElement.classList.remove('dark');
+        document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#f8fafc');
+        localStorage.setItem('theme_hint', 'light');
       }
     };
 
     applyTheme();
 
     // Listen for system theme changes if in auto mode
-    if (config.themeMode === 'auto') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = () => applyTheme();
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => {
+      if (config.themeMode === 'auto') {
+        applyTheme();
+      }
+    };
+    
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
   }, [config.themeMode]);
+
+  const handleTabChange = (tab: typeof activeTab) => {
+    if (tab === activeTab) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      setPrevTab(activeTab);
+      setActiveTab(tab);
+    }
+  };
+
+  const handleSettingsClick = () => {
+    if (activeTab === 'settings') {
+      setActiveTab(prevTab);
+    } else {
+      setPrevTab(activeTab);
+      setActiveTab('settings');
+    }
+  };
+
+  const handleSubscribe = async () => {
+    if (!user) return;
+    try {
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.uid }),
+      });
+      
+      const data = await response.json();
+      if (data.url) {
+        // Abrir em popup para evitar problemas com iframe
+        const width = 500;
+        const height = 700;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        
+        window.open(
+          data.url, 
+          'stripe_checkout', 
+          `width=${width},height=${height},left=${left},top=${top}`
+        );
+      } else {
+        showToast("Erro ao iniciar checkout.", "error");
+      }
+    } catch (error) {
+      console.error("Erro ao assinar:", error);
+      showToast("Erro de conexão com o servidor.", "error");
+    }
+  };
 
   // 1. Notificações Personalizadas (Timer de 1 minuto)
   useEffect(() => {
@@ -122,7 +262,7 @@ const App: React.FC = () => {
 
   // Auto-close shifts from previous days at midnight
   useEffect(() => {
-    if (isLoading || timeEntries.length === 0) return;
+    if (isInitialLoading || timeEntries.length === 0) return;
     
     const today = getLocalDateStr();
     let hasChanges = false;
@@ -140,65 +280,75 @@ const App: React.FC = () => {
       setTimeEntries(updatedTimeEntries);
       storageService.saveTimeEntries(updatedTimeEntries);
     }
-  }, [isLoading, timeEntries, timeEntries.length]);
+  }, [isInitialLoading, timeEntries, timeEntries.length]);
 
-  // Carregamento Inicial Assíncrono (IndexedDB)
+  // Carregamento Inicial Otimizado (Local Primeiro -> Nuvem depois)
   useEffect(() => {
+    if (!authChecked || !user) return;
+
     const initApp = async () => {
       try {
-        setIsLoading(true);
-        
-        // 1. Migra se necessário
+        // 0. Migra se necessário
         await storageService.migrateFromLocalStorage();
 
-        // 2. Carrega dados
-        const [savedEntries, savedTimeEntries, savedConfig] = await Promise.all([
-          storageService.getEntries(),
-          storageService.getTimeEntries(),
-          storageService.getConfig()
+        // 1. Carregamento Ultra Rápido (Local)
+        const [localEntries, localTimeEntries, localConfig] = await Promise.all([
+          storageService.getLocalEntries(),
+          storageService.getLocalTimeEntries(),
+          storageService.getLocalConfig()
         ]);
 
-        // Sanitização de entradas
-        const sanitizedEntries = savedEntries.map(entry => ({
-          ...entry,
-          id: entry.id || generateId()
-        }));
-        setEntries(sanitizedEntries);
-        setTimeEntries(savedTimeEntries);
+        if (localEntries.length > 0) setEntries(localEntries);
+        if (localTimeEntries.length > 0) setTimeEntries(localTimeEntries);
+        if (localConfig) {
+          setConfig({ ...DEFAULT_CONFIG, ...localConfig });
+        }
 
-        if (savedConfig) {
-          // Mescla com o padrão para garantir novos campos (como themeMode)
-          const mergedConfig = {
-            ...DEFAULT_CONFIG,
-            ...savedConfig
-          };
-          
-          // Garante que os alertas de manutenção existam
-          if (!mergedConfig.maintenanceAlerts) {
-            mergedConfig.maintenanceAlerts = DEFAULT_CONFIG.maintenanceAlerts;
-          }
-          
-          setConfig(mergedConfig);
+        // Libera a tela imediatamente após carregar o local
+        setIsInitialLoading(false);
+
+        // 2. Sincronização em Segundo Plano (Nuvem)
+        setIsRefreshing(true);
+        const [cloudEntries, cloudTimeEntries, cloudConfig] = await Promise.all([
+          storageService.getEntries(user.uid),
+          storageService.getTimeEntries(user.uid),
+          storageService.getConfig(user.uid)
+        ]);
+
+        if (cloudEntries.length > 0) setEntries(cloudEntries);
+        if (cloudTimeEntries.length > 0) setTimeEntries(cloudTimeEntries);
+        if (cloudConfig) {
+          setConfig(prev => ({ ...DEFAULT_CONFIG, ...prev, ...cloudConfig }));
+        } else if (user && isUserAdmin(user.email)) {
+          // Fallback para novos admins sem config na nuvem
+          setConfig(prev => ({
+            ...prev,
+            profile: {
+              ...prev.profile,
+              isPro: true,
+              subscriptionStatus: 'active'
+            }
+          }));
         }
       } catch (e) {
-        console.error("Erro ao inicializar banco de dados", e);
-        showToast("Erro ao carregar dados do banco local.", "error");
+        console.error("Erro na inicialização:", e);
       } finally {
-        setIsLoading(false);
+        setIsRefreshing(false);
+        setIsInitialLoading(false);
       }
     };
 
     initApp();
-  }, []);
+  }, [authChecked, user]);
 
   const refreshData = async () => {
-    if (isRefreshing) return;
+    if (isRefreshing || !user) return;
     setIsRefreshing(true);
     try {
       const [savedEntries, savedTimeEntries, savedConfig] = await Promise.all([
-        storageService.getEntries(),
-        storageService.getTimeEntries(),
-        storageService.getConfig()
+        storageService.getEntries(user.uid),
+        storageService.getTimeEntries(user.uid),
+        storageService.getConfig(user.uid)
       ]);
 
       setEntries(savedEntries.map(entry => ({ ...entry, id: entry.id || generateId() })));
@@ -213,16 +363,28 @@ const App: React.FC = () => {
     }
   };
 
+  // Helper para contar lançamentos do mês atual
+  const getMonthlyEntriesCount = useCallback(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    return entries.filter(e => {
+      const entryDate = new Date(e.date + 'T12:00:00');
+      return entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear;
+    }).length;
+  }, [entries]);
+
   // Persistência Assíncrona com Feedback
   useEffect(() => {
-    if (isLoading || isRefreshing) return; // Evita salvar durante o carregamento inicial ou atualização manual
+    if (isInitialLoading || isRefreshing || !user) return; // Evita salvar durante o carregamento inicial ou atualização manual
 
     const saveData = async () => {
       setIsSaving(true);
       try {
         await Promise.all([
-          storageService.saveEntries(entries),
-          storageService.saveTimeEntries(timeEntries)
+          storageService.saveEntries(entries, user.uid, config.profile?.isPro),
+          storageService.saveTimeEntries(timeEntries, user.uid, config.profile?.isPro)
         ]);
       } catch (e) {
         console.error("Erro ao salvar dados", e);
@@ -232,12 +394,12 @@ const App: React.FC = () => {
     };
 
     saveData();
-  }, [entries, timeEntries, isLoading, isRefreshing]);
+  }, [entries, timeEntries, isInitialLoading, isRefreshing, user, config.profile?.isPro]);
 
   useEffect(() => {
-    if (isLoading || isRefreshing) return;
-    storageService.saveConfig(config).catch(console.error);
-  }, [config, isLoading, isRefreshing]);
+    if (isInitialLoading || isRefreshing || !user) return;
+    storageService.saveConfig(config, user.uid, config.profile?.isPro).catch(console.error);
+  }, [config, isInitialLoading, isRefreshing, user]);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -245,6 +407,16 @@ const App: React.FC = () => {
   };
 
   const addEntry = (entry: DailyEntry) => {
+    const isPro = config.profile?.isPro;
+    const monthlyCount = getMonthlyEntriesCount();
+
+    // Trava de 30 lançamentos para usuários grátis
+    if (!isPro && monthlyCount >= 30) {
+      setIsSubModalOpen(true);
+      showToast("Limite de 30 lançamentos mensais atingido. Seja PRO!", "error");
+      return;
+    }
+
     const todayStr = getLocalDateStr();
     
     setEntries(prev => {
@@ -276,7 +448,12 @@ const App: React.FC = () => {
           }
         }
       } else {
-        showToast("Lançamento salvo com sucesso!");
+        // Aviso de limite próximo (faltando 5)
+        if (!isPro && monthlyCount >= 25) {
+          showToast(`Atenção: Você tem apenas ${30 - (monthlyCount + 1)} lançamentos restantes este mês! 💎`, "error");
+        } else {
+          showToast("Lançamento salvo com sucesso!");
+        }
       }
 
       return newEntries;
@@ -299,10 +476,17 @@ const App: React.FC = () => {
   const deleteEntry = useCallback((id: string) => {
     if (!id) return;
     
-    if (window.confirm("Deseja excluir este registro permanentemente?")) {
-      setEntries(prev => prev.filter(e => e.id !== id));
-      showToast("Registro removido.", "error");
-    }
+    setDialog({
+      isOpen: true,
+      title: 'Excluir Registro',
+      message: 'Deseja excluir este registro permanentemente? Esta ação não pode ser desfeita.',
+      type: 'danger',
+      onConfirm: () => {
+        setEntries(prev => prev.filter(e => e.id !== id));
+        showToast("Registro removido.", "error");
+        setDialog(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   }, []);
 
   // Handlers de Ponto
@@ -317,10 +501,17 @@ const App: React.FC = () => {
   };
 
   const deleteTimeEntry = (id: string) => {
-    if (window.confirm("Excluir este registro de ponto?")) {
-      setTimeEntries(prev => prev.filter(e => e.id !== id));
-      showToast("Ponto removido.", "error");
-    }
+    setDialog({
+      isOpen: true,
+      title: 'Excluir Ponto',
+      message: 'Deseja excluir este registro de ponto permanentemente?',
+      type: 'danger',
+      onConfirm: () => {
+        setTimeEntries(prev => prev.filter(e => e.id !== id));
+        showToast("Ponto removido.", "error");
+        setDialog(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
   const importData = async (newEntries: DailyEntry[], newConfig?: AppConfig, newTimeEntries?: TimeEntry[]) => {
@@ -341,10 +532,64 @@ const App: React.FC = () => {
     setActiveTab('history'); 
   };
 
-  if (isLoading) {
+  const resetData = async (type: 'total' | 'period', start?: string, end?: string) => {
+    if (!user) return;
+    
+    try {
+      if (type === 'total') {
+        await storageService.resetData(user.uid);
+        setEntries([]);
+        setTimeEntries([]);
+        showToast("Todos os dados foram resetados.");
+      } else if (type === 'period' && start && end) {
+        const result = await storageService.deleteDataByPeriod(start, end, user.uid);
+        setEntries(result.entries);
+        setTimeEntries(result.timeEntries);
+        showToast("Dados do período removidos.");
+      }
+    } catch (error) {
+      showToast("Erro ao resetar dados.", "error");
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (!user) return;
+    
+    try {
+      // 1. Limpar dados no Firestore
+      await storageService.resetData(user.uid);
+      // 2. Limpar dados locais
+      await storageService.clearAll();
+      // 3. Deletar conta no Auth
+      await authService.deleteAccount();
+      showToast("Conta excluída permanentemente.");
+    } catch (error: any) {
+      console.error("Erro ao excluir conta:", error);
+      if (error.code === 'auth/requires-recent-login') {
+        showToast("Por segurança, faça login novamente antes de excluir.", "error");
+        await authService.logout();
+      } else {
+        showToast("Erro ao excluir conta.", "error");
+      }
+    }
+  };
+
+  if (!authChecked) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6">
-        <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-200 dark:shadow-none mb-6 animate-bounce">
+        <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login onLoginSuccess={() => {}} />;
+  }
+
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6">
+        <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-200 dark:shadow-none mb-6 animate-pulse">
           <svg className="w-10 h-10 text-white" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="28" cy="78" r="10" stroke="currentColor" strokeWidth="6" />
             <circle cx="75" cy="78" r="10" stroke="currentColor" strokeWidth="6" />
@@ -354,8 +599,7 @@ const App: React.FC = () => {
         </div>
         <h2 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-widest mb-2">RotaFinanceira</h2>
         <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 font-bold text-[10px] uppercase tracking-widest">
-          <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-          Sincronizando banco de dados...
+          Iniciando...
         </div>
       </div>
     );
@@ -388,6 +632,17 @@ const App: React.FC = () => {
         />
       )}
 
+      <CustomDialog 
+        isOpen={dialog.isOpen}
+        onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={dialog.onConfirm}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        showInput={dialog.showInput}
+        inputValidation={dialog.inputValidation}
+      />
+
       <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800 sticky top-0 z-40 shadow-sm">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
@@ -400,7 +655,12 @@ const App: React.FC = () => {
               </svg>
             </div>
             <div>
-              <h1 className="text-lg font-black text-slate-900 dark:text-white leading-tight">Rota<span className="text-indigo-600">Financeira</span></h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-black text-slate-900 dark:text-white leading-tight">Rota<span className="text-indigo-600">Financeira</span></h1>
+                {config.profile?.isPro && (
+                  <span className="px-1.5 py-0.5 bg-amber-400 text-amber-950 text-[8px] font-black rounded uppercase tracking-widest">PRO</span>
+                )}
+              </div>
               <div className="flex items-center gap-1.5">
                 <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-500 ${isSaving ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`}></div>
                 <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-1">
@@ -410,6 +670,15 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {!config.profile?.isPro && (
+              <button 
+                onClick={() => setIsSubModalOpen(true)}
+                className="hidden sm:flex items-center gap-2 px-3 py-2 bg-amber-400 hover:bg-amber-500 text-amber-950 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-200 dark:shadow-none"
+              >
+                <Sparkles size={14} fill="currentColor" />
+                Seja PRO
+              </button>
+            )}
             <button 
               onClick={refreshData}
               className={`p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-indigo-600 transition-all ${isRefreshing ? 'animate-spin text-indigo-600' : ''}`}
@@ -417,7 +686,7 @@ const App: React.FC = () => {
             >
               <RefreshCw size={20} />
             </button>
-            <button onClick={() => setActiveTab('settings')} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-indigo-600 transition-colors" title="Configurações">
+            <button onClick={handleSettingsClick} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-indigo-600 transition-colors" title="Configurações">
               <SettingsIcon size={20} />
             </button>
           </div>
@@ -437,59 +706,77 @@ const App: React.FC = () => {
             {activeTab === 'expenses' && <Expenses entries={entries} config={config} onEdit={setEditingEntry} onAdd={addEntry} />}
             {activeTab === 'maintenance' && <Maintenance entries={entries} config={config} onEdit={setEditingEntry} onAdd={addEntry} />}
             {activeTab === 'ponto' && <TimeTracking timeEntries={timeEntries} onAdd={addTimeEntry} onUpdate={updateTimeEntry} onDelete={deleteTimeEntry} />}
-            {activeTab === 'reports' && <Reports entries={entries} timeEntries={timeEntries} config={config} onAddEntry={addEntry} />}
+            {activeTab === 'reports' && <Reports entries={entries} timeEntries={timeEntries} config={config} onAddEntry={addEntry} onOpenSubscription={() => setIsSubModalOpen(true)} />}
             {activeTab === 'history' && (
               <div className="space-y-6">
                 <QuickLaunch onAdd={addEntry} existingEntries={entries} config={config} />
                 <History entries={entries} config={config} onDelete={deleteEntry} onEdit={setEditingEntry} onUpdate={updateEntry} />
               </div>
             )}
-            {activeTab === 'settings' && <Settings config={config} entries={entries} timeEntries={timeEntries} onChange={setConfig} onImport={importData} />}
+            {activeTab === 'settings' && <Settings config={config} entries={entries} timeEntries={timeEntries} onChange={setConfig} onImport={importData} onOpenSubscription={() => setIsSubModalOpen(true)} showToast={showToast} onResetData={resetData} onDeleteAccount={deleteAccount} />}
           </motion.div>
         </AnimatePresence>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 md:hidden pb-safe z-50 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.3)]">
-        <div className="flex justify-around items-center h-20 px-2">
-          {[
-            { id: 'dashboard', label: 'Início', icon: <Home size={22} /> },
-            { id: 'expenses', label: 'Gastos', icon: <ArrowUpRight size={22} /> },
-            { id: 'maintenance', label: 'Manut.', icon: <Wrench size={22} /> },
-            { id: 'ponto', label: 'Ponto', icon: <Clock size={22} /> },
-            { id: 'reports', label: 'Relat.', icon: <BarChart3 size={22} /> },
-            { id: 'history', label: 'Histórico', icon: <HistoryIcon size={22} /> }
-          ].map((item) => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className="flex flex-col items-center flex-1 py-1 group relative">
-              <div className={`w-12 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${activeTab === item.id ? 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400' : 'text-slate-400'}`}>
-                {item.icon}
-              </div>
-              <span className={`text-[9px] mt-1 font-black uppercase tracking-tighter ${activeTab === item.id ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-400'}`}>{item.label}</span>
-              {activeTab === item.id && (
-                <motion.div 
-                  layoutId="nav-indicator"
-                  className="absolute -top-1 w-1 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-full"
-                />
-              )}
-            </button>
-          ))}
-        </div>
-      </nav>
+      {activeTab !== 'settings' && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 md:hidden pb-safe z-50 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.3)]">
+          <div className="flex justify-around items-center h-20 px-2">
+            {[
+              { id: 'dashboard', label: 'Início', icon: <Home size={22} /> },
+              { id: 'expenses', label: 'Gastos', icon: <ArrowUpRight size={22} /> },
+              { id: 'maintenance', label: 'Manut.', icon: <Wrench size={22} /> },
+              { id: 'ponto', label: 'Ponto', icon: <Clock size={22} /> },
+              { id: 'reports', label: 'Relat.', icon: <BarChart3 size={22} /> },
+              { id: 'history', label: 'Histórico', icon: <HistoryIcon size={22} /> }
+            ].map((item) => (
+              <button key={item.id} onClick={() => handleTabChange(item.id as any)} className="flex flex-col items-center flex-1 py-1 group relative">
+                <div className={`w-12 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${activeTab === item.id ? 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400' : 'text-slate-400'}`}>
+                  {item.icon}
+                </div>
+                <span className={`text-[9px] mt-1 font-black uppercase tracking-tighter ${activeTab === item.id ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-400'}`}>{item.label}</span>
+                {activeTab === item.id && (
+                  <motion.div 
+                    layoutId="nav-indicator"
+                    className="absolute -top-1 w-1 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-full"
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
 
       {/* Floating AI Button */}
-      <div className="fixed bottom-24 right-6 z-40">
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setIsAIChatOpen(true)}
-          className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-200 dark:shadow-none relative group"
-        >
-          <div className="absolute -top-12 right-0 bg-slate-900 text-white text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap uppercase tracking-widest pointer-events-none">
-            Falar com IA
-          </div>
-          <Sparkles size={24} fill="currentColor" />
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-950 animate-pulse"></div>
-        </motion.button>
-      </div>
+      {activeTab !== 'settings' && (
+        <div className="fixed bottom-24 right-6 z-40">
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => {
+              if (config.profile?.isPro) {
+                setIsAIChatOpen(true);
+              } else {
+                setIsSubModalOpen(true);
+                showToast("IA Analista é exclusiva para membros PRO! 💎", "error");
+              }
+            }}
+            className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-200 dark:shadow-none relative group"
+          >
+            <div className="absolute -top-12 right-0 bg-slate-900 text-white text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap uppercase tracking-widest pointer-events-none">
+              {config.profile?.isPro ? 'Falar com IA' : 'IA (Apenas PRO)'}
+            </div>
+            <Sparkles size={24} fill="currentColor" />
+            {!config.profile?.isPro && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full border-2 border-white dark:border-slate-950 flex items-center justify-center">
+                <Lock size={10} className="text-amber-950" />
+              </div>
+            )}
+            {config.profile?.isPro && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-950 animate-pulse"></div>
+            )}
+          </motion.button>
+        </div>
+      )}
 
       {/* AI Chat Modal */}
       <AnimatePresence>
@@ -519,6 +806,15 @@ const App: React.FC = () => {
                   return acc;
                 }, {} as Record<string, number>)
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isSubModalOpen && (
+          <SubscriptionModal 
+            onClose={() => setIsSubModalOpen(false)}
+            onSubscribe={handleSubscribe}
           />
         )}
       </AnimatePresence>

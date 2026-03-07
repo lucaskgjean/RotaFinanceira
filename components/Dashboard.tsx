@@ -3,7 +3,7 @@ import React from 'react';
 import { DailyEntry, AppConfig } from '../types';
 import { formatCurrency, getWeeklySummary, calculateFuelMetrics, getLocalDateStr } from '../utils/calculations';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { 
   TrendingUp, 
   Calendar, 
@@ -58,10 +58,10 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, config, onEdit, onDelete
   const isGoalReached = todaySum.totalGross >= config.dailyGoal;
 
   const pieData = [
-    { name: `Gasto Comb.`, value: generalSum.totalSpentFuel, color: '#f43f5e' },
-    { name: `Gasto Alim.`, value: generalSum.totalSpentFood, color: '#f59e0b' },
-    { name: `Gasto Manut.`, value: generalSum.totalSpentMaintenance, color: '#3b82f6' },
-    { name: `Gasto Outros`, value: generalSum.totalSpentOthers || 0, color: '#64748b' },
+    { name: `Combustível`, value: generalSum.totalSpentFuel, color: '#f43f5e' },
+    { name: `Alimentação`, value: generalSum.totalSpentFood, color: '#f59e0b' },
+    { name: `Manutenção`, value: generalSum.totalSpentMaintenance, color: '#3b82f6' },
+    { name: `Outros`, value: generalSum.totalSpentOthers || 0, color: '#64748b' },
     { name: `Lucro Líquido`, value: generalSum.totalNet, color: '#10b981' },
   ];
 
@@ -157,7 +157,10 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, config, onEdit, onDelete
           </div>
           <div>
             <span className="text-[10px] font-black uppercase tracking-widest opacity-70 block mb-1">Hoje</span>
-            <div className="text-2xl font-black font-mono-num tracking-tighter">{formatCurrency(todaySum.totalGross)}</div>
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="text-2xl font-black font-mono-num tracking-tighter">{formatCurrency(todaySum.totalGross)}</div>
+              <div className="text-[10px] font-black opacity-80 bg-white/10 px-2 py-0.5 rounded-md">Líq: {formatCurrency(todaySum.totalNet)}</div>
+            </div>
           </div>
         </motion.div>
 
@@ -176,7 +179,37 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, config, onEdit, onDelete
           </div>
           <div>
             <span className="text-[10px] font-black uppercase tracking-widest opacity-50 block mb-1">Semana</span>
-            <div className="text-2xl font-black font-mono-num tracking-tighter">{formatCurrency(weekSum.totalGross)}</div>
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="text-2xl font-black font-mono-num tracking-tighter">{formatCurrency(weekSum.totalGross)}</div>
+              <div className="text-[10px] font-black opacity-80 bg-white/10 px-2 py-0.5 rounded-md">Líq: {formatCurrency(weekSum.totalNet)}</div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Card Mês (2 colunas em MD para ficar abaixo da semana/hoje ou ao lado) */}
+        <motion.div 
+          variants={itemVariants}
+          className="md:col-span-2 bg-emerald-600 dark:bg-emerald-700 p-6 rounded-[2.5rem] text-white shadow-lg shadow-emerald-100 dark:shadow-none flex flex-col justify-between relative overflow-hidden group"
+        >
+          <div className="relative z-10 flex flex-col h-full justify-between">
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                <Wallet size={20} />
+              </div>
+              <span className="text-[10px] font-black bg-white/20 px-2 py-1 rounded-lg uppercase tracking-wider">
+                {monthSum.count} Entregas no Mês
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest opacity-70 block mb-1">Mês Atual</span>
+              <div className="flex items-baseline justify-between gap-4">
+                <div className="text-3xl font-black font-mono-num tracking-tighter">{formatCurrency(monthSum.totalGross)}</div>
+                <div className="text-xs font-black opacity-90 bg-white/20 px-3 py-1 rounded-xl">Líquido: {formatCurrency(monthSum.totalNet)}</div>
+              </div>
+            </div>
+          </div>
+          <div className="absolute -right-8 -top-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
+            <Wallet size={180} />
           </div>
         </motion.div>
 
@@ -206,13 +239,13 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, config, onEdit, onDelete
         ))}
       </div>
 
-      {/* 4. Divisão de Reservas & Saldo Líquido */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* 4. Divisão de Reservas */}
+      <div className="grid grid-cols-1 gap-6">
         
-        {/* Card de Reservas (2 colunas em LG) */}
+        {/* Card de Reservas */}
         <motion.div 
           variants={itemVariants}
-          className="lg:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-8"
+          className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-8"
         >
           <div className="flex-1 w-full">
             <div className="mb-6">
@@ -259,30 +292,6 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, config, onEdit, onDelete
               <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase">Total</span>
               <span className="text-lg font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(generalSum.totalGross).replace('R$', '')}</span>
             </div>
-          </div>
-        </motion.div>
-
-        {/* Card Saldo Líquido Mês (1 coluna) */}
-        <motion.div 
-          variants={itemVariants}
-          className="bg-emerald-600 dark:bg-emerald-700 p-8 rounded-[2.5rem] text-white shadow-lg shadow-emerald-100 dark:shadow-none flex flex-col justify-between relative overflow-hidden group"
-        >
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-md">
-              <Wallet size={24} />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-70 block mb-1">Saldo Líquido Mês</span>
-            <div className="text-4xl font-black font-mono-num tracking-tighter mb-8">{formatCurrency(monthSum.totalNet)}</div>
-            
-            <button 
-              onClick={() => onNavigate('reports')}
-              className="w-full py-3 bg-white dark:bg-slate-100 text-emerald-700 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-50 dark:hover:bg-white transition-colors"
-            >
-              Ver Relatórios <ChevronRight size={14} />
-            </button>
-          </div>
-          <div className="absolute -right-8 -top-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
-            <Wallet size={200} />
           </div>
         </motion.div>
 

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { TimeEntry } from '../types';
 import { generateId, calculateDuration, formatDuration, getLocalDateStr } from '../utils/calculations';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Clock, 
   Play, 
@@ -42,11 +42,11 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
   useEffect(() => {
     const interval = setInterval(() => {
       setNow(new Date());
-    }, 30000); // Atualiza a cada 30 segundos para precisão visual
+    }, 1000); // Atualiza a cada 1 segundo para precisão visual
     return () => clearInterval(interval);
   }, []);
 
-  const currentTime = now.toTimeString().slice(0, 5);
+  const currentTime = now.toTimeString().slice(0, 8); // HH:mm:ss
 
   const activeEntry = useMemo(() => 
     timeEntries.find(e => e.date === today && !e.endTime),

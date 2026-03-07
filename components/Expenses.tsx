@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { DailyEntry, AppConfig } from '../types';
-import { formatCurrency, getWeeklyGroupedSummaries } from '../utils/calculations';
-import { motion } from 'framer-motion';
+import { formatCurrency, getWeeklyGroupedSummaries, getLocalDateStr, getWeeklySummary } from '../utils/calculations';
+import { motion } from 'motion/react';
 import { 
   Fuel, 
   Utensils, 
@@ -25,6 +25,25 @@ interface ExpensesProps {
 }
 
 const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd }) => {
+  const todayStr = getLocalDateStr();
+  
+  const getStartOfWeek = (d: Date) => {
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.setDate(diff));
+  };
+  const startOfWeek = getStartOfWeek(new Date());
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const todayEntries = entries.filter(e => e.date === todayStr);
+  const weekEntries = entries.filter(e => {
+    const entryDate = new Date(e.date + 'T12:00:00');
+    return entryDate >= startOfWeek;
+  });
+
+  const todaySpent = getWeeklySummary(todayEntries).totalFees;
+  const weekSpent = getWeeklySummary(weekEntries).totalFees;
+
   const incomeEntries = entries.filter(e => e.grossAmount > 0);
   const manualExpenseEntries = entries.filter(e => e.grossAmount === 0);
   const weeklyExpenseGroups = getWeeklyGroupedSummaries(entries);
@@ -119,38 +138,34 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd }) =
         <QuickExpense onAdd={onAdd} />
       </motion.div>
 
-      {/* Saldo das Reservas */}
+      {/* Saldo das Reservas - Simplificado para Gastos Hoje/Semana */}
       <motion.div 
         variants={itemVariants}
-        className={`bg-gradient-to-br ${balances.total >= 0 ? 'from-emerald-600 to-emerald-800' : 'from-rose-600 to-rose-800'} rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden group`}
+        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden group border border-white/5"
       >
         <div className="relative z-10">
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-md">
-                <Wallet size={18} />
+              <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center backdrop-blur-md">
+                <TrendingDown size={18} className="text-rose-400" />
               </div>
-              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-80">Saldo das Reservas ({totalReservedPerc.toFixed(0)}%)</h2>
-            </div>
-            <div className="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10">
-              Acumulado
+              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-80">Resumo de Gastos Extras</h2>
             </div>
           </div>
-          <div className="text-5xl font-black tracking-tighter mb-10 font-mono-num">{formatCurrency(balances.total)}</div>
           
-          <div className="grid grid-cols-2 gap-8 pt-8 border-t border-white/10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-1">
-              <span className="text-[9px] font-black uppercase tracking-widest opacity-60 block">Total Reservado</span>
-              <p className="text-2xl font-black font-mono-num">{formatCurrency(reserves.fuel + reserves.food + reserves.maintenance + reserves.others)}</p>
+              <span className="text-[9px] font-black uppercase tracking-widest opacity-60 block">Total Gasto Hoje</span>
+              <p className="text-4xl font-black font-mono-num text-rose-400">{formatCurrency(todaySpent)}</p>
             </div>
-            <div className="text-right space-y-1">
-              <span className="text-[9px] font-black uppercase tracking-widest opacity-60 block">Total Gasto Real</span>
-              <p className="text-2xl font-black text-white/90 font-mono-num">-{formatCurrency(actualSpent.fuel + actualSpent.food + actualSpent.maintenance + actualSpent.others)}</p>
+            <div className="space-y-1">
+              <span className="text-[9px] font-black uppercase tracking-widest opacity-60 block">Total Gasto na Semana</span>
+              <p className="text-4xl font-black text-white/90 font-mono-num">{formatCurrency(weekSpent)}</p>
             </div>
           </div>
         </div>
-        <div className="absolute -right-12 -bottom-12 opacity-10 group-hover:scale-110 transition-transform duration-700">
-           <Wallet size={240} />
+        <div className="absolute -right-12 -bottom-12 opacity-5 group-hover:scale-110 transition-transform duration-700">
+           <TrendingDown size={240} />
         </div>
       </motion.div>
 

@@ -11,11 +11,31 @@
   
   body {
     @apply bg-slate-50 text-slate-900 font-sans antialiased transition-colors duration-300;
-    overscroll-behavior-y: contain;
+    overscroll-behavior-y: none;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    display: flex;
+    flex-direction: column;
+  }
+
+  html {
+    @apply bg-slate-50;
+    height: 100%;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+
+  #root {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+
+  html.dark {
+    @apply bg-slate-950;
   }
 
   .dark body {
-    @apply bg-slate-950 text-slate-100;
+    @apply bg-slate-950 text-zinc-100;
   }
 
   /* Custom scrollbar for dark mode */
@@ -27,10 +47,10 @@
     background: transparent;
   }
   .dark ::-webkit-scrollbar-thumb {
-    @apply bg-slate-800 rounded-full;
+    @apply bg-zinc-800 rounded-full;
   }
   .dark ::-webkit-scrollbar-thumb:hover {
-    @apply bg-slate-700;
+    @apply bg-zinc-700;
   }
 }
 
@@ -38,10 +58,11 @@
   .font-mono-num {
     font-family: 'JetBrains Mono', monospace;
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
   
   .glass-card {
-    @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/20 dark:border-slate-800 shadow-sm;
+    @apply bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm rounded-[2.5rem];
   }
   
   .bento-grid {
@@ -60,11 +81,11 @@
 
 /* Dark mode overrides for common elements */
 .dark .bg-white {
-  @apply bg-slate-900 border-slate-800;
+  @apply bg-zinc-900 border-zinc-800;
 }
 
 .dark .text-slate-800 {
-  @apply text-slate-100;
+  @apply text-zinc-100;
 }
 
 .dark .text-slate-900 {
@@ -72,23 +93,23 @@
 }
 
 .dark .text-slate-700 {
-  @apply text-slate-300;
+  @apply text-zinc-300;
 }
 
 .dark .text-slate-400 {
-  @apply text-slate-500;
+  @apply text-zinc-500;
 }
 
 .dark .bg-slate-50 {
-  @apply bg-slate-800/50;
+  @apply bg-zinc-800/50;
 }
 
 .dark .border-slate-100 {
-  @apply border-slate-800;
+  @apply border-zinc-800;
 }
 
 .dark .border-slate-50 {
-  @apply border-slate-800;
+  @apply border-zinc-800;
 }
 
 /* Custom animations */
@@ -100,4 +121,17 @@
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 dark:bg-slate-800 rounded-full;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-300 dark:bg-slate-700;
 }

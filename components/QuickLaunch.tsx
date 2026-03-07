@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { calculateDailyEntry, getLocalDateStr } from '../utils/calculations';
 import { DailyEntry, AppConfig } from '../types';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
   Store, 

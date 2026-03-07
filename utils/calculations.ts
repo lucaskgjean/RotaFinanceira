@@ -275,23 +275,24 @@ export const entriesToCSV = (entries: DailyEntry[]): string => {
 };
 
 /**
- * Calcula a duração em minutos entre dois horários HH:mm
+ * Calcula a duração em segundos entre dois horários HH:mm ou HH:mm:ss
  */
 export const calculateDuration = (start: string, end: string, breakMinutes: number = 0): number => {
-  const [startH, startM] = start.split(':').map(Number);
-  const [endH, endM] = end.split(':').map(Number);
+  const [startH, startM, startS = 0] = start.split(':').map(Number);
+  const [endH, endM, endS = 0] = end.split(':').map(Number);
   
-  let totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
-  if (totalMinutes < 0) totalMinutes += 24 * 60; // Lida com virada de dia
+  let totalSeconds = (endH * 3600 + endM * 60 + endS) - (startH * 3600 + startM * 60 + startS);
+  if (totalSeconds < 0) totalSeconds += 24 * 3600; // Lida com virada de dia
   
-  return Math.max(0, totalMinutes - breakMinutes);
+  return Math.max(0, totalSeconds - (breakMinutes * 60));
 };
 
 /**
- * Formata minutos em string Xh Ym
+ * Formata segundos em string Xh Ym Zs
  */
-export const formatDuration = (minutes: number): string => {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h}h ${m}m`;
+export const formatDuration = (seconds: number): string => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h}h ${m}m ${s}s`;
 };

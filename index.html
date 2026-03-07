@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#f8fafc" id="theme-color-meta">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/manifest.json">
@@ -31,14 +31,55 @@
     -webkit-tap-highlight-color: transparent;
     user-select: none;
   }
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    background-color: #f8fafc; /* Default light bg */
+  }
+  html.dark, html.dark body {
+    background-color: #020617; /* Default dark bg (slate-950) */
+  }
   input, textarea {
     user-select: text;
   }
   body {
-    overscroll-behavior-y: contain;
+    overscroll-behavior-y: none;
   }
 </style>
 <link rel="stylesheet" href="/index.css">
+<script>
+  // Script de bloqueio de flash de tema
+  (function() {
+    try {
+      // Tenta pegar de várias fontes para garantir
+      const configStr = localStorage.getItem('rota_financeira_config') || localStorage.getItem('theme_hint');
+      let isDark = false;
+      
+      if (configStr) {
+        if (configStr === 'dark') isDark = true;
+        else if (configStr === 'light') isDark = false;
+        else {
+          try {
+            const config = JSON.parse(configStr);
+            const mode = config.themeMode || 'auto';
+            isDark = mode === 'dark' || (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          } catch(e) {
+            isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          }
+        }
+      } else {
+        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#020617');
+      }
+    } catch (e) {}
+  })();
+</script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -81,7 +122,7 @@
   }
 </script>
 </head>
-<body class="bg-slate-50 text-slate-900">
+<body class="text-slate-900 antialiased">
     <div id="root"></div>
 <script type="module" src="/index.tsx"></script>
 </body>

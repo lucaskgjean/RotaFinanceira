@@ -2,7 +2,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { DailyEntry, AppConfig, TimeEntry } from '../types';
 import { formatCurrency, getWeeklySummary, calculateDuration, formatDuration, getLocalDateStr } from '../utils/calculations';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
+import CustomDialog from './CustomDialog';
 import { 
   BarChart3, 
   Calendar, 
@@ -21,18 +22,103 @@ import {
   Download,
   Store,
   CreditCard,
-  MoreHorizontal
+  MoreHorizontal,
+  Lock,
+  Sparkles
 } from 'lucide-react';
 interface ReportsProps {
   entries: DailyEntry[];
   timeEntries: TimeEntry[];
   config: AppConfig;
   onAddEntry: (entry: DailyEntry) => void;
+  onOpenSubscription: () => void;
 }
 
-const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEntry }) => {
+const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEntry, onOpenSubscription }) => {
   const today = getLocalDateStr();
   const [now, setNow] = useState(new Date());
+
+  if (!config.profile?.isPro) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-2xl mx-auto pt-10 pb-32"
+      >
+        <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+          {/* Header com Gradiente */}
+          <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-10 text-white relative overflow-hidden">
+            <div className="relative z-10">
+              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-md">
+                <BarChart3 size={32} className="text-amber-300" />
+              </div>
+              <h2 className="text-3xl font-black uppercase tracking-tight mb-4">Relatórios <span className="text-amber-300">Avançados</span></h2>
+              <p className="text-indigo-100 font-medium leading-relaxed text-lg">
+                Tome decisões baseadas em dados reais e maximize seu lucro mensal.
+              </p>
+            </div>
+            <div className="absolute -bottom-12 -right-12 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+          </div>
+
+          <div className="p-10 space-y-8">
+            <div className="space-y-6">
+              <div className="flex gap-5">
+                <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0">
+                  <TrendingUp size={24} />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm mb-1">Análise de Lucro Real</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Visualize seu lucro líquido descontando automaticamente combustível, comida e manutenção em tempo real.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-5">
+                <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
+                  <Filter size={24} />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm mb-1">Filtros por Período e Loja</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Saiba exatamente quanto você ganhou em cada restaurante ou aplicativo em qualquer data específica.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-5">
+                <div className="w-12 h-12 bg-amber-50 dark:bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
+                  <Clock size={24} />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm mb-1">Métricas de Performance</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Descubra seu Ticket Médio, Ganho por Hora e KM Médio por entrega para otimizar suas rotas.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-5">
+                <div className="w-12 h-12 bg-rose-50 dark:bg-rose-500/10 rounded-2xl flex items-center justify-center text-rose-600 shrink-0">
+                  <Download size={24} />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm mb-1">Exportação Completa</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Gere planilhas em Excel (CSV) de todos os seus dados para contabilidade ou controle pessoal externo.</p>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={onOpenSubscription}
+              className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[2rem] font-black text-sm uppercase tracking-widest transition-all shadow-xl shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-3 group"
+            >
+              <Sparkles size={20} className="text-amber-300 group-hover:rotate-12 transition-transform" fill="currentColor" />
+              Desbloquear Relatórios PRO
+            </button>
+            
+            <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Junte-se a centenas de motoristas que já são <span className="text-indigo-600">PRO</span>
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -46,6 +132,19 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
   const [startDate, setStartDate] = useState<string>(today);
   const [endDate, setEndDate] = useState<string>(today);
   const [selectedStore, setSelectedStore] = useState<string>('all');
+  const [showStoreFilter, setShowStoreFilter] = useState(false);
+  const [dialog, setDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type?: 'info' | 'warning' | 'danger' | 'success';
+    onConfirm: (val?: string) => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
 
   const reportData = useMemo(() => {
     const filteredEntries = entries.filter(e => e.date >= startDate && e.date <= endDate);
@@ -135,6 +234,19 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
   }, [entries, timeEntries, startDate, endDate, selectedStore, currentTime]);
 
   const exportToCSV = () => {
+    if (!config.profile?.isPro) {
+      setDialog({
+        isOpen: true,
+        title: 'Recurso PRO',
+        message: 'A exportação de relatórios é exclusiva para membros PRO! 💎',
+        type: 'info',
+        onConfirm: () => {
+          setDialog(prev => ({ ...prev, isOpen: false }));
+          onOpenSubscription();
+        }
+      });
+      return;
+    }
     const headers = ['Data', 'Hora', 'Loja/Descrição', 'Bruto', 'Combustível', 'Alimentação', 'Manutenção', 'Outros', 'Líquido', 'KM Rodados', 'Pagamento'];
     const rows = reportData.filteredEntries.map(e => [
       e.date,
@@ -188,6 +300,15 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       animate="show"
       className="space-y-6 pb-24"
     >
+      <CustomDialog 
+        isOpen={dialog.isOpen}
+        onClose={() => setDialog(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={dialog.onConfirm}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        confirmText={dialog.title === 'Recurso PRO' ? 'Ver Planos' : 'OK'}
+      />
       {/* Filtros Premium */}
       <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden">
         <div className="relative z-10">
@@ -203,8 +324,13 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
             </div>
             <button 
               onClick={exportToCSV}
-              className="flex items-center gap-2 bg-slate-900 dark:bg-indigo-600 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black dark:hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-slate-200 dark:shadow-none"
+              className="flex items-center gap-2 bg-slate-900 dark:bg-indigo-600 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black dark:hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-slate-200 dark:shadow-none relative overflow-hidden"
             >
+              {!config.profile?.isPro && (
+                <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px] flex items-center justify-center">
+                  <Lock size={12} className="text-amber-400" />
+                </div>
+              )}
               <Download size={14} /> Exportar CSV
             </button>
           </div>

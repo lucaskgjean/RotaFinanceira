@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Send, User, Loader2, AlertCircle, Paperclip } from 'lucide-react';
 import { formatCurrency, generateId, getLocalDateStr } from '../utils/calculations';
 import { DailyEntry } from '../types';
@@ -14,6 +14,29 @@ interface AIReportAssistantProps {
 }
 
 const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAddEntries, config, onClose }) => {
+  if (!config.profile?.isPro) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 text-center max-w-sm">
+          <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-500 mx-auto mb-6">
+            <Sparkles size={32} />
+          </div>
+          <h3 className="text-lg font-black uppercase tracking-widest text-slate-800 dark:text-white mb-2">IA Exclusiva PRO 💎</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-tight mb-6">
+            A análise inteligente de relatórios e o Mestre das Rotas são recursos exclusivos para membros PRO.
+          </p>
+          <button 
+            onClick={onClose}
+            className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs"
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const [messages, setMessages] = useState<{ role: 'user' | 'model'; text: string }[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);

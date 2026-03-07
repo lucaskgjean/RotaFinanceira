@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { DailyEntry, AppConfig } from '../types';
 import { formatCurrency, getWeeklySummary, getLocalDateStr } from '../utils/calculations';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { 
   Wrench, 
   Navigation, 
