@@ -19,10 +19,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFirebaseConfigured) {
+      const getEnv = (key: string) => import.meta.env[key] || (process.env as any)[key] || '';
       const missing = [];
-      if (!import.meta.env.VITE_FIREBASE_API_KEY && !(process.env as any).VITE_FIREBASE_API_KEY) missing.push('API Key');
-      if (!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN && !(process.env as any).VITE_FIREBASE_AUTH_DOMAIN) missing.push('Auth Domain');
-      if (!import.meta.env.VITE_FIREBASE_PROJECT_ID && !(process.env as any).VITE_FIREBASE_PROJECT_ID) missing.push('Project ID');
+      if (!getEnv('VITE_FIREBASE_API_KEY')) missing.push('API Key');
+      if (!getEnv('VITE_FIREBASE_AUTH_DOMAIN')) missing.push('Auth Domain');
+      if (!getEnv('VITE_FIREBASE_PROJECT_ID')) missing.push('Project ID');
       
       setError(`Configuração do Firebase incompleta. Faltando: ${missing.join(', ') || 'Chaves principais'}. Verifique as variáveis de ambiente.`);
       return;
