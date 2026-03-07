@@ -19,7 +19,12 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFirebaseConfigured) {
-      setError('Configuração do Firebase ausente. Por favor, adicione as chaves de API nas variáveis de ambiente.');
+      const missing = [];
+      if (!import.meta.env.VITE_FIREBASE_API_KEY && !(process.env as any).VITE_FIREBASE_API_KEY) missing.push('API Key');
+      if (!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN && !(process.env as any).VITE_FIREBASE_AUTH_DOMAIN) missing.push('Auth Domain');
+      if (!import.meta.env.VITE_FIREBASE_PROJECT_ID && !(process.env as any).VITE_FIREBASE_PROJECT_ID) missing.push('Project ID');
+      
+      setError(`Configuração do Firebase incompleta. Faltando: ${missing.join(', ') || 'Chaves principais'}. Verifique as variáveis de ambiente.`);
       return;
     }
     setLoading(true);
