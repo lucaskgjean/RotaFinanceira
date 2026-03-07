@@ -92,10 +92,16 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
     setError(null);
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+      const getEnv = (key: string) => {
+        const val = (process.env as any)?.[key] || (import.meta as any).env?.[key];
+        return (val && val !== 'undefined') ? val : null;
+      };
+
+      const apiKey = getEnv('GEMINI_API_KEY') || getEnv('VITE_GEMINI_API_KEY');
       
       if (!apiKey) {
-        throw new Error('API_KEY_MISSING');
+        console.error("AI Error: GEMINI_API_KEY is missing in environment");
+        throw new Error('Chave da API não configurada no ambiente.');
       }
 
       const ai = new GoogleGenAI({ apiKey });
@@ -156,8 +162,8 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [{ role: 'user', parts }],
+        model: "gemini-flash-latest",
+        contents: { parts },
       });
 
       let modelText = response.text || "Desculpe, não consegui processar sua solicitação.";
@@ -204,11 +210,7 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
       }
     } catch (err: any) {
       console.error("Erro na IA:", err);
-      if (err.message === 'API_KEY_MISSING') {
-        setError("Chave da API não encontrada.");
-      } else {
-        setError("Ocorreu um erro ao consultar a inteligência artificial.");
-      }
+      setError(err.message || "Ocorreu um erro ao consultar a inteligência artificial.");
     } finally {
       setIsLoading(false);
     }
