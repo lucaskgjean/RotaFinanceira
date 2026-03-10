@@ -15,16 +15,17 @@ import { formatCurrency } from '../utils/calculations';
 
 interface SubscriptionModalProps {
   onClose: () => void;
-  onSubscribe: () => void;
+  onSubscribe: (planType: 'monthly' | 'yearly') => void;
 }
 
 const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscribe }) => {
   const [loading, setLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('monthly');
 
   const handleSubscribe = async () => {
     setLoading(true);
     try {
-      await onSubscribe();
+      await onSubscribe(selectedPlan);
     } catch (error) {
       console.error("Erro ao iniciar assinatura:", error);
     } finally {
@@ -95,6 +96,23 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
         </div>
 
         <div className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
+          {/* Seleção de Plano */}
+          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl">
+            <button 
+              onClick={() => setSelectedPlan('monthly')}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedPlan === 'monthly' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+            >
+              Mensal
+            </button>
+            <button 
+              onClick={() => setSelectedPlan('yearly')}
+              className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all relative ${selectedPlan === 'yearly' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}
+            >
+              Anual
+              <span className="absolute -top-2 -right-2 px-1.5 py-0.5 bg-emerald-500 text-white text-[7px] rounded-full">ECONOMIZE</span>
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 gap-4">
             {benefits.map((benefit, index) => (
               <div key={index} className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/50">
@@ -110,11 +128,20 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Plano Mensal</p>
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  {selectedPlan === 'monthly' ? 'Plano Mensal' : 'Plano Anual'}
+                </p>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-black text-slate-800 dark:text-white">{formatCurrency(19.90)}</span>
-                  <span className="text-sm font-bold text-slate-400">/mês</span>
+                  <span className="text-3xl font-black text-slate-800 dark:text-white">
+                    {selectedPlan === 'monthly' ? formatCurrency(19.90) : formatCurrency(119.90)}
+                  </span>
+                  <span className="text-sm font-bold text-slate-400">
+                    {selectedPlan === 'monthly' ? '/mês' : '/ano'}
+                  </span>
                 </div>
+                {selectedPlan === 'yearly' && (
+                  <p className="text-[9px] text-emerald-500 font-bold uppercase mt-1">Apenas R$ 9,99 por mês</p>
+                )}
               </div>
               <div className="text-right">
                 <span className="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black rounded-full uppercase tracking-widest border border-emerald-500/20">

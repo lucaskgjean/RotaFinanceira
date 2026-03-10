@@ -28,9 +28,10 @@ interface DashboardProps {
   onDelete: (id: string) => void;
   onNavigate: (tab: any) => void;
   onAdd: (entry: DailyEntry) => void;
+  onToggleShift: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onEdit, onDelete, onNavigate, onAdd }) => {
+const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onEdit, onDelete, onNavigate, onAdd, onToggleShift }) => {
   const todayStr = getLocalDateStr();
   const currentMonthStr = todayStr.substring(0, 7);
   const [now, setNow] = useState(new Date());
@@ -122,8 +123,23 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      className="space-y-6 pb-20"
+      className="space-y-4 pb-20"
     >
+      {/* 0. Botão de Ponto Rápido */}
+      <motion.div variants={itemVariants} className="sticky top-[72px] z-30 flex justify-center pointer-events-none">
+        <button 
+          onClick={onToggleShift}
+          className={`pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-lg border backdrop-blur-md ${
+            todayTimeEntries.find(t => !t.endTime)
+              ? 'bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500/20 shadow-rose-500/5' 
+              : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 shadow-emerald-500/5'
+          }`}
+        >
+          <Clock size={14} className={todayTimeEntries.find(t => !t.endTime) ? 'animate-pulse' : ''} />
+          {todayTimeEntries.find(t => !t.endTime) ? 'Encerrar Ponto' : 'Iniciar Ponto'}
+        </button>
+      </motion.div>
+
       {/* 1. Lançamento Rápido */}
       <motion.div variants={itemVariants}>
         <QuickLaunch onAdd={onAdd} existingEntries={entries} config={config} />

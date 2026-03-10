@@ -226,12 +226,27 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSubscribe = async () => {
+  const handleSubscribe = async (planType: 'monthly' | 'yearly' = 'monthly') => {
     if (!user) return;
     
     // Detecta se está rodando como PWA instalado (standalone)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
     
+    // Se houver um link de pagamento direto configurado e não quisermos usar a API dinâmica
+    const paymentLink = planType === 'monthly' 
+      ? import.meta.env.VITE_STRIPE_PAYMENT_LINK_MONTHLY 
+      : import.meta.env.VITE_STRIPE_PAYMENT_LINK_YEARLY;
+
+    if (paymentLink) {
+      const urlWithUser = new URL(paymentLink);
+      urlWithUser.searchParams.set('client_reference_id', user.uid);
+      // Opcional: Adicionar email do usuário se disponível
+      if (user.email) urlWithUser.searchParams.set('prefilled_email', user.email);
+      
+      window.open(urlWithUser.toString(), '_blank');
+      return;
+    }
+
     // Em PWA instalado, popups são frequentemente bloqueados ou problemáticos.
     // Melhor usar redirecionamento direto.
     if (isStandalone) {
@@ -240,13 +255,13 @@ const App: React.FC = () => {
         const response = await fetch('/api/create-checkout-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.uid }),
+          body: JSON.stringify({ userId: user.uid, planType }),
         });
         const data = await response.json();
-        if (data.url) {
+        if (response.ok && data.url) {
           window.location.href = data.url;
         } else {
-          showToast("Erro ao iniciar checkout.", "error");
+          showToast(data.error || "Erro ao iniciar checkout.", "error");
         }
       } catch (error) {
         console.error("Erro ao assinar:", error);
@@ -278,15 +293,15 @@ const App: React.FC = () => {
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid }),
+        body: JSON.stringify({ userId: user.uid, planType }),
       });
       
       const data = await response.json();
-      if (data.url) {
+      if (response.ok && data.url) {
         authWindow.location.href = data.url;
       } else {
         authWindow.close();
-        showToast("Erro ao iniciar checkout.", "error");
+        showToast(data.error || "Erro ao iniciar checkout.", "error");
       }
     } catch (error) {
       authWindow.close();
@@ -630,6 +645,24 @@ const App: React.FC = () => {
     });
   };
 
+  const toggleShift = () => {
+    const today = getLocalDateStr();
+    const activeShift = timeEntries.find(t => t.date === today && !t.endTime);
+    
+    if (activeShift) {
+      const now = new Date().toTimeString().slice(0, 5);
+      updateTimeEntry({ ...activeShift, endTime: now });
+    } else {
+      const now = new Date().toTimeString().slice(0, 5);
+      addTimeEntry({
+        id: generateId(),
+        date: today,
+        startTime: now,
+        breakDuration: 0
+      });
+    }
+  };
+
   const importData = async (newEntries: DailyEntry[], newConfig?: AppConfig, newTimeEntries?: TimeEntry[]) => {
     // Sanitização profunda na importação: garante que todos tenham IDs
     const sanitizedEntries = newEntries.map(entry => ({
@@ -740,7 +773,7 @@ const App: React.FC = () => {
             initial={{ opacity: 0, y: -20, x: '-50%' }}
             animate={{ opacity: 1, y: 0, x: '-50%' }}
             exit={{ opacity: 0, y: -20, x: '-50%' }}
-            className={`fixed top-6 left-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl text-white font-black text-sm ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-600'}`}
+            className={`fixed top-6 left-1/2 z-[150] px-6 py-3 rounded-2xl shadow-2xl text-white font-black text-sm ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-600'}`}
           >
             <div className="flex items-center gap-2">
               <ShieldCheck size={18} />
@@ -851,7 +884,18 @@ const App: React.FC = () => {
               mass: 0.2
             }}
           >
-            {activeTab === 'dashboard' && <Dashboard entries={entries} timeEntries={timeEntries} config={config} onEdit={setEditingEntry} onDelete={deleteEntry} onNavigate={setActiveTab} onAdd={addEntry} />}
+            {activeTab === 'dashboard' && (
+              <Dashboard 
+                entries={entries} 
+                timeEntries={timeEntries} 
+                config={config} 
+                onEdit={setEditingEntry} 
+                onDelete={deleteEntry} 
+                onNavigate={setActiveTab} 
+                onAdd={addEntry} 
+                onToggleShift={toggleShift}
+              />
+            )}
             {activeTab === 'expenses' && <Expenses entries={entries} config={config} onEdit={setEditingEntry} onAdd={addEntry} />}
             {activeTab === 'maintenance' && <Maintenance entries={entries} config={config} onEdit={setEditingEntry} onAdd={addEntry} />}
             {activeTab === 'ponto' && <TimeTracking timeEntries={timeEntries} onAdd={addTimeEntry} onUpdate={updateTimeEntry} onDelete={deleteTimeEntry} />}
