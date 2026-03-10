@@ -120,7 +120,7 @@ async function startServer() {
   });
 
   // Rota de carregamento do checkout (para evitar popups bloqueados/brancos)
-  app.get("/checkout-loading", (req, res) => {
+  app.get("/api/checkout-loading", (req, res) => {
     const { plan, userId } = req.query;
     res.send(`
       <html>
