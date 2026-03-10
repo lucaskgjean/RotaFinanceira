@@ -119,6 +119,60 @@ async function startServer() {
     res.json({ status: "ok", message: "RotaFinanceira Backend is running" });
   });
 
+  // Rota de carregamento do checkout (para evitar popups bloqueados/brancos)
+  app.get("/checkout-loading", (req, res) => {
+    const { plan, userId } = req.query;
+    res.send(`
+      <html>
+        <head>
+          <title>Redirecionando para o Checkout...</title>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { 
+              display: flex; flex-direction: column; justify-content: center; align-items: center; 
+              height: 100vh; font-family: -apple-system, system-ui, sans-serif; 
+              background: #f8fafc; color: #64748b; margin: 0; 
+            }
+            .spinner { 
+              width: 40px; height: 40px; border: 4px solid #e2e8f0; 
+              border-top: 4px solid #6366f1; border-radius: 50%; 
+              animation: spin 1s linear infinite; 
+            }
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            h2 { margin-top: 24px; color: #1e293b; font-size: 18px; }
+            p { margin-top: 8px; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="spinner"></div>
+          <h2>Preparando seu checkout seguro</h2>
+          <p>Você será redirecionado em instantes...</p>
+          <script>
+            async function startCheckout() {
+              try {
+                const response = await fetch('/api/create-checkout-session', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: '${userId}', planType: '${plan}' }),
+                });
+                const data = await response.json();
+                if (data.url) {
+                  window.location.replace(data.url);
+                } else {
+                  document.body.innerHTML = '<h2>Erro ao carregar checkout</h2><p>' + (data.error || 'Tente novamente.') + '</p>';
+                }
+              } catch (e) {
+                document.body.innerHTML = '<h2>Erro de conexão</h2><p>Verifique sua internet e tente novamente.</p>';
+              }
+            }
+            startCheckout();
+          </script>
+        </body>
+      </html>
+    `);
+  });
+
   // Rota do Stripe Checkout
   app.post("/api/create-checkout-session", async (req, res) => {
     const stripe = getStripe();

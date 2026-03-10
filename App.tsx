@@ -272,41 +272,23 @@ const App: React.FC = () => {
       return;
     }
 
-    // Para Navegador: Tenta abrir popup (estratégia de abrir em branco primeiro para evitar bloqueio)
+    // Para Navegador: Tenta abrir popup usando a rota de carregamento do servidor
     const width = 500;
     const height = 700;
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
     
+    // Abrimos a janela apontando para nossa própria rota de carregamento
+    // Isso é mais confiável do que about:blank e evita telas brancas
+    const checkoutUrl = `/checkout-loading?plan=${planType}&userId=${user.uid}`;
     const authWindow = window.open(
-      'about:blank', 
+      checkoutUrl, 
       'stripe_checkout', 
       `width=${width},height=${height},left=${left},top=${top}`
     );
 
     if (!authWindow) {
       showToast("Por favor, permita popups para assinar.", "error");
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.uid, planType }),
-      });
-      
-      const data = await response.json();
-      if (response.ok && data.url) {
-        authWindow.location.href = data.url;
-      } else {
-        authWindow.close();
-        showToast(data.error || "Erro ao iniciar checkout.", "error");
-      }
-    } catch (error) {
-      authWindow.close();
-      console.error("Erro ao assinar:", error);
-      showToast("Erro de conexão.", "error");
     }
   };
 
