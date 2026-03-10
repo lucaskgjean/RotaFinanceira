@@ -272,16 +272,31 @@ const App: React.FC = () => {
       return;
     }
 
-    // Para Navegador: Redirecionamento total (mais seguro para mobile/PWA)
-    // Usamos a rota do servidor que prepara a sessão e redireciona
-    const checkoutUrl = `/api/checkout-loading?plan=${planType}&userId=${user.uid}`;
-    
-    // Feedback visual antes de sair
+    // Redirecionamento direto para o Stripe (mais compatível com navegadores mobile)
     setIsSaving(true);
     
-    // Redireciona a página atual para o checkout
-    // Isso evita problemas com bloqueadores de popups e telas brancas em dispositivos móveis
-    window.location.href = checkoutUrl;
+    try {
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid, planType }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.url) {
+        // Redireciona a página inteira para o Stripe
+        // Isso garante que o navegador padrão do usuário assuma o controle
+        window.location.href = data.url;
+      } else {
+        setIsSaving(false);
+        showToast(data.error || "Erro ao iniciar checkout.", "error");
+      }
+    } catch (error) {
+      setIsSaving(false);
+      console.error("Erro ao assinar:", error);
+      showToast("Erro de conexão. Verifique sua internet.", "error");
+    }
   };
 
   // 1. Notificações Personalizadas (Timer de 1 minuto)
