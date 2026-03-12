@@ -57,8 +57,8 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
 
   const filteredEntries = useMemo(() => {
     return entries.map((entry, index) => ({ entry, index })).filter(({ entry }) => {
-      // Excluir gastos manuais (grossAmount === 0 e não é fechamento de KM)
-      if (entry.grossAmount === 0 && entry.storeName !== 'Fechamento de KM') return false;
+      // Excluir gastos manuais (grossAmount === 0) e Fechamento de KM (que agora fica na Manutenção)
+      if (entry.grossAmount === 0 || entry.storeName === 'Fechamento de KM') return false;
 
       const matchRange = (filterStartDate || filterEndDate) ? (
         (!filterStartDate || entry.date >= filterStartDate) &&
@@ -301,7 +301,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                   className={`bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border-2 transition-all group relative overflow-hidden ${entry.grossAmount > 0 ? 'border-indigo-50 dark:border-indigo-500/10 hover:border-indigo-100 dark:hover:border-indigo-500/20' : 'border-rose-50 dark:border-rose-500/10 hover:border-rose-100 dark:hover:border-rose-500/20'}`}
                 >
                   {/* Barra de Status Lateral */}
-                  {entry.paymentMethod !== 'money' && entry.storeName !== 'Fechamento de KM' && (
+                  {entry.paymentMethod !== 'money' && (
                     <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${entry.isPaid ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                   )}
                   <div className="flex justify-between items-start mb-6">
@@ -312,7 +312,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-bold text-slate-800 dark:text-white leading-tight text-lg">{entry.storeName.replace('[GASTO] ', '')}</h4>
-                          {entry.paymentMethod !== 'money' && entry.storeName !== 'Fechamento de KM' && (
+                          {entry.paymentMethod !== 'money' && (
                             <span className={`text-[8px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-widest border ${entry.isPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'}`}>
                               {entry.isPaid ? 'Pago' : 'Pendente'}
                             </span>
@@ -361,7 +361,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                   )}
 
                   <div className="flex gap-2">
-                    {entry.paymentMethod !== 'money' && entry.storeName !== 'Fechamento de KM' && (
+                    {entry.paymentMethod !== 'money' && (
                       <button 
                         onClick={() => onUpdate({ ...entry, isPaid: !entry.isPaid })}
                         className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl transition-all active:scale-95 border-2 ${entry.isPaid ? 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400' : 'bg-rose-50 border-rose-100 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400'}`}

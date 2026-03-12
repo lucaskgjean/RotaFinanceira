@@ -10,6 +10,7 @@ import {
   Calendar, 
   ChevronRight, 
   History as HistoryIcon,
+  Trash2,
   ShieldCheck,
   Clock,
   Wallet
@@ -21,9 +22,10 @@ interface MaintenanceProps {
   config: AppConfig;
   onEdit: (entry: DailyEntry) => void;
   onAdd: (entry: DailyEntry) => void;
+  onDelete: (id: string) => void;
 }
 
-const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAdd }) => {
+const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAdd, onDelete }) => {
   const todayStr = getLocalDateStr();
   const currentMonthStr = todayStr.substring(0, 7);
 
@@ -247,12 +249,20 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
                   <div className="text-right">
                     <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Gasolina</p>
                     <p className="text-sm font-black text-slate-800 dark:text-white font-mono-num">R$ {entry.fuelPrice?.toFixed(3)}/L</p>
-                    <button 
-                      onClick={() => onEdit(entry)}
-                      className="text-[9px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest flex items-center gap-1 ml-auto mt-1 hover:text-rose-700 dark:hover:text-rose-300"
-                    >
-                      Editar <ChevronRight size={10} />
-                    </button>
+                    <div className="flex flex-col gap-2 mt-1">
+                      <button 
+                        onClick={() => onEdit(entry)}
+                        className="text-[9px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest flex items-center gap-1 ml-auto hover:text-rose-700 dark:hover:text-rose-300"
+                      >
+                        Editar <ChevronRight size={10} />
+                      </button>
+                      <button 
+                        onClick={() => onDelete(entry.id)}
+                        className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1 ml-auto hover:text-rose-500 transition-colors"
+                      >
+                        Excluir <Trash2 size={10} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -287,12 +297,20 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(entry.maintenance)}</p>
-                  <button 
-                    onClick={() => onEdit(entry)}
-                    className="text-[9px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1 ml-auto mt-1 hover:text-blue-700 dark:hover:text-blue-300"
-                  >
-                    Editar <ChevronRight size={10} />
-                  </button>
+                  <div className="flex flex-col gap-2 mt-1">
+                    <button 
+                      onClick={() => onEdit(entry)}
+                      className="text-[9px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1 ml-auto hover:text-blue-700 dark:hover:text-blue-300"
+                    >
+                      Editar <ChevronRight size={10} />
+                    </button>
+                    <button 
+                      onClick={() => onDelete(entry.id)}
+                      className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1 ml-auto hover:text-rose-500 transition-colors"
+                    >
+                      Excluir <Trash2 size={10} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
