@@ -63,7 +63,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-slate-950"
       />
       
       <motion.div 
@@ -81,7 +81,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
           </div>
           
           <div className="relative z-10">
-            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-md">
+            <div className="w-12 h-12 bg-indigo-400 rounded-2xl flex items-center justify-center mb-4">
               <Sparkles size={24} className="text-amber-300" fill="currentColor" />
             </div>
             <h2 className="text-3xl font-black uppercase tracking-tight mb-2">Rota<span className="text-amber-300">PRO</span></h2>
@@ -115,7 +115,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
 
           <div className="grid grid-cols-1 gap-4">
             {benefits.map((benefit, index) => (
-              <div key={index} className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/50">
+              <div key={index} className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800">
                 <div className="mt-1">{benefit.icon}</div>
                 <div>
                   <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider">{benefit.title}</h4>

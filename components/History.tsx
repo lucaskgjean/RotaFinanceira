@@ -130,7 +130,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
           className="bg-indigo-600 p-6 rounded-[2.5rem] flex items-center justify-between gap-4 shadow-lg shadow-indigo-100 relative overflow-hidden group"
         >
            <div className="flex items-center gap-4 relative z-10">
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white shrink-0 backdrop-blur-md">
+              <div className="w-12 h-12 bg-indigo-400 rounded-2xl flex items-center justify-center text-white shrink-0">
                  <Info size={24} />
               </div>
               <div>
@@ -145,7 +145,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
       )}
 
       {/* Filtros Inteligentes */}
-      <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500">
             <Filter size={16} />
@@ -250,13 +250,13 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
         {[
           { label: 'Bruto Total', value: formatCurrency(stats.totalGross), color: 'text-slate-800 dark:text-white', bg: 'bg-white dark:bg-slate-900' },
           { label: 'Líquido Total', value: formatCurrency(stats.totalNet), color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-white dark:bg-slate-900' },
-          { label: 'Metas Batidas', value: `${goalSummary.met} ✓`, color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-          { label: 'Metas Falhas', value: `${goalSummary.notMet} ✗`, color: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10' },
+          { label: 'Metas Batidas', value: `${goalSummary.met} ✓`, color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900' },
+          { label: 'Metas Falhas', value: `${goalSummary.notMet} ✗`, color: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900' },
         ].map((stat, i) => (
           <motion.div 
             key={i}
             variants={itemVariants}
-            className={`${stat.bg}/70 backdrop-blur-md p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm`}
+            className={`${stat.bg} p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm`}
           >
             <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase block mb-1 tracking-widest">{stat.label}</span>
             <p className={`text-xl font-black font-mono-num ${stat.color}`}>{stat.value}</p>
@@ -282,7 +282,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="col-span-full py-20 text-center bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-[2.5rem] border-2 border-dashed border-slate-100 dark:border-slate-800"
+                className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-100 dark:border-slate-800"
               >
                 <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200 dark:text-slate-700">
                   <Search size={32} />
@@ -298,7 +298,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   whileHover={{ y: -2, transition: { duration: 0.2 } }}
-                  className={`bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-[2.5rem] p-6 border-2 transition-all group relative overflow-hidden ${entry.grossAmount > 0 ? 'border-indigo-50 dark:border-indigo-500/10 hover:border-indigo-100 dark:hover:border-indigo-500/20' : 'border-rose-50 dark:border-rose-500/10 hover:border-rose-100 dark:hover:border-rose-500/20'}`}
+                  className={`bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border-2 transition-all group relative overflow-hidden ${entry.grossAmount > 0 ? 'border-indigo-50 dark:border-indigo-500/10 hover:border-indigo-100 dark:hover:border-indigo-500/20' : 'border-rose-50 dark:border-rose-500/10 hover:border-rose-100 dark:hover:border-rose-500/20'}`}
                 >
                   {/* Barra de Status Lateral */}
                   {entry.paymentMethod !== 'money' && (
@@ -306,14 +306,14 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                   )}
                   <div className="flex justify-between items-start mb-6">
                     <div className="flex gap-4 items-center">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${entry.grossAmount > 0 ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400'}`}>
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${entry.grossAmount > 0 ? 'bg-indigo-50 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400' : 'bg-rose-50 dark:bg-rose-900 text-rose-600 dark:text-rose-400'}`}>
                         {entry.grossAmount > 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-bold text-slate-800 dark:text-white leading-tight text-lg">{entry.storeName.replace('[GASTO] ', '')}</h4>
                           {entry.paymentMethod !== 'money' && (
-                            <span className={`text-[8px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-widest border ${entry.isPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'}`}>
+                            <span className={`text-[8px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-widest border ${entry.isPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900 dark:text-emerald-400 dark:border-emerald-500/20' : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-900 dark:text-rose-400 dark:border-rose-500/20'}`}>
                               {entry.isPaid ? 'Pago' : 'Pendente'}
                             </span>
                           )}
@@ -344,7 +344,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                   </div>
 
                   {entry.grossAmount > 0 && (
-                    <div className="grid grid-cols-3 gap-2 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 mb-6">
+                    <div className="grid grid-cols-3 gap-2 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-800 mb-6">
                       <div className="space-y-0.5">
                         <span className="text-[8px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">Comb.</span>
                         <span className="text-xs font-bold text-slate-600 dark:text-slate-300 font-mono-num">{formatCurrency(entry.fuel).replace('R$', '')}</span>
@@ -364,7 +364,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                     {entry.paymentMethod !== 'money' && (
                       <button 
                         onClick={() => onUpdate({ ...entry, isPaid: !entry.isPaid })}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl transition-all active:scale-95 border-2 ${entry.isPaid ? 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400' : 'bg-rose-50 border-rose-100 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400'}`}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl transition-all active:scale-95 border-2 ${entry.isPaid ? 'bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-900 dark:border-emerald-500/20 dark:text-emerald-400' : 'bg-rose-50 border-rose-100 text-rose-600 dark:bg-rose-900 dark:border-rose-500/20 dark:text-rose-400'}`}
                       >
                         {entry.isPaid ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
                         <span className="text-[10px] font-semibold uppercase tracking-widest">
@@ -374,14 +374,14 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                     )}
                     <button 
                       onClick={() => onEdit(entry)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl transition-all active:scale-95"
+                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-indigo-50 dark:bg-indigo-900 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl transition-all active:scale-95"
                     >
                       <Edit3 size={14} />
                       <span className="text-[10px] font-semibold uppercase tracking-widest">Editar</span>
                     </button>
                     <button 
                       onClick={() => onDelete(entry.id)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl transition-all active:scale-95"
+                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-rose-50 dark:bg-rose-900 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl transition-all active:scale-95"
                     >
                       <Trash2 size={14} />
                       <span className="text-[10px] font-semibold uppercase tracking-widest">Excluir</span>
@@ -395,10 +395,10 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
       </div>
 
       {/* Timeline de Performance */}
-      <motion.div variants={itemVariants} className="bg-slate-900/80 backdrop-blur-md rounded-[2.5rem] p-8 text-white overflow-hidden relative shadow-xl">
+      <motion.div variants={itemVariants} className="bg-slate-900 rounded-[2.5rem] p-8 text-white overflow-hidden relative shadow-xl">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center text-indigo-400">
+            <div className="w-8 h-8 bg-indigo-900 rounded-lg flex items-center justify-center text-indigo-400">
               <TrendingUp size={18} />
             </div>
             <h4 className="text-[10px] font-black uppercase tracking-[0.3em]">Performance Diária</h4>
@@ -406,11 +406,11 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
           
           <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
              {dailyBreakdown.slice(0, 14).map((day, i) => (
-               <div key={i} className={`flex-shrink-0 w-16 p-3 rounded-[1.5rem] border text-center transition-all ${day.goalMet ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-800 border-slate-700'}`}>
+               <div key={i} className={`flex-shrink-0 w-16 p-3 rounded-[1.5rem] border text-center transition-all ${day.goalMet ? 'bg-emerald-900 border-emerald-500/30' : 'bg-slate-800 border-slate-700'}`}>
                   <span className="text-[8px] font-black opacity-40 block mb-2 uppercase tracking-tighter">
                     {new Date(day.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' })}
                   </span>
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 ${day.goalMet ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 ${day.goalMet ? 'bg-emerald-800 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>
                     {day.goalMet ? <Check size={20} strokeWidth={3} /> : <div className="w-1.5 h-1.5 bg-slate-600 rounded-full" />}
                   </div>
                   <span className="text-xs font-black font-mono-num">{day.date.split('-')[2]}</span>
@@ -418,7 +418,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
              ))}
           </div>
         </div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/20 blur-[100px] -mr-20 -mt-20 rounded-full"></div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-900 blur-[100px] -mr-20 -mt-20 rounded-full"></div>
       </motion.div>
 
       <AnimatePresence>

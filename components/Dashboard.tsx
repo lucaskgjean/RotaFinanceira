@@ -129,13 +129,9 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
       <motion.div variants={itemVariants} className="sticky top-[72px] z-30 flex justify-center pointer-events-none">
         <button 
           onClick={onToggleShift}
-          className={`pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-lg border backdrop-blur-md ${
-            todayTimeEntries.find(t => !t.endTime)
-              ? 'bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500/20 shadow-rose-500/5' 
-              : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 shadow-emerald-500/5'
-          }`}
+          className="pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all shadow-md border backdrop-blur-md bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
         >
-          <Clock size={14} className={todayTimeEntries.find(t => !t.endTime) ? 'animate-pulse' : ''} />
+          <Clock size={14} className={`text-emerald-500 ${todayTimeEntries.find(t => !t.endTime) ? 'animate-pulse' : ''}`} />
           {todayTimeEntries.find(t => !t.endTime) ? 'Encerrar Ponto' : 'Iniciar Ponto'}
         </button>
       </motion.div>
@@ -334,7 +330,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
             
             <div className="grid grid-cols-2 gap-3">
                {pieData.map(item => (
-                 <div key={item.name} className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100/50 dark:border-slate-800 group hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm transition-all">
+                 <div key={item.name} className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100/50 dark:border-slate-800 group hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm transition-all">
                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }}></div>
                    <div className="text-left">
                       <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight">{item.name}</span>

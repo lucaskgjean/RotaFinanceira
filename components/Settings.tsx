@@ -382,7 +382,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
       </div>
 
       {/* TABS DE NAVEGAÇÃO */}
-      <div className="flex bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 mb-6">
+      <div className="flex bg-white dark:bg-slate-900 p-1 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 mb-6">
         {[
           { id: 'perfil', label: 'Perfil', icon: <User size={16} /> },
           { id: 'aparencia', label: 'Aparência', icon: <Sun size={16} /> },
@@ -412,7 +412,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
       {activeTab === 'perfil' && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
           {/* FOTO DE PERFIL */}
-          <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center">
             <div className="relative group">
               <div className="w-32 h-32 rounded-full bg-slate-100 dark:bg-slate-800 border-4 border-white dark:border-slate-900 shadow-xl overflow-hidden flex items-center justify-center">
                 {localConfig.profile?.photoURL ? (
@@ -442,7 +442,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
           </div>
 
           {/* CAMPOS DE PERFIL */}
-          <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
@@ -498,7 +498,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
           </div>
 
           {/* SEGURANÇA */}
-          <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
             <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-4">Segurança</h4>
             
             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl group cursor-pointer">
@@ -589,7 +589,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
       {/* CONTEÚDO: APARÊNCIA */}
       {activeTab === 'aparencia' && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
             <h3 className="text-xl font-black text-slate-800 dark:text-white mb-4">Aparência</h3>
             <div className="grid grid-cols-3 gap-3">
               {[
@@ -610,7 +610,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
           </div>
 
           {/* CARD: META */}
-          <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-black text-slate-800 dark:text-white">Meta diária</h3>
               <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(localConfig.dailyGoal)}</span>
@@ -624,7 +624,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
           </div>
 
           {/* CARD: RESERVAS */}
-          <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
             <h3 className="text-xl font-black text-slate-800 dark:text-white mb-4">Taxas de reserva</h3>
             <div className="space-y-6">
               {[
@@ -715,7 +715,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
           </div>
 
           {/* CARD: ALERTAS DE MANUTENÇÃO */}
-          <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-black text-slate-800 dark:text-white">Alertas de manutenção</h3>
               <button onClick={addMaintenanceAlert} className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1.5 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5">
@@ -753,7 +753,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
           </div>
 
           {/* CARD: BACKUP E RESTAURAÇÃO */}
-          <div className="bg-slate-900/80 backdrop-blur-md p-6 rounded-[2.5rem] text-white shadow-xl">
+          <div className="bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-xl">
             <h3 className="text-xl font-black mb-2 flex items-center gap-2">
               <svg className="w-6 h-6 text-emerald-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" /></svg>
               Snapshot do sistema
@@ -763,7 +763,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
             <div className="space-y-3">
               <button onClick={handleExportCSV} className="w-full flex items-center justify-between p-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase transition-all active:scale-95 shadow-lg relative overflow-hidden group">
                 {!config.profile?.isPro && (
-                  <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[1px] flex items-center justify-center">
+                  <div className="absolute inset-0 bg-slate-900/10 flex items-center justify-center">
                     <div className="bg-amber-400 text-amber-950 px-2 py-1 rounded-lg text-[8px] font-black flex items-center gap-1">
                       <Lock size={10} /> APENAS PRO
                     </div>
@@ -776,7 +776,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={handleFullBackup} className="flex flex-col items-center justify-center p-5 bg-indigo-600/30 rounded-2xl border border-white/10 hover:bg-indigo-600/50 transition-all relative overflow-hidden">
                   {!config.profile?.isPro && (
-                    <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[1px] flex items-center justify-center">
+                    <div className="absolute inset-0 bg-slate-900/20 flex items-center justify-center">
                       <Lock size={14} className="text-amber-400" />
                     </div>
                   )}
@@ -793,7 +793,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
           </div>
 
           {/* CARD: GERENCIAMENTO DE DADOS */}
-          <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-6">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-6">
             <div>
               <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest mb-1">Gerenciamento de Dados</h3>
               <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Cuidado: Estas ações são permanentes</p>

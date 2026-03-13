@@ -76,7 +76,7 @@ const VerificationBanner: React.FC<VerificationBannerProps> = ({ createdAt, onLo
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl relative z-10 text-center"
+          className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl relative z-10 text-center"
         >
           <div className="w-20 h-20 bg-rose-500/20 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-rose-500/30">
             <AlertCircle className="text-rose-500 w-10 h-10" />
@@ -120,7 +120,7 @@ const VerificationBanner: React.FC<VerificationBannerProps> = ({ createdAt, onLo
   }
 
   return (
-    <div className="bg-amber-500/10 border-b border-amber-500/20 backdrop-blur-md">
+    <div className="bg-amber-500/10 border-b border-amber-500/20">
       <div className="max-w-6xl mx-auto px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-amber-500/20 rounded-lg flex items-center justify-center text-amber-500 shrink-0">

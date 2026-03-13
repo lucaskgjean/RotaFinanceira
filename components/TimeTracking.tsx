@@ -165,7 +165,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
       {/* Status de Ponto Atual */}
       <motion.div 
         variants={itemVariants}
-        className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden group"
+        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden group"
       >
         <div className="flex flex-col md:flex-row justify-between items-center gap-8 relative z-10">
           <div className="text-center md:text-left">
@@ -252,12 +252,12 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {sortedDates.length === 0 ? (
-            <div className="col-span-full py-16 text-center bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-[2.5rem] border border-dashed border-slate-200 dark:border-slate-800">
+            <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-slate-800">
                <p className="text-slate-400 dark:text-slate-500 text-xs font-black uppercase tracking-widest">Nenhum registro encontrado</p>
             </div>
           ) : (
             sortedDates.map(date => (
-              <div key={date} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-emerald-100 dark:hover:border-emerald-500 transition-colors">
+              <div key={date} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-emerald-100 dark:hover:border-emerald-500 transition-colors">
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 dark:text-slate-500">
@@ -332,7 +332,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsManualModalOpen(false)}
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-slate-950/60"
             />
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -342,7 +342,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
             >
               <div className="p-6 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between bg-indigo-600 dark:bg-indigo-500 text-white">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                     {editingEntry ? <Edit2 size={20} /> : <Plus size={20} />}
                   </div>
                   <div>

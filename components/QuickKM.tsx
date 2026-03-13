@@ -84,7 +84,7 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
     >
       <div className="flex justify-between items-center mb-5">
         <h3 className="text-[10px] font-black text-slate-800 dark:text-white flex items-center gap-2 uppercase tracking-widest">
-          <div className="w-9 h-9 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
+          <div className="w-9 h-9 bg-blue-50 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
             <Navigation size={18} />
           </div>
           Fechamento de KM

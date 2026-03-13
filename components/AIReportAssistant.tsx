@@ -17,7 +17,7 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
   if (!config.profile?.isPro) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-        <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
+        <div className="absolute inset-0 bg-slate-950" onClick={onClose} />
         <div className="relative bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 text-center max-w-sm">
           <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-500 mx-auto mb-6">
             <Sparkles size={32} />
@@ -223,7 +223,7 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-slate-950"
       />
       
       <motion.div 
@@ -235,7 +235,7 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
         {/* Header */}
         <div className="p-6 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between bg-indigo-600 dark:bg-indigo-500 text-white">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
+            <div className="w-10 h-10 bg-indigo-400 rounded-xl flex items-center justify-center">
               <Sparkles size={20} />
             </div>
             <div>
@@ -245,7 +245,7 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
           </div>
           <button 
             onClick={onClose}
-            className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-xl flex items-center justify-center transition-colors"
+            className="w-10 h-10 bg-indigo-700 hover:bg-indigo-800 rounded-xl flex items-center justify-center transition-colors"
           >
             <AlertCircle size={20} className="rotate-45" />
           </button>
@@ -254,7 +254,7 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
         {/* Chat Area */}
         <div 
           ref={scrollRef}
-          className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide bg-slate-50/50 dark:bg-slate-950/20"
+          className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide bg-slate-50 dark:bg-slate-950"
         >
           {messages.length === 0 && (
             <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">

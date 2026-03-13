@@ -28,7 +28,7 @@ const CustomTimePicker: React.FC<CustomTimePickerProps> = ({ value, onChange, on
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900 animate-in fade-in duration-200">
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -42,7 +42,7 @@ const CustomTimePicker: React.FC<CustomTimePickerProps> = ({ value, onChange, on
               <Clock size={16} className="opacity-70" />
               <span className="text-[10px] font-black uppercase tracking-widest opacity-70">Horário Definido</span>
             </div>
-            <button type="button" onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors">
+            <button type="button" onClick={onClose} className="p-1 hover:bg-indigo-700 rounded-full transition-colors">
               <X size={20} />
             </button>
           </div>

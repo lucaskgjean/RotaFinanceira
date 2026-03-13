@@ -73,7 +73,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, on
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900 animate-in fade-in duration-200">
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -87,7 +87,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, on
               <CalendarIcon size={16} className="opacity-70" />
               <span className="text-[10px] font-black uppercase tracking-widest opacity-70">Data Selecionada</span>
             </div>
-            <button type="button" onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors">
+            <button type="button" onClick={onClose} className="p-1 hover:bg-indigo-700 rounded-full transition-colors">
               <X size={20} />
             </button>
           </div>
@@ -148,7 +148,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, on
                     ${isSelected 
                       ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none scale-110 z-10' 
                       : isToday
-                        ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                        ? 'bg-indigo-50 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }
                   `}
