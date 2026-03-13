@@ -247,7 +247,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
             <button 
               type="button"
               onClick={() => setShowStartDatePicker(true)}
-              className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-rose-200 dark:hover:border-rose-500/30"
+              className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-blue-200 dark:hover:border-blue-500/30"
             >
               <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
               <span>{filterStartDate ? new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Início'}</span>
@@ -258,7 +258,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
             <button 
               type="button"
               onClick={() => setShowEndDatePicker(true)}
-              className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-rose-200 dark:hover:border-rose-500/30"
+              className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-blue-200 dark:hover:border-blue-500/30"
             >
               <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
               <span>{filterEndDate ? new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Fim'}</span>
@@ -279,7 +279,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
       {/* Histórico de KM */}
       <motion.div variants={itemVariants} className="space-y-6 pt-4">
         <h3 className="text-sm font-black text-slate-800 dark:text-white px-2 flex items-center gap-3 uppercase tracking-widest">
-          <div className="w-1.5 h-5 bg-rose-500 rounded-full"></div>
+          <div className="w-1.5 h-5 bg-blue-500 rounded-full"></div>
           Histórico de KM
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -291,15 +291,15 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
             kmHistoryEntries
               .sort((a, b) => b.date.localeCompare(a.date))
               .map(entry => (
-                <div key={entry.id} className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center group hover:border-rose-100 dark:hover:border-rose-500 transition-all">
+                <div key={entry.id} className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center group hover:border-blue-100 dark:hover:border-blue-500 transition-all">
                   <div className="flex gap-4 items-center">
-                    <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 text-rose-500 rounded-2xl flex items-center justify-center group-hover:bg-rose-50 dark:group-hover:bg-rose-500/10 transition-colors">
+                    <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-500/10 transition-colors">
                       <Navigation size={20} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <h5 className="font-black text-slate-800 dark:text-white leading-tight">{entry.kmAtMaintenance?.toLocaleString()} KM</h5>
-                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${entry.kmType === 'personal' ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-rose-500 text-white'}`}>
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${entry.kmType === 'personal' ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-blue-500 text-white'}`}>
                           {entry.kmType === 'personal' ? '-' : '+'}
                         </span>
                       </div>
@@ -314,13 +314,13 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
                     <div className="flex flex-col gap-2 mt-1">
                       <button 
                         onClick={() => onEdit(entry)}
-                        className="text-[9px] font-black text-rose-500 dark:text-rose-400 uppercase tracking-widest flex items-center gap-1 ml-auto hover:text-rose-700 dark:hover:text-rose-300"
+                        className="text-[9px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1 ml-auto hover:text-blue-700 dark:hover:text-blue-300"
                       >
                         Editar <ChevronRight size={10} />
                       </button>
                       <button 
                         onClick={() => onDelete(entry.id)}
-                        className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1 ml-auto hover:text-rose-500 transition-colors"
+                        className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1 ml-auto hover:text-blue-500 transition-colors"
                       >
                         Excluir <Trash2 size={10} />
                       </button>

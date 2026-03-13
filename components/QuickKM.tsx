@@ -84,7 +84,7 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
     >
       <div className="flex justify-between items-center mb-5">
         <h3 className="text-[10px] font-black text-slate-800 dark:text-white flex items-center gap-2 uppercase tracking-widest">
-          <div className="w-9 h-9 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl flex items-center justify-center">
+          <div className="w-9 h-9 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
             <Navigation size={18} />
           </div>
           Fechamento de KM
@@ -94,7 +94,7 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
             <button
               type="button"
               onClick={() => setKmType('work')}
-              className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-black transition-all ${kmType === 'work' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+              className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-black transition-all ${kmType === 'work' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
             >
               +
             </button>
@@ -109,7 +109,7 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
           <button 
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+            className="flex items-center gap-1 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
           >
             {showAdvanced ? <><ChevronUp size={12} /> Menos</> : <><ChevronDown size={12} /> Data</>}
           </button>
@@ -120,14 +120,14 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-              <Navigation size={10} className="text-rose-500 dark:text-rose-400" /> KM Total do Veículo
+              <Navigation size={10} className="text-blue-500 dark:text-blue-400" /> KM Total do Veículo
             </label>
             <input
               type="number"
               step="0.1"
               value={totalKm}
               onChange={(e) => setTotalKm(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-rose-500 transition font-black text-slate-800 dark:text-white text-lg font-mono-num"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition font-black text-slate-800 dark:text-white text-lg font-mono-num"
               placeholder={`Atual: ${config.lastTotalKm || 0} KM`}
               required
             />
@@ -146,7 +146,7 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
 
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-              <Fuel size={10} className="text-rose-500 dark:text-rose-400" /> Preço da Gasolina
+              <Fuel size={10} className="text-blue-500 dark:text-blue-400" /> Preço da Gasolina
             </label>
             <div className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3.5 flex items-center justify-between">
               <span className="text-slate-400 dark:text-slate-500 font-black text-base">R$</span>
@@ -174,7 +174,7 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
                 <button 
                   type="button"
                   onClick={() => setShowDatePicker(true)}
-                  className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-xs font-black text-slate-700 dark:text-slate-200 transition-all hover:border-rose-200 dark:hover:border-rose-500/30"
+                  className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-xs font-black text-slate-700 dark:text-slate-200 transition-all hover:border-blue-200 dark:hover:border-blue-500/30"
                 >
                   <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
                   <span>{new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
@@ -197,7 +197,7 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
         <motion.button 
           whileTap={{ scale: 0.98 }}
           type="submit" 
-          className="w-full bg-rose-600 dark:bg-rose-500 text-white font-black py-4 rounded-[1.5rem] hover:bg-rose-700 dark:hover:bg-rose-600 transition-all shadow-lg shadow-rose-100 dark:shadow-none uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"
+          className="w-full bg-blue-600 dark:bg-blue-500 text-white font-black py-4 rounded-[1.5rem] hover:bg-blue-700 dark:hover:bg-blue-600 transition-all shadow-lg shadow-blue-100 dark:shadow-none uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"
         >
           <Save size={16} /> Salvar Fechamento
         </motion.button>
