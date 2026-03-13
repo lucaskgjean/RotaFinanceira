@@ -1,8 +1,8 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { DailyEntry, AppConfig } from '../types';
 import { formatCurrency, getWeeklySummary, getLocalDateStr } from '../utils/calculations';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Wrench, 
   Navigation, 
@@ -13,9 +13,11 @@ import {
   Trash2,
   ShieldCheck,
   Clock,
-  Wallet
+  Filter,
+  X
 } from 'lucide-react';
 import QuickKM from './QuickKM';
+import CustomDatePicker from './CustomDatePicker';
 
 interface MaintenanceProps {
   entries: DailyEntry[];
@@ -27,33 +29,40 @@ interface MaintenanceProps {
 
 const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAdd, onDelete }) => {
   const todayStr = getLocalDateStr();
+  const [filterStartDate, setFilterStartDate] = useState<string>(todayStr);
+  const [filterEndDate, setFilterEndDate] = useState<string>(todayStr);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+
   const currentMonthStr = todayStr.substring(0, 7);
 
   const todayEntries = entries.filter(e => e.date === todayStr);
   const monthEntries = entries.filter(e => e.date.startsWith(currentMonthStr));
   
-  const getStartOfWeek = (d: Date) => {
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.setDate(diff));
-  };
-  const startOfWeek = getStartOfWeek(new Date());
-  startOfWeek.setHours(0, 0, 0, 0);
-
-  const weekEntries = entries.filter(e => {
-    const entryDate = new Date(e.date + 'T12:00:00');
-    return entryDate >= startOfWeek;
-  });
-
   const todaySum = getWeeklySummary(todayEntries);
-  const weekSum = getWeeklySummary(weekEntries);
   const monthSum = getWeeklySummary(monthEntries);
 
-  const todaySpent = todaySum.totalSpentFuel + todaySum.totalSpentFood + todaySum.totalSpentMaintenance + todaySum.totalSpentOthers;
-  const weekSpent = weekSum.totalSpentFuel + weekSum.totalSpentFood + weekSum.totalSpentMaintenance + weekSum.totalSpentOthers;
-  const monthSpent = monthSum.totalSpentFuel + monthSum.totalSpentFood + monthSum.totalSpentMaintenance + monthSum.totalSpentOthers;
+  const maintenanceEntries = useMemo(() => {
+    return entries.filter(e => {
+      const isMaintenance = e.maintenance > 0 && e.grossAmount === 0;
+      const matchRange = (filterStartDate || filterEndDate) ? (
+        (!filterStartDate || e.date >= filterStartDate) &&
+        (!filterEndDate || e.date <= filterEndDate)
+      ) : true;
+      return isMaintenance && matchRange;
+    });
+  }, [entries, filterStartDate, filterEndDate]);
 
-  const maintenanceEntries = entries.filter(e => e.maintenance > 0 && e.grossAmount === 0);
+  const kmHistoryEntries = useMemo(() => {
+    return entries.filter(e => {
+      const isKm = e.storeName === 'Fechamento de KM';
+      const matchRange = (filterStartDate || filterEndDate) ? (
+        (!filterStartDate || e.date >= filterStartDate) &&
+        (!filterEndDate || e.date <= filterEndDate)
+      ) : true;
+      return isKm && matchRange;
+    });
+  }, [entries, filterStartDate, filterEndDate]);
   
   const lastKmEntry = entries.reduce((max, curr) => {
     const km = curr.kmDriven || curr.kmAtMaintenance || 0;
@@ -112,40 +121,40 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
         <QuickKM onAdd={onAdd} config={config} entries={entries} />
       </motion.div>
 
-      {/* Card de Gastos Unificado */}
+      {/* Resumo de Manutenções e Quilometragem */}
       <motion.div 
         variants={itemVariants}
-        whileHover={{ y: -4, transition: { duration: 0.2 } }}
-        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden group"
+        whileHover={{ y: -2, transition: { duration: 0.2 } }}
+        className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden group"
       >
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-rose-50 dark:bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-600 dark:text-rose-400">
-              <Wallet size={20} strokeWidth={2.5} />
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <Wrench size={18} strokeWidth={2.5} />
             </div>
-            <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Resumo de Gastos Totais</h3>
+            <h3 className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Resumo Manutenção & KM</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-1">Hoje</span>
-              <div className="text-4xl font-black text-rose-600 dark:text-rose-400 tracking-tighter font-mono-num">{formatCurrency(todaySpent)}</div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Manutenção (Mês)</span>
+              <div className="text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tighter font-mono-num">{formatCurrency(monthSum.totalSpentMaintenance)}</div>
             </div>
             
-            <div className="flex flex-col md:border-l border-slate-100 dark:border-slate-800 md:pl-8">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-1">Esta Semana</span>
-              <div className="text-2xl font-black text-slate-800 dark:text-white tracking-tighter font-mono-num">{formatCurrency(weekSpent)}</div>
+            <div className="flex flex-col md:border-l border-slate-100 dark:border-slate-800 md:pl-6">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">KM Trabalho (Hoje)</span>
+              <div className="text-xl font-black text-slate-800 dark:text-white tracking-tighter font-mono-num">{todaySum.totalKm.toFixed(1)} <span className="text-xs opacity-50">KM</span></div>
             </div>
 
-            <div className="flex flex-col md:border-l border-slate-100 dark:border-slate-800 md:pl-8">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-1">Este Mês</span>
-              <div className="text-2xl font-black text-slate-800 dark:text-white tracking-tighter font-mono-num">{formatCurrency(monthSpent)}</div>
+            <div className="flex flex-col md:border-l border-slate-100 dark:border-slate-800 md:pl-6">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Odômetro Total</span>
+              <div className="text-xl font-black text-slate-800 dark:text-white tracking-tighter font-mono-num">{lastKmEntry.toLocaleString()} <span className="text-xs opacity-50">KM</span></div>
             </div>
           </div>
         </div>
         
-        <div className="absolute -right-8 -bottom-8 opacity-[0.03] dark:opacity-[0.05] group-hover:scale-110 transition-transform duration-700">
-          <Wallet size={200} />
+        <div className="absolute -right-6 -bottom-6 opacity-[0.02] dark:opacity-[0.04] group-hover:scale-110 transition-transform duration-700">
+          <Navigation size={150} />
         </div>
       </motion.div>
 
@@ -170,36 +179,46 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
             <motion.div 
               key={alert.id} 
               variants={itemVariants}
-              className={`bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border-2 transition-all ${isUrgent ? 'border-rose-100 dark:border-rose-500/20 shadow-lg shadow-rose-50 dark:shadow-none' : 'border-slate-50 dark:border-slate-800 shadow-sm'}`}
+              className={`bg-white dark:bg-slate-900 p-5 rounded-[2rem] border transition-all ${isUrgent ? 'border-rose-100 dark:border-rose-500/20 shadow-lg shadow-rose-50/50 dark:shadow-none' : 'border-slate-100 dark:border-slate-800 shadow-sm'}`}
             >
-              <div className="flex justify-between items-start mb-6">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isUrgent ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'}`}>
-                  {isUrgent ? <AlertTriangle size={24} /> : <Clock size={24} />}
+              <div className="flex items-center gap-4 mb-4">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isUrgent ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'}`}>
+                  {isUrgent ? <AlertTriangle size={20} /> : <Wrench size={20} />}
                 </div>
-                {isUrgent && (
-                  <span className="bg-rose-500 text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest animate-pulse">Urgente</span>
-                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-black text-slate-800 dark:text-white text-sm truncate">{alert.description}</h4>
+                    {isUrgent && (
+                      <span className="bg-rose-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse shrink-0">Urgente</span>
+                    )}
+                  </div>
+                  <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Intervalo: {alert.kmInterval.toLocaleString()} KM</p>
+                </div>
               </div>
               
-              <h4 className="font-black text-slate-800 dark:text-white mb-1 text-lg">{alert.description}</h4>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase mb-4 tracking-tight">A cada {alert.kmInterval.toLocaleString()} KM</p>
-              
-              {estimatedDate && (
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 mb-4 border border-slate-100 dark:border-slate-800">
-                  <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1">Previsão Estimada</span>
-                  <p className="text-xs font-black text-slate-700 dark:text-slate-200">
-                    {estimatedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    <span className="text-blue-500 dark:text-blue-400 ml-1">({estimatedDays} dias)</span>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-2.5 border border-slate-100 dark:border-slate-800/50">
+                  <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-0.5">Restam</span>
+                  <p className={`text-xs font-black font-mono-num ${isUrgent ? 'text-rose-500' : 'text-slate-700 dark:text-slate-200'}`}>
+                    {kmRemaining.toLocaleString()} <span className="text-[8px] opacity-50">KM</span>
                   </p>
                 </div>
-              )}
+                {estimatedDate && (
+                  <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-2.5 border border-slate-100 dark:border-slate-800/50">
+                    <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-0.5">Previsão</span>
+                    <p className="text-xs font-black text-slate-700 dark:text-slate-200 truncate">
+                      {estimatedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                    </p>
+                  </div>
+                )}
+              </div>
 
-              <div className="space-y-3">
-                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                  <span className="text-slate-400 dark:text-slate-500">Restam</span>
-                  <span className={`font-mono-num ${isUrgent ? 'text-rose-500' : 'text-slate-700 dark:text-slate-300'}`}>{kmRemaining.toLocaleString()} KM</span>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-slate-400">
+                  <span>Progresso</span>
+                  <span>{Math.round(progress)}%</span>
                 </div>
-                <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                   <motion.div 
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
@@ -213,6 +232,50 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
         })}
       </div>
 
+      {/* Filtros de Período */}
+      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-8 h-8 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500">
+            <Filter size={16} />
+          </div>
+          <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Filtro de Histórico</h3>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div className="space-y-2">
+            <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Início</label>
+            <button 
+              type="button"
+              onClick={() => setShowStartDatePicker(true)}
+              className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-rose-200 dark:hover:border-rose-500/30"
+            >
+              <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
+              <span>{filterStartDate ? new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Início'}</span>
+            </button>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Fim</label>
+            <button 
+              type="button"
+              onClick={() => setShowEndDatePicker(true)}
+              className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-rose-200 dark:hover:border-rose-500/30"
+            >
+              <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
+              <span>{filterEndDate ? new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Fim'}</span>
+            </button>
+          </div>
+          <button 
+            onClick={() => {
+              setFilterStartDate(todayStr);
+              setFilterEndDate(todayStr);
+            }}
+            className="w-full py-3.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 font-black text-[10px] uppercase tracking-widest rounded-2xl transition flex items-center justify-center gap-2"
+          >
+            <X size={14} /> Limpar Filtro
+          </button>
+        </div>
+      </motion.div>
+
       {/* Histórico de KM */}
       <motion.div variants={itemVariants} className="space-y-6 pt-4">
         <h3 className="text-sm font-black text-slate-800 dark:text-white px-2 flex items-center gap-3 uppercase tracking-widest">
@@ -220,16 +283,15 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
           Histórico de KM
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {entries.filter(e => e.storeName === 'Fechamento de KM').length === 0 ? (
+          {kmHistoryEntries.length === 0 ? (
             <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-slate-800">
-              <p className="text-slate-400 dark:text-slate-500 text-xs font-black uppercase tracking-widest">Nenhum fechamento de KM registrado</p>
+              <p className="text-slate-400 dark:text-slate-500 text-xs font-black uppercase tracking-widest">Nenhum fechamento de KM no período</p>
             </div>
           ) : (
-            entries
-              .filter(e => e.storeName === 'Fechamento de KM')
+            kmHistoryEntries
               .sort((a, b) => b.date.localeCompare(a.date))
               .map(entry => (
-                <div key={entry.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center group hover:border-rose-100 dark:hover:border-rose-500 transition-all">
+                <div key={entry.id} className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center group hover:border-rose-100 dark:hover:border-rose-500 transition-all">
                   <div className="flex gap-4 items-center">
                     <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 text-rose-500 rounded-2xl flex items-center justify-center group-hover:bg-rose-50 dark:group-hover:bg-rose-500/10 transition-colors">
                       <Navigation size={20} />
@@ -279,11 +341,11 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {maintenanceEntries.length === 0 ? (
             <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-slate-800">
-              <p className="text-slate-400 dark:text-slate-500 text-xs font-black uppercase tracking-widest">Nenhuma manutenção registrada</p>
+              <p className="text-slate-400 dark:text-slate-500 text-xs font-black uppercase tracking-widest">Nenhuma manutenção no período</p>
             </div>
           ) : (
             maintenanceEntries.sort((a, b) => b.date.localeCompare(a.date)).map(entry => (
-              <div key={entry.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center group hover:border-blue-100 dark:hover:border-blue-500 transition-all">
+              <div key={entry.id} className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center group hover:border-blue-100 dark:hover:border-blue-500 transition-all">
                 <div className="flex gap-4 items-center">
                   <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-500/10 transition-colors">
                     <Wrench size={20} />
@@ -317,6 +379,22 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
           )}
         </div>
       </motion.div>
+      <AnimatePresence>
+        {showStartDatePicker && (
+          <CustomDatePicker 
+            value={filterStartDate} 
+            onChange={setFilterStartDate} 
+            onClose={() => setShowStartDatePicker(false)} 
+          />
+        )}
+        {showEndDatePicker && (
+          <CustomDatePicker 
+            value={filterEndDate} 
+            onChange={setFilterEndDate} 
+            onClose={() => setShowEndDatePicker(false)} 
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

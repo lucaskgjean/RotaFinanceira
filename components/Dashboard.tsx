@@ -196,77 +196,93 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
           </div>
         </motion.div>
 
-        {/* Card Hoje (Menor - 1 coluna) */}
+        {/* Card Unificado: Hoje, Semana, Mês */}
         <motion.div 
           variants={itemVariants}
           whileHover={{ y: -4, transition: { duration: 0.2 } }}
-          className="md:col-span-1 bg-indigo-600 dark:bg-indigo-700 p-6 rounded-[2.5rem] text-white shadow-lg shadow-indigo-200 dark:shadow-none flex flex-col justify-between group hover:bg-indigo-700 dark:hover:bg-indigo-800 transition-colors"
+          className="md:col-span-4 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden group"
         >
-          <div className="flex justify-between items-start">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
-              <Calendar size={20} />
-            </div>
-            <span className="text-[10px] font-black bg-white/20 px-2 py-1 rounded-lg uppercase tracking-wider">
-              {todaySum.count} Entregas
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-70 block mb-1">Hoje</span>
-            <div className="flex items-baseline justify-between gap-2">
-              <div className="text-2xl font-black font-mono-num tracking-tighter">{formatCurrency(todaySum.totalNet)}</div>
-              <div className="text-[10px] font-black opacity-80 bg-white/10 px-2 py-0.5 rounded-md">Bruto: {formatCurrency(todaySum.totalGross)}</div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Card Semana (Menor - 1 coluna) */}
-        <motion.div 
-          variants={itemVariants}
-          whileHover={{ y: -4, transition: { duration: 0.2 } }}
-          className="md:col-span-1 bg-slate-900 dark:bg-slate-800 p-6 rounded-[2.5rem] text-white shadow-lg shadow-slate-200 dark:shadow-none flex flex-col justify-between group hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
-        >
-          <div className="flex justify-between items-start">
-            <div className="w-10 h-10 bg-indigo-500 rounded-xl flex items-center justify-center">
-              <TrendingUp size={20} />
-            </div>
-            <span className="text-[10px] font-black bg-white/10 px-2 py-1 rounded-lg uppercase tracking-wider">
-              {weekSum.count} Entregas
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-50 block mb-1">Semana</span>
-            <div className="flex items-baseline justify-between gap-2">
-              <div className="text-2xl font-black font-mono-num tracking-tighter">{formatCurrency(weekSum.totalGross)}</div>
-              <div className="text-[10px] font-black opacity-80 bg-white/10 px-2 py-0.5 rounded-md">Líq: {formatCurrency(weekSum.totalNet)}</div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Card Mês (Maior - 4 colunas) */}
-        <motion.div 
-          variants={itemVariants}
-          whileHover={{ y: -4, transition: { duration: 0.2 } }}
-          className="md:col-span-4 bg-emerald-600 dark:bg-emerald-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-emerald-100 dark:shadow-none flex flex-col justify-between relative overflow-hidden group"
-        >
-          <div className="relative z-10 flex flex-col h-full justify-between">
-            <div className="flex justify-between items-start mb-6">
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
-                <Wallet size={24} />
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800">
+            {/* Hoje Section */}
+            <div className="flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
+                    <Calendar size={16} />
+                  </div>
+                  <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Hoje</h3>
+                </div>
+                <div className="mb-1">
+                  <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tight">Lucro Líquido</span>
+                  <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num tracking-tighter">
+                    {formatCurrency(todaySum.totalNet)}
+                  </div>
+                </div>
               </div>
-              <span className="text-[10px] font-black bg-white/20 px-3 py-1.5 rounded-xl uppercase tracking-wider">
-                {monthSum.count} Entregas no Mês
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 block mb-2">Faturamento Mensal</span>
-              <div className="flex items-baseline justify-between gap-4">
-                <div className="text-4xl font-black font-mono-num tracking-tighter">{formatCurrency(monthSum.totalGross)}</div>
-                <div className="text-xs font-black opacity-90 bg-white/20 px-4 py-1.5 rounded-xl">Líquido: {formatCurrency(monthSum.totalNet)}</div>
+              <div className="flex items-center justify-between mt-2">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                  Bruto: {formatCurrency(todaySum.totalGross)}
+                </div>
+                <span className="text-[9px] font-black bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-md uppercase">
+                  {todaySum.count} Entregas
+                </span>
               </div>
             </div>
+
+            {/* Semana Section */}
+            <div className="md:pl-8 pt-6 md:pt-0 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 bg-slate-900 dark:bg-slate-700 rounded-lg flex items-center justify-center text-white">
+                    <TrendingUp size={16} />
+                  </div>
+                  <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Semana</h3>
+                </div>
+                <div className="mb-1">
+                  <span className="text-[9px] font-black text-indigo-500 uppercase tracking-tight">Faturamento Bruto</span>
+                  <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num tracking-tighter">
+                    {formatCurrency(weekSum.totalGross)}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                  Líquido: {formatCurrency(weekSum.totalNet)}
+                </div>
+                <span className="text-[9px] font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-md uppercase">
+                  {weekSum.count} Entregas
+                </span>
+              </div>
+            </div>
+
+            {/* Mês Section */}
+            <div className="md:pl-8 pt-6 md:pt-0 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white">
+                    <Wallet size={16} />
+                  </div>
+                  <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Mês</h3>
+                </div>
+                <div className="mb-1">
+                  <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tight">Faturamento Bruto</span>
+                  <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num tracking-tighter">
+                    {formatCurrency(monthSum.totalGross)}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                  Líquido: {formatCurrency(monthSum.totalNet)}
+                </div>
+                <span className="text-[9px] font-black bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-md uppercase">
+                  {monthSum.count} Entregas
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="absolute -right-10 -top-10 opacity-10 group-hover:scale-110 transition-transform duration-700">
-            <Wallet size={220} />
+          <div className="absolute -right-10 -bottom-10 opacity-[0.02] group-hover:scale-110 transition-transform duration-700 pointer-events-none">
+            <TrendingUp size={240} />
           </div>
         </motion.div>
 

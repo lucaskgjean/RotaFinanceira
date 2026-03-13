@@ -80,28 +80,28 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
+      className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800"
     >
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-2 uppercase tracking-widest">
-          <div className="w-10 h-10 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl flex items-center justify-center">
-            <Navigation size={20} />
+      <div className="flex justify-between items-center mb-5">
+        <h3 className="text-[10px] font-black text-slate-800 dark:text-white flex items-center gap-2 uppercase tracking-widest">
+          <div className="w-9 h-9 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl flex items-center justify-center">
+            <Navigation size={18} />
           </div>
           Fechamento de KM
         </h3>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
             <button
               type="button"
               onClick={() => setKmType('work')}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-black transition-all ${kmType === 'work' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+              className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-black transition-all ${kmType === 'work' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
             >
               +
             </button>
             <button
               type="button"
               onClick={() => setKmType('personal')}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-black transition-all ${kmType === 'personal' ? 'bg-slate-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+              className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs font-black transition-all ${kmType === 'personal' ? 'bg-slate-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
             >
               -
             </button>
@@ -109,34 +109,34 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
           <button 
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+            className="flex items-center gap-1 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
           >
-            {showAdvanced ? <><ChevronUp size={14} /> Menos</> : <><ChevronDown size={14} /> Data</>}
+            {showAdvanced ? <><ChevronUp size={12} /> Menos</> : <><ChevronDown size={12} /> Data</>}
           </button>
         </div>
       </div>
       
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-              <Navigation size={12} className="text-rose-500 dark:text-rose-400" /> KM Total do Veículo
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+              <Navigation size={10} className="text-rose-500 dark:text-rose-400" /> KM Total do Veículo
             </label>
             <input
               type="number"
               step="0.1"
               value={totalKm}
               onChange={(e) => setTotalKm(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-rose-500 transition font-black text-slate-800 dark:text-white text-xl font-mono-num"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-rose-500 transition font-black text-slate-800 dark:text-white text-lg font-mono-num"
               placeholder={`Atual: ${config.lastTotalKm || 0} KM`}
               required
             />
             <AnimatePresence>
               {config.lastTotalKm && totalKm && parseFloat(totalKm) > config.lastTotalKm && (
                 <motion.p 
-                  initial={{ opacity: 0, y: -10 }}
+                  initial={{ opacity: 0, y: -5 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`mt-2 text-[10px] font-black uppercase tracking-widest ml-1 ${kmType === 'work' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}
+                  className={`mt-1.5 text-[9px] font-black uppercase tracking-widest ml-1 ${kmType === 'work' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}
                 >
                   {kmType === 'work' ? '+' : '-'} {(parseFloat(totalKm) - config.lastTotalKm).toFixed(1)} KM {kmType === 'work' ? 'rodados (Trabalho)' : 'rodados (Pessoal)'}
                 </motion.p>
@@ -144,19 +144,19 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
             </AnimatePresence>
           </div>
 
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-              <Fuel size={12} className="text-rose-500 dark:text-rose-400" /> Preço da Gasolina (Calculado)
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
+              <Fuel size={10} className="text-rose-500 dark:text-rose-400" /> Preço da Gasolina
             </label>
-            <div className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 flex items-center justify-between">
-              <span className="text-slate-400 dark:text-slate-500 font-black text-lg">R$</span>
-              <span className="text-slate-800 dark:text-white text-lg font-black font-mono-num">
+            <div className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3.5 flex items-center justify-between">
+              <span className="text-slate-400 dark:text-slate-500 font-black text-base">R$</span>
+              <span className="text-slate-800 dark:text-white text-base font-black font-mono-num">
                 {fuelPrice > 0 ? fuelPrice.toFixed(3) : "---"}
               </span>
-              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">/ L</span>
+              <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">/ L</span>
             </div>
-            <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight ml-1">
-              Baseado nos gastos de combustível do dia {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}
+            <p className="text-[8px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight ml-1">
+              Baseado no dia {new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}
             </p>
           </div>
         </div>
@@ -169,14 +169,14 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="pt-6 border-t border-slate-50 dark:border-slate-800">
-                <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Data do Fechamento</label>
+              <div className="pt-5 border-t border-slate-50 dark:border-slate-800">
+                <label className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Data do Fechamento</label>
                 <button 
                   type="button"
                   onClick={() => setShowDatePicker(true)}
-                  className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-4 text-sm font-black text-slate-700 dark:text-slate-200 transition-all hover:border-rose-200 dark:hover:border-rose-500/30"
+                  className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-xs font-black text-slate-700 dark:text-slate-200 transition-all hover:border-rose-200 dark:hover:border-rose-500/30"
                 >
-                  <Calendar className="text-slate-300 dark:text-slate-600" size={18} />
+                  <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
                   <span>{new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
                 </button>
               </div>
@@ -197,9 +197,9 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
         <motion.button 
           whileTap={{ scale: 0.98 }}
           type="submit" 
-          className="w-full bg-rose-600 dark:bg-rose-500 text-white font-black py-5 rounded-[2rem] hover:bg-rose-700 dark:hover:bg-rose-600 transition-all shadow-xl shadow-rose-100 dark:shadow-none uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-3"
+          className="w-full bg-rose-600 dark:bg-rose-500 text-white font-black py-4 rounded-[1.5rem] hover:bg-rose-700 dark:hover:bg-rose-600 transition-all shadow-lg shadow-rose-100 dark:shadow-none uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"
         >
-          <Save size={18} /> Salvar Fechamento
+          <Save size={16} /> Salvar Fechamento
         </motion.button>
       </form>
     </motion.div>

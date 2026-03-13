@@ -184,38 +184,40 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
         <QuickExpense onAdd={onAdd} />
       </motion.div>
 
-      {/* Saldo das Reservas - Simplificado para Gastos Hoje/Semana */}
+      {/* Resumo de Gastos - Design Sincronizado com Manutenção */}
       <motion.div 
         variants={itemVariants}
-        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden group border border-white/5"
+        whileHover={{ y: -2, transition: { duration: 0.2 } }}
+        className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden group"
       >
         <div className="relative z-10">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center backdrop-blur-md">
-                <TrendingDown size={18} className="text-rose-400" />
-              </div>
-              <h2 className="text-[10px] font-black uppercase tracking-[0.3em] opacity-80">Resumo de Gastos</h2>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 bg-rose-50 dark:bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <Wallet size={18} strokeWidth={2.5} />
             </div>
+            <h3 className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Resumo de Gastos</h3>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="space-y-1">
-              <span className="text-[9px] font-black uppercase tracking-widest opacity-60 block">Hoje</span>
-              <p className="text-4xl font-black font-mono-num text-rose-400">{formatCurrency(todaySpent)}</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Hoje</span>
+              <div className="text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tighter font-mono-num">{formatCurrency(todaySpent)}</div>
             </div>
-            <div className="space-y-1">
-              <span className="text-[9px] font-black uppercase tracking-widest opacity-60 block">Semana</span>
-              <p className="text-4xl font-black text-white/90 font-mono-num">{formatCurrency(weekSpent)}</p>
+            
+            <div className="flex flex-col md:border-l border-slate-100 dark:border-slate-800 md:pl-6">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Esta Semana</span>
+              <div className="text-xl font-black text-slate-800 dark:text-white tracking-tighter font-mono-num">{formatCurrency(weekSpent)}</div>
             </div>
-            <div className="space-y-1">
-              <span className="text-[9px] font-black uppercase tracking-widest opacity-60 block">Mês</span>
-              <p className="text-4xl font-black text-white/90 font-mono-num">{formatCurrency(monthSpent)}</p>
+
+            <div className="flex flex-col md:border-l border-slate-100 dark:border-slate-800 md:pl-6">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Este Mês</span>
+              <div className="text-xl font-black text-slate-800 dark:text-white tracking-tighter font-mono-num">{formatCurrency(monthSpent)}</div>
             </div>
           </div>
         </div>
-        <div className="absolute -right-12 -bottom-12 opacity-5 group-hover:scale-110 transition-transform duration-700">
-           <TrendingDown size={240} />
+        
+        <div className="absolute -right-6 -bottom-6 opacity-[0.02] dark:opacity-[0.04] group-hover:scale-110 transition-transform duration-700">
+          <Wallet size={150} />
         </div>
       </motion.div>
 

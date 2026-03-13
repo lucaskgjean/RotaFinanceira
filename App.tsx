@@ -46,6 +46,8 @@ import VerificationBanner from './components/VerificationBanner';
 import { User as FirebaseUser } from 'firebase/auth';
 import { isUserAdmin } from './constants';
 
+import BackgroundGraphics from './components/BackgroundGraphics';
+
 const App: React.FC = () => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -971,6 +973,8 @@ const App: React.FC = () => {
           />
         )}
       </AnimatePresence>
+
+      <BackgroundGraphics activeTab={activeTab} />
     </div>
   );
 };

@@ -73,7 +73,7 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
+      className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
     >
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-2 uppercase tracking-widest">

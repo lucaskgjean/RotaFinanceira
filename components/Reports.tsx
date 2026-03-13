@@ -392,7 +392,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         confirmText={dialog.title === 'Recurso PRO' ? 'Ver Planos' : 'OK'}
       />
       {/* Filtros Premium */}
-      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden">
+      <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden">
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -464,7 +464,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
 
       {/* Relatório por Loja Selecionada */}
       {selectedStore !== 'all' && (
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
           <div className="flex justify-between items-center mb-8">
             <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-2">
               <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
@@ -502,7 +502,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       )}
 
       {/* Gráfico de Ganhos */}
-      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+      <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
         <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-2">
           <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
           Relatório de Ganhos Diários
@@ -601,7 +601,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       {/* Novas Métricas de Performance */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Ganhos por Hora */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
+        <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
           <div className="relative z-10">
             <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center mb-6 text-indigo-600">
               <Clock size={24} />
@@ -612,7 +612,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </motion.div>
 
         {/* Ganhos por KM */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
+        <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
           <div className="relative z-10">
             <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-6 text-emerald-600">
               <Navigation size={24} />
@@ -623,7 +623,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </motion.div>
 
         {/* Gasto por KM */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
+        <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
           <div className="relative z-10">
             <div className="w-12 h-12 bg-rose-50 dark:bg-rose-500/10 rounded-2xl flex items-center justify-center mb-6 text-rose-600">
               <ArrowDownRight size={24} />
@@ -634,7 +634,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </motion.div>
 
         {/* Litros de Combustível */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
+        <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
           <div className="relative z-10">
             <div className="w-12 h-12 bg-amber-50 dark:bg-amber-500/10 rounded-2xl flex items-center justify-center mb-6 text-amber-600">
               <Fuel size={24} />
@@ -645,7 +645,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </motion.div>
 
         {/* Média por KM */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
+        <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
           <div className="relative z-10">
             <div className="w-12 h-12 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6 text-blue-600">
               <Navigation size={24} />
@@ -704,7 +704,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Faturamento por Método */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
           <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-2">
             <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
             Faturamento por Método
@@ -725,7 +725,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </motion.div>
 
         {/* Gastos por Método */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
           <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-2">
             <div className="w-1.5 h-4 bg-rose-500 rounded-full"></div>
             Gastos por Método
@@ -751,7 +751,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Volume de Trabalho */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
           <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-2">
             <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
             Performance Operacional
@@ -785,7 +785,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </motion.div>
 
         {/* Médias de Lançamento */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
           <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-2">
             <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
             Médias por Lançamento
@@ -824,7 +824,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       </div>
 
       {/* Detalhamento de Gastos Reais */}
-      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+      <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
         <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8">Fluxo de Despesas Reais</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-6 bg-rose-50 dark:bg-rose-500/10 rounded-[2rem] border border-rose-100 dark:border-rose-500/20 flex flex-col justify-between h-32">
@@ -859,7 +859,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       </motion.div>
 
       {/* Manutenções Realizadas */}
-      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+      <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="flex justify-between items-center mb-8">
           <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest">Manutenções no Período</h4>
           <span className="text-[10px] font-black bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-slate-500 dark:text-slate-400 uppercase tracking-widest">
@@ -895,7 +895,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       </motion.div>
 
       {/* Mapa de Calor de Ganhos */}
-      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+      <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="mb-8">
           <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-2">
             <div className="w-1.5 h-4 bg-amber-500 rounded-full"></div>
@@ -965,7 +965,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       {/* Distribuição por Faturamento do Período */}
       <motion.div 
         variants={itemVariants}
-        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-8"
+        className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-8"
       >
         <div className="flex-1 w-full">
           <div className="mb-8">

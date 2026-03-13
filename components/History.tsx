@@ -145,7 +145,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
       )}
 
       {/* Filtros Inteligentes */}
-      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+      <motion.div variants={itemVariants} className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-8 h-8 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500">
             <Filter size={16} />
@@ -256,7 +256,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
           <motion.div 
             key={i}
             variants={itemVariants}
-            className={`${stat.bg} p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm`}
+            className={`${stat.bg}/70 backdrop-blur-md p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm`}
           >
             <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase block mb-1 tracking-widest">{stat.label}</span>
             <p className={`text-xl font-black font-mono-num ${stat.color}`}>{stat.value}</p>
@@ -282,7 +282,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-100 dark:border-slate-800"
+                className="col-span-full py-20 text-center bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-[2.5rem] border-2 border-dashed border-slate-100 dark:border-slate-800"
               >
                 <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200 dark:text-slate-700">
                   <Search size={32} />
@@ -298,7 +298,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   whileHover={{ y: -2, transition: { duration: 0.2 } }}
-                  className={`bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border-2 transition-all group relative overflow-hidden ${entry.grossAmount > 0 ? 'border-indigo-50 dark:border-indigo-500/10 hover:border-indigo-100 dark:hover:border-indigo-500/20' : 'border-rose-50 dark:border-rose-500/10 hover:border-rose-100 dark:hover:border-rose-500/20'}`}
+                  className={`bg-white/70 dark:bg-slate-900/70 backdrop-blur-md rounded-[2.5rem] p-6 border-2 transition-all group relative overflow-hidden ${entry.grossAmount > 0 ? 'border-indigo-50 dark:border-indigo-500/10 hover:border-indigo-100 dark:hover:border-indigo-500/20' : 'border-rose-50 dark:border-rose-500/10 hover:border-rose-100 dark:hover:border-rose-500/20'}`}
                 >
                   {/* Barra de Status Lateral */}
                   {entry.paymentMethod !== 'money' && (
@@ -395,7 +395,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
       </div>
 
       {/* Timeline de Performance */}
-      <motion.div variants={itemVariants} className="bg-slate-900 rounded-[2.5rem] p-8 text-white overflow-hidden relative shadow-xl">
+      <motion.div variants={itemVariants} className="bg-slate-900/80 backdrop-blur-md rounded-[2.5rem] p-8 text-white overflow-hidden relative shadow-xl">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center text-indigo-400">
