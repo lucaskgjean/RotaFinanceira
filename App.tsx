@@ -290,8 +290,19 @@ const App: React.FC = () => {
 
     config.maintenanceAlerts.forEach(alert => {
       const remaining = alert.kmInterval - (lastKm - alert.lastKm);
-      // Alerta quando faltar menos de 500km
-      if (remaining <= 500 && remaining > 0) {
+      
+      let shouldNotify = false;
+      if (alert.kmInterval >= 1000 && alert.kmInterval <= 3000) {
+        shouldNotify = remaining <= 200;
+      } else if (alert.kmInterval >= 4000 && alert.kmInterval <= 10000) {
+        shouldNotify = remaining <= 700;
+      } else if (alert.kmInterval >= 11000) {
+        shouldNotify = remaining <= 1000;
+      } else {
+        shouldNotify = remaining <= 200;
+      }
+
+      if (shouldNotify && remaining > 0) {
         const lastAlertNotif = localStorage.getItem(`last_maint_notif_${user.uid}_${alert.id}`);
         if (lastAlertNotif !== today) {
           notificationService.sendNotification("Manutenção Próxima! ⚠️", {
@@ -363,7 +374,7 @@ const App: React.FC = () => {
           storageService.getLocalConfig(user.uid)
         ]);
 
-        if (localEntries.length > 0) setEntries(localEntries);
+        if (localEntries.length > 0) setEntries(recalculateKmDeltas(localEntries));
         if (localTimeEntries.length > 0) setTimeEntries(localTimeEntries);
         if (localConfig) {
           setConfig({ ...DEFAULT_CONFIG, ...localConfig });
@@ -380,7 +391,7 @@ const App: React.FC = () => {
           storageService.getConfig(user.uid)
         ]);
 
-        if (cloudEntries.length > 0) setEntries(cloudEntries);
+        if (cloudEntries.length > 0) setEntries(recalculateKmDeltas(cloudEntries));
         if (cloudTimeEntries.length > 0) setTimeEntries(cloudTimeEntries);
         if (cloudConfig) {
           setConfig(prev => ({ ...DEFAULT_CONFIG, ...prev, ...cloudConfig }));
@@ -471,6 +482,25 @@ const App: React.FC = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const recalculateKmDeltas = useCallback((allEntries: DailyEntry[]) => {
+    // Ordena por data e hora para garantir a sequência lógica do odômetro
+    const sorted = [...allEntries].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+    
+    let lastKm = 0;
+    return sorted.map(entry => {
+      if (entry.kmAtMaintenance && entry.kmAtMaintenance > 0) {
+        const currentKm = entry.kmAtMaintenance;
+        // O delta é a diferença para o último odômetro conhecido
+        // Se for o primeiro registro, o delta é 0
+        const delta = lastKm > 0 ? currentKm - lastKm : 0;
+        lastKm = currentKm;
+        
+        return { ...entry, kmDriven: delta };
+      }
+      return entry;
+    });
+  }, []);
+
   const addEntry = (entry: DailyEntry) => {
     const isPro = config.profile?.isPro;
     const monthlyCount = getMonthlyEntriesCount();
@@ -485,8 +515,11 @@ const App: React.FC = () => {
     const todayStr = getLocalDateStr();
     
     setEntries(prev => {
-      const newEntries = [...prev, entry];
+      let updatedEntries = [...prev, entry];
       
+      // Recalcula todos os deltas para manter a consistência com o odômetro total
+      updatedEntries = recalculateKmDeltas(updatedEntries);
+
       const todayGrossBefore = prev
         .filter(e => e.date === todayStr)
         .reduce((acc, curr) => acc + curr.grossAmount, 0);
@@ -521,30 +554,35 @@ const App: React.FC = () => {
         }
       }
 
-      return newEntries;
+      return updatedEntries;
     });
 
     if (entry.fuelPrice) {
       setConfig(prev => ({ ...prev, lastFuelPrice: entry.fuelPrice }));
     }
-    if (entry.storeName === 'Fechamento de KM' && entry.kmAtMaintenance) {
-      setConfig(prev => ({ ...prev, lastTotalKm: entry.kmAtMaintenance }));
+
+    // Atualiza o último KM global baseado no maior valor encontrado
+    if (entry.kmAtMaintenance) {
+      setConfig(prev => ({ 
+        ...prev, 
+        lastTotalKm: Math.max(prev.lastTotalKm || 0, entry.kmAtMaintenance || 0) 
+      }));
     }
   };
   
   const updateEntry = (updated: DailyEntry) => {
     setEntries(prev => {
-      const newEntries = prev.map(e => e.id === updated.id ? updated : e);
+      const mapped = prev.map(e => e.id === updated.id ? updated : e);
+      const recalculated = recalculateKmDeltas(mapped);
       
-      if (updated.storeName === 'Fechamento de KM') {
-        const kmEntries = newEntries
-          .filter(e => e.storeName === 'Fechamento de KM')
-          .sort((a, b) => b.date.localeCompare(a.date));
-        
-        const newLastKm = kmEntries.length > 0 ? kmEntries[0].kmAtMaintenance : 0;
-        setConfig(prevConfig => ({ ...prevConfig, lastTotalKm: newLastKm }));
-      }
-      return newEntries;
+      const kmEntries = recalculated
+        .filter(e => (e.kmAtMaintenance || 0) > 0)
+        .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+      
+      const newLastKm = kmEntries.length > 0 ? kmEntries[0].kmAtMaintenance : 0;
+      setConfig(prevConfig => ({ ...prevConfig, lastTotalKm: newLastKm }));
+      
+      return recalculated;
     });
     setEditingEntry(null);
     showToast("Registro atualizado com sucesso!");
@@ -560,25 +598,23 @@ const App: React.FC = () => {
       type: 'danger',
       onConfirm: () => {
         setEntries(prev => {
-          const deletedEntry = prev.find(e => e.id === id);
           const filtered = prev.filter(e => e.id !== id);
+          const recalculated = recalculateKmDeltas(filtered);
           
-          if (deletedEntry?.storeName === 'Fechamento de KM') {
-            const kmEntries = filtered
-              .filter(e => e.storeName === 'Fechamento de KM')
-              .sort((a, b) => b.date.localeCompare(a.date));
-            
-            const newLastKm = kmEntries.length > 0 ? kmEntries[0].kmAtMaintenance : 0;
-            setConfig(c => ({ ...c, lastTotalKm: newLastKm }));
-          }
+          const kmEntries = recalculated
+            .filter(e => (e.kmAtMaintenance || 0) > 0)
+            .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
           
-          return filtered;
+          const newLastKm = kmEntries.length > 0 ? kmEntries[0].kmAtMaintenance : 0;
+          setConfig(c => ({ ...c, lastTotalKm: newLastKm }));
+          
+          return recalculated;
         });
         showToast("Registro removido.", "error");
         setDialog(prev => ({ ...prev, isOpen: false }));
       }
     });
-  }, []);
+  }, [recalculateKmDeltas]);
 
   // Handlers de Ponto
   const addTimeEntry = (entry: TimeEntry) => {

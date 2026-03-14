@@ -341,8 +341,8 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
     const newAlert = {
       id: Math.random().toString(36).substr(2, 9),
       description: 'Novo Alerta',
-      kmInterval: 10000,
-      lastKm: 0
+      kmInterval: 1000,
+      lastKm: config.lastTotalKm || 0
     };
     setLocalConfig({ ...localConfig, maintenanceAlerts: [...(localConfig.maintenanceAlerts || []), newAlert] });
   };

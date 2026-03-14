@@ -50,8 +50,9 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
     if (isNaN(numTotalKm) || numTotalKm <= 0) return;
 
     const lastKm = config.lastTotalKm || 0;
-    // kmDriven agora armazena a distância percorrida independente do tipo
-    const kmDriven = (lastKm > 0) ? numTotalKm - lastKm : 0;
+    // O kmDriven é calculado aqui apenas para visualização imediata, 
+    // o App.tsx recalculará todos os deltas para garantir consistência total.
+    const kmDriven = (lastKm > 0 && numTotalKm > lastKm) ? numTotalKm - lastKm : 0;
 
     const newEntry: DailyEntry = {
       id: generateId(),

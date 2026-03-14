@@ -70,10 +70,10 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
     });
   }, [entries, filterStartDate, filterEndDate]);
   
-  const lastKmEntry = entries.reduce((max, curr) => {
-    const km = curr.kmDriven || curr.kmAtMaintenance || 0;
-    return km > max ? km : max;
-  }, 0);
+  const lastKmEntry = Math.max(
+    config.lastTotalKm || 0,
+    ...entries.map(e => e.kmAtMaintenance || 0)
+  );
 
   const alerts = config.maintenanceAlerts || [];
 
@@ -141,7 +141,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
             <h3 className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Resumo Manutenção & KM</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex flex-col">
               <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Manutenção (Mês)</span>
               <div className="text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tighter font-mono-num">{formatCurrency(monthSum.totalSpentMaintenance)}</div>
@@ -155,11 +155,6 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
             <div className="flex flex-col md:border-l border-slate-100 dark:border-slate-800 md:pl-6">
               <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">KM Total (Hoje)</span>
               <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter font-mono-num">{todayKmStats.total.toFixed(1)} <span className="text-xs opacity-50">KM</span></div>
-            </div>
-
-            <div className="flex flex-col md:border-l border-slate-100 dark:border-slate-800 md:pl-6">
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Odômetro Total</span>
-              <div className="text-xl font-black text-slate-800 dark:text-white tracking-tighter font-mono-num">{lastKmEntry.toLocaleString()} <span className="text-xs opacity-50">KM</span></div>
             </div>
           </div>
         </div>
@@ -181,7 +176,16 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
           const kmRemaining = nextMaintenanceKm - lastKmEntry;
           const progress = Math.min(100, Math.max(0, ((lastKmEntry - lastMaintenanceKm) / alert.kmInterval) * 100));
           
-          const isUrgent = kmRemaining < 1000;
+          let isUrgent = false;
+          if (alert.kmInterval >= 1000 && alert.kmInterval <= 3000) {
+            isUrgent = kmRemaining <= 200;
+          } else if (alert.kmInterval >= 4000 && alert.kmInterval <= 10000) {
+            isUrgent = kmRemaining <= 700;
+          } else if (alert.kmInterval >= 11000) {
+            isUrgent = kmRemaining <= 1000;
+          } else {
+            isUrgent = kmRemaining <= 200;
+          }
 
           const estimatedDays = avgDailyKm > 0 ? Math.ceil(kmRemaining / avgDailyKm) : null;
           const estimatedDate = estimatedDays !== null ? new Date(Date.now() + estimatedDays * 24 * 60 * 60 * 1000) : null;
@@ -200,10 +204,10 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="font-black text-slate-800 dark:text-white text-sm truncate">{alert.description}</h4>
                     {isUrgent && (
-                      <span className="bg-rose-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse shrink-0">Urgente</span>
+                      <span className="bg-rose-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse shrink-0">Atenção</span>
                     )}
                   </div>
-                  <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Intervalo: {alert.kmInterval.toLocaleString()} KM</p>
+                  <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Próxima em: {nextMaintenanceKm.toLocaleString()} KM</p>
                 </div>
               </div>
               
@@ -365,6 +369,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
                     <h5 className="font-black text-slate-800 dark:text-white leading-tight">{entry.storeName.replace('[GASTO] ', '')}</h5>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">
                       {new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR')} • <span className="font-mono-num">{entry.kmAtMaintenance?.toLocaleString()} KM</span>
+                      {entry.kmDriven ? <span className="text-emerald-500 ml-1"> (+{entry.kmDriven.toFixed(1)} KM)</span> : null}
                     </p>
                   </div>
                 </div>

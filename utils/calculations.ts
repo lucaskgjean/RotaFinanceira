@@ -132,6 +132,11 @@ export const calculateKmClosing = (
 export const getWeeklySummary = (entries: DailyEntry[]): WeeklySummary => {
   const incomeEntries = entries.filter(e => e.grossAmount > 0);
   const expenseEntries = entries.filter(e => e.grossAmount === 0);
+  
+  // Filtra entradas que possuem registro de odômetro
+  const kmEntries = entries
+    .filter(e => (e.kmAtMaintenance || 0) > 0)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 
   const totalGross = incomeEntries.reduce((acc, curr) => acc + curr.grossAmount, 0);
   
@@ -147,9 +152,20 @@ export const getWeeklySummary = (entries: DailyEntry[]): WeeklySummary => {
   const spentFood = expenseEntries.reduce((acc, curr) => acc + curr.food, 0);
   const spentMaintenance = expenseEntries.reduce((acc, curr) => acc + curr.maintenance, 0);
   const spentOthers = expenseEntries.reduce((acc, curr) => acc + (curr.others || 0), 0);
-  const totalKm = entries.reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
+  
+  // Cálculo de KM Consistente:
+  // Se houver registros de odômetro, o KM Total é a variação entre o primeiro e o último do período.
+  // Caso contrário, usa a soma dos deltas (fallback).
+  let totalKm = 0;
+  if (kmEntries.length >= 2) {
+    totalKm = (kmEntries[kmEntries.length - 1].kmAtMaintenance || 0) - (kmEntries[0].kmAtMaintenance || 0);
+  } else {
+    totalKm = entries.reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
+  }
+
   const workKm = entries.filter(e => !e.kmType || e.kmType === 'work').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
   const personalKm = entries.filter(e => e.kmType === 'personal').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
+  
   const totalLiters = expenseEntries.reduce((acc, curr) => acc + (curr.liters || 0), 0);
 
   const totalSpent = spentFuel + spentFood + spentMaintenance + spentOthers;

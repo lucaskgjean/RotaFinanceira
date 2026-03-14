@@ -140,6 +140,44 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
 
   const sortedDates = Object.keys(dailyTotals).sort((a, b) => b.localeCompare(a));
 
+  const timeSummary = useMemo(() => {
+    const todaySeconds = (dailyTotals[today] || 0) + activeDuration;
+    
+    // Início da semana (Segunda-feira)
+    const getStartOfWeek = (d: Date) => {
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(d.setDate(diff));
+    };
+    const startOfWeek = getStartOfWeek(new Date());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
+
+    // Início do mês
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
+
+    const weekSeconds = timeEntries.reduce((acc, curr) => {
+      if (curr.date >= startOfWeekStr && curr.startTime && curr.endTime) {
+        return acc + calculateDuration(curr.startTime, curr.endTime, curr.breakDuration || 0);
+      }
+      return acc;
+    }, 0) + activeDuration;
+
+    const monthSeconds = timeEntries.reduce((acc, curr) => {
+      if (curr.date >= startOfMonthStr && curr.startTime && curr.endTime) {
+        return acc + calculateDuration(curr.startTime, curr.endTime, curr.breakDuration || 0);
+      }
+      return acc;
+    }, 0) + activeDuration;
+
+    return {
+      today: todaySeconds,
+      week: weekSeconds,
+      month: monthSeconds
+    };
+  }, [timeEntries, dailyTotals, today, activeDuration, now]);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -240,6 +278,43 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
         </div>
         <div className="absolute -right-8 -bottom-8 opacity-[0.03] dark:opacity-[0.05] group-hover:scale-110 transition-transform duration-700">
           <Timer size={200} />
+        </div>
+      </motion.div>
+
+      {/* Resumo de Horas Trabalhadas */}
+      <motion.div 
+        variants={itemVariants}
+        whileHover={{ y: -2, transition: { duration: 0.2 } }}
+        className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden group"
+      >
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-9 h-9 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+              <Clock size={18} strokeWidth={2.5} />
+            </div>
+            <h3 className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Resumo de Horas Trabalhadas</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Hoje</span>
+              <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter font-mono-num">{formatDuration(timeSummary.today)}</div>
+            </div>
+            
+            <div className="flex flex-col md:border-l border-slate-100 dark:border-slate-800 md:pl-6">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Esta Semana</span>
+              <div className="text-xl font-black text-slate-800 dark:text-white tracking-tighter font-mono-num">{formatDuration(timeSummary.week)}</div>
+            </div>
+
+            <div className="flex flex-col md:border-l border-slate-100 dark:border-slate-800 md:pl-6">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Este Mês</span>
+              <div className="text-xl font-black text-slate-800 dark:text-white tracking-tighter font-mono-num">{formatDuration(timeSummary.month)}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="absolute -right-6 -bottom-6 opacity-[0.02] dark:opacity-[0.04] group-hover:scale-110 transition-transform duration-700">
+          <Clock size={150} />
         </div>
       </motion.div>
 
