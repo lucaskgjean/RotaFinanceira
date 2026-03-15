@@ -92,14 +92,9 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
     setError(null);
 
     try {
-      const getEnv = (key: string) => {
-        const val = (process.env as any)?.[key] || (import.meta as any).env?.[key];
-        return (val && val !== 'undefined') ? val : null;
-      };
-
-      const apiKey = getEnv('GEMINI_API_KEY') || getEnv('VITE_GEMINI_API_KEY');
+      const apiKey = process.env.GEMINI_API_KEY;
       
-      if (!apiKey) {
+      if (!apiKey || apiKey === 'undefined') {
         console.error("AI Error: GEMINI_API_KEY is missing in environment");
         throw new Error('Chave da API não configurada no ambiente.');
       }

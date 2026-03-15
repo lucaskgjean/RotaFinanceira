@@ -3,18 +3,13 @@ import { initializeApp, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { getFirestore, Firestore, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
 
-const getEnv = (key: string) => {
-  return import.meta.env[key] || (process.env as any)[key] || (window as any)?._env_?.[key] || '';
-};
-
-// Fallback values provided by the user to ensure the app works in the preview environment
 const firebaseConfig = {
-  apiKey: getEnv('VITE_FIREBASE_API_KEY') || "AIzaSyB5sk9819kKbD2_9v68KWWQSrXxHCWKxIQ",
-  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN') || "rotafinanceira-aba24.firebaseapp.com",
-  projectId: getEnv('VITE_FIREBASE_PROJECT_ID') || "rotafinanceira-aba24",
-  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET') || "rotafinanceira-aba24.firebasestorage.app",
-  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID') || "277383693862",
-  appId: getEnv('VITE_FIREBASE_APP_ID') || "1:277383693862:web:15ae42575974a0c8ae88e7"
+  apiKey: process.env.VITE_FIREBASE_API_KEY || "AIzaSyB5sk9819kKbD2_9v68KWWQSrXxHCWKxIQ",
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "rotafinanceira-aba24.firebaseapp.com",
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "rotafinanceira-aba24",
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "rotafinanceira-aba24.firebasestorage.app",
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "277383693862",
+  appId: process.env.VITE_FIREBASE_APP_ID || "1:277383693862:web:15ae42575974a0c8ae88e7"
 };
 
 let app: FirebaseApp | null = null;
