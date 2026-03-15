@@ -36,22 +36,28 @@ interface HistoryProps {
   onDelete: (id: string) => void;
   onEdit: (entry: DailyEntry) => void;
   onUpdate: (entry: DailyEntry) => void;
+  filterStore: string;
+  onFilterStoreChange: (val: string) => void;
 }
 
-const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, onUpdate }) => {
+const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, onUpdate, filterStore, onFilterStoreChange }) => {
   const todayStr = getLocalDateStr();
   const [filterStartDate, setFilterStartDate] = useState<string>(todayStr);
   const [filterEndDate, setFilterEndDate] = useState<string>(todayStr);
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterPayment, setFilterPayment] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>('');
-  const [filterStore, setFilterStore] = useState<string>('');
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showCategorySelect, setShowCategorySelect] = useState(false);
   const [showPaymentSelect, setShowPaymentSelect] = useState(false);
   const [showStatusSelect, setShowStatusSelect] = useState(false);
+  const [showStoreSelect, setShowStoreSelect] = useState(false);
   const [showFullHistory, setShowFullHistory] = useState(false);
+
+  const uniqueStores = useMemo(() => {
+    return Array.from(new Set(entries.filter(e => e.grossAmount > 0).map(e => e.storeName))).sort();
+  }, [entries]);
 
   const todayEntries = entries.filter(e => e.date === todayStr);
 
@@ -97,7 +103,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
     setFilterCategory('');
     setFilterPayment('');
     setFilterStatus('');
-    setFilterStore('');
+    onFilterStoreChange('');
   };
 
   const containerVariants = {
@@ -205,13 +211,21 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
             />
           </div>
           <div className="space-y-2">
-            <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Loja</label>
-            <input 
-              type="text" 
+            <CustomSelect
+              label="Filtrar por Loja"
               value={filterStore}
-              onChange={(e) => setFilterStore(e.target.value)}
-              placeholder="Nome da loja..."
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 transition outline-none text-sm font-bold text-slate-700 dark:text-slate-200"
+              options={[
+                { id: '', label: 'Todas as Lojas', icon: <HistoryIcon size={14} /> },
+                ...uniqueStores.map(store => ({
+                  id: store,
+                  label: store,
+                  icon: <Tag size={14} />
+                }))
+              ]}
+              onChange={onFilterStoreChange}
+              isOpen={showStoreSelect}
+              onOpen={() => setShowStoreSelect(true)}
+              onClose={() => setShowStoreSelect(false)}
             />
           </div>
           <button 

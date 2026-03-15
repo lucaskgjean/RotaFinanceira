@@ -17,7 +17,7 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
   if (!config.profile?.isPro) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-        <div className="absolute inset-0 bg-slate-950" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm" onClick={onClose} />
         <div className="relative bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 text-center max-w-sm">
           <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-500 mx-auto mb-6">
             <Sparkles size={32} />
@@ -162,7 +162,7 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
       }
 
       const response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
+        model: "gemini-3-flash-preview",
         contents: { parts },
       });
 
@@ -223,7 +223,7 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-slate-950"
+        className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm"
       />
       
       <motion.div 

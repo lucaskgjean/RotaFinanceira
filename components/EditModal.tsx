@@ -4,7 +4,7 @@ import { DailyEntry, AppConfig } from '../types';
 import { calculateDailyEntry, calculateManualExpense, calculateKmClosing } from '../utils/calculations';
 import CustomDatePicker from './CustomDatePicker';
 import CustomTimePicker from './CustomTimePicker';
-import { AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Calendar, Clock } from 'lucide-react';
 
 interface EditModalProps {
@@ -76,8 +76,15 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900 animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-transparent dark:border-slate-800">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm"
+      />
+      <div className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-transparent dark:border-slate-800">
         <div className={`p-6 text-white flex justify-between items-center ${isKmClosing ? 'bg-rose-500' : isIncome ? 'bg-indigo-600' : 'bg-rose-500'}`}>
           <div>
             <h3 className="text-xl font-bold">Editar {isKmClosing ? 'Fechamento KM' : isIncome ? 'Corrida' : 'Gasto'}</h3>

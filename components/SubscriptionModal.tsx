@@ -63,7 +63,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-slate-950"
+        className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm"
       />
       
       <motion.div 

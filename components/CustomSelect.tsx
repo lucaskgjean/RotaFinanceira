@@ -72,7 +72,7 @@ const CustomSelect: React.FC<CustomSelectProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={handleClose}
-              className="absolute inset-0 bg-slate-950"
+              className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm"
             />
             
             <motion.div

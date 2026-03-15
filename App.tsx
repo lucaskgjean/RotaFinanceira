@@ -61,6 +61,7 @@ const App: React.FC = () => {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+  const [globalStoreFilter, setGlobalStoreFilter] = useState<string>('all');
   const topRef = useRef<HTMLDivElement>(null);
   const [dialog, setDialog] = useState<{
     isOpen: boolean;
@@ -386,7 +387,15 @@ const App: React.FC = () => {
         if (localEntries.length > 0) setEntries(recalculateKmDeltas(localEntries));
         if (localTimeEntries.length > 0) setTimeEntries(localTimeEntries);
         if (localConfig) {
-          setConfig({ ...DEFAULT_CONFIG, ...localConfig });
+          setConfig({ 
+            ...DEFAULT_CONFIG, 
+            ...localConfig,
+            profile: {
+              ...(localConfig.profile || {}),
+              isPro: isUserAdmin(user.email) ? true : (localConfig.profile?.isPro || false),
+              subscriptionStatus: isUserAdmin(user.email) ? 'active' : (localConfig.profile?.subscriptionStatus || 'none')
+            }
+          });
         }
 
         // Libera a tela imediatamente após carregar o local
@@ -403,7 +412,16 @@ const App: React.FC = () => {
         if (cloudEntries.length > 0) setEntries(recalculateKmDeltas(cloudEntries));
         if (cloudTimeEntries.length > 0) setTimeEntries(cloudTimeEntries);
         if (cloudConfig) {
-          setConfig(prev => ({ ...DEFAULT_CONFIG, ...prev, ...cloudConfig }));
+          setConfig(prev => ({ 
+            ...DEFAULT_CONFIG, 
+            ...prev, 
+            ...cloudConfig,
+            profile: {
+              ...(cloudConfig.profile || {}),
+              isPro: isUserAdmin(user.email) ? true : (cloudConfig.profile?.isPro || false),
+              subscriptionStatus: isUserAdmin(user.email) ? 'active' : (cloudConfig.profile?.subscriptionStatus || 'none')
+            }
+          }));
         } else if (user && isUserAdmin(user.email)) {
           // Fallback para novos admins sem config na nuvem
           setConfig(prev => ({
@@ -904,11 +922,29 @@ const App: React.FC = () => {
             {activeTab === 'expenses' && <Expenses entries={entries} config={config} onEdit={setEditingEntry} onAdd={addEntry} onDelete={deleteEntry} onUpdate={updateEntry} />}
             {activeTab === 'maintenance' && <Maintenance entries={entries} config={config} onEdit={setEditingEntry} onAdd={addEntry} onDelete={deleteEntry} />}
             {activeTab === 'ponto' && <TimeTracking timeEntries={timeEntries} onAdd={addTimeEntry} onUpdate={updateTimeEntry} onDelete={deleteTimeEntry} />}
-            {activeTab === 'reports' && <Reports entries={entries} timeEntries={timeEntries} config={config} onAddEntry={addEntry} onOpenSubscription={() => setIsSubModalOpen(true)} />}
+            {activeTab === 'reports' && (
+              <Reports 
+                entries={entries} 
+                timeEntries={timeEntries} 
+                config={config} 
+                onAddEntry={addEntry} 
+                onOpenSubscription={() => setIsSubModalOpen(true)}
+                selectedStore={globalStoreFilter}
+                onStoreChange={setGlobalStoreFilter}
+              />
+            )}
             {activeTab === 'history' && (
               <div className="space-y-6">
                 <QuickLaunch onAdd={addEntry} existingEntries={entries} config={config} />
-                <History entries={entries} config={config} onDelete={deleteEntry} onEdit={setEditingEntry} onUpdate={updateEntry} />
+                <History 
+                  entries={entries} 
+                  config={config} 
+                  onDelete={deleteEntry} 
+                  onEdit={setEditingEntry} 
+                  onUpdate={updateEntry}
+                  filterStore={globalStoreFilter === 'all' ? '' : globalStoreFilter}
+                  onFilterStoreChange={(val) => setGlobalStoreFilter(val === '' ? 'all' : val)}
+                />
               </div>
             )}
             {activeTab === 'settings' && <Settings config={config} entries={entries} timeEntries={timeEntries} onChange={setConfig} onImport={importData} onOpenSubscription={() => setIsSubModalOpen(true)} showToast={showToast} onResetData={resetData} onDeleteAccount={deleteAccount} />}

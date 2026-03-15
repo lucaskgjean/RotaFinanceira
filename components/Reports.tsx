@@ -47,9 +47,11 @@ interface ReportsProps {
   config: AppConfig;
   onAddEntry: (entry: DailyEntry) => void;
   onOpenSubscription: () => void;
+  selectedStore: string;
+  onStoreChange: (store: string) => void;
 }
 
-const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEntry, onOpenSubscription }) => {
+const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEntry, onOpenSubscription, selectedStore, onStoreChange }) => {
   const today = getLocalDateStr();
   const [now, setNow] = useState(new Date());
 
@@ -148,7 +150,6 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
   const [endDate, setEndDate] = useState<string>(today);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [selectedStore, setSelectedStore] = useState<string>('all');
   const [showStoreSelect, setShowStoreSelect] = useState(false);
   const [showStoreFilter, setShowStoreFilter] = useState(false);
   const [dialog, setDialog] = useState<{
@@ -474,7 +475,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
                     icon: <Package size={14} />
                   }))
                 ]}
-                onChange={setSelectedStore}
+                onChange={onStoreChange}
                 isOpen={showStoreSelect}
                 onOpen={() => setShowStoreSelect(true)}
                 onClose={() => setShowStoreSelect(false)}
