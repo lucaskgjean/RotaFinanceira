@@ -4,7 +4,7 @@ import { AppConfig, DEFAULT_CONFIG, DailyEntry, TimeEntry } from '../types';
 import { formatCurrency, entriesToCSV } from '../utils/calculations';
 import CustomDialog from './CustomDialog';
 import CustomDatePicker from './CustomDatePicker';
-import { Sun, Moon, Monitor, Settings as SettingsIcon, Bell, Plus, Trash2, Clock, LogOut, User, Camera, Phone, Mail, Lock, ChevronRight, Sparkles, ShieldCheck, RefreshCw, AlertTriangle, Calendar } from 'lucide-react';
+import { Sun, Moon, Monitor, Settings as SettingsIcon, Bell, Plus, Trash2, Clock, LogOut, User, Camera, Phone, Mail, Lock, ChevronRight, Sparkles, ShieldCheck, RefreshCw, AlertTriangle, Calendar, Wallet, ArrowUpRight, CreditCard, MoreHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { notificationService } from '../services/notificationService';
 import { authService } from '../services/authService';
@@ -711,6 +711,41 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
                   <button onClick={() => setShowTutorial(false)} className="w-full pt-2 font-black text-indigo-300 uppercase tracking-widest hover:text-white transition-colors">Entendi, fechar tutorial</button>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* CARD: PERSONALIZAÇÃO DE CATEGORIAS */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+            <h3 className="text-xl font-black text-slate-800 dark:text-white mb-4">Nomes das Categorias</h3>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight mb-6">Personalize os nomes dos métodos de pagamento</p>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { id: 'money', label: 'Dinheiro', icon: <Wallet size={14} /> },
+                { id: 'pix', label: 'PIX', icon: <ArrowUpRight size={14} /> },
+                { id: 'caderno', label: 'Caderno', icon: <MoreHorizontal size={14} /> }
+              ].map(method => (
+                <div key={method.id} className="space-y-2">
+                  <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                    {method.icon} {method.label} (Original)
+                  </label>
+                  <input 
+                    type="text" 
+                    value={localConfig.paymentMethodLabels?.[method.id as keyof typeof localConfig.paymentMethodLabels] || ''}
+                    onChange={(e) => {
+                      setLocalConfig({
+                        ...localConfig,
+                        paymentMethodLabels: {
+                          ...(localConfig.paymentMethodLabels || DEFAULT_CONFIG.paymentMethodLabels!),
+                          [method.id]: e.target.value
+                        }
+                      });
+                    }}
+                    placeholder={`Ex: ${method.label}`}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 ring-indigo-500/20 outline-none"
+                  />
+                </div>
+              ))}
             </div>
           </div>
 

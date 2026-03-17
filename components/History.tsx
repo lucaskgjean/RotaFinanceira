@@ -184,10 +184,9 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
               value={filterPayment}
               options={[
                 { id: '', label: 'Todos', icon: <Banknote size={14} /> },
-                { id: 'pix', label: 'PIX', icon: <CreditCard size={14} className="text-indigo-500" /> },
-                { id: 'money', label: 'Dinheiro', icon: <Wallet size={14} className="text-emerald-500" /> },
-                { id: 'caderno', label: 'Caderno', icon: <Tag size={14} className="text-amber-500" /> },
-                { id: 'debito', label: 'Débito', icon: <CreditCard size={14} className="text-blue-500" /> }
+                { id: 'pix', label: config.paymentMethodLabels?.pix || 'PIX', icon: <CreditCard size={14} className="text-indigo-500" /> },
+                { id: 'money', label: config.paymentMethodLabels?.money || 'Dinheiro', icon: <Wallet size={14} className="text-emerald-500" /> },
+                { id: 'caderno', label: config.paymentMethodLabels?.caderno || 'Caderno', icon: <Tag size={14} className="text-amber-500" /> }
               ]}
               onChange={setFilterPayment}
               isOpen={showPaymentSelect}
@@ -321,7 +320,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                           </span>
                           {entry.paymentMethod && (
                             <span className="text-[10px] text-indigo-400 dark:text-indigo-500 font-semibold uppercase tracking-tight flex items-center gap-1">
-                              <CreditCard size={10} /> {entry.paymentMethod}
+                              <CreditCard size={10} /> {config.paymentMethodLabels?.[entry.paymentMethod as keyof typeof config.paymentMethodLabels] || entry.paymentMethod}
                             </span>
                           )}
                         </div>

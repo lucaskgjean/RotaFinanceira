@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DailyEntry, AppConfig, TimeEntry } from '../types';
 import { formatCurrency, getWeeklySummary, calculateFuelMetrics, getLocalDateStr, calculateDuration, formatDuration } from '../utils/calculations';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -35,6 +35,8 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
   const todayStr = getLocalDateStr();
   const currentMonthStr = todayStr.substring(0, 7);
   const [now, setNow] = useState(new Date());
+  const goalCardRef = useRef<HTMLDivElement>(null);
+  const [hasScrolledToGoal, setHasScrolledToGoal] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -85,6 +87,28 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
 
   const goalPercent = Math.min(100, (todaySum.totalGross / config.dailyGoal) * 100);
   const isGoalReached = todaySum.totalGross >= config.dailyGoal;
+
+  // Efeito de scroll e celebração quando a meta é batida
+  useEffect(() => {
+    if (isGoalReached && !hasScrolledToGoal) {
+      setHasScrolledToGoal(true);
+      
+      // Pequeno delay para garantir que o usuário veja o lançamento sendo processado
+      setTimeout(() => {
+        if (goalCardRef.current) {
+          goalCardRef.current.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }
+      }, 500);
+    }
+    
+    // Reset se o valor cair abaixo da meta (ex: exclusão de lançamento)
+    if (!isGoalReached && hasScrolledToGoal) {
+      setHasScrolledToGoal(false);
+    }
+  }, [isGoalReached, hasScrolledToGoal]);
 
   const pieData = [
     { name: `Combustível`, value: todaySum.totalSpentFuel, color: '#f43f5e' },
@@ -150,50 +174,71 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
         
         {/* Card de Progresso (Revertido para o design anterior) */}
         <motion.div 
+          ref={goalCardRef}
           variants={itemVariants}
           whileHover={{ y: -4, transition: { duration: 0.2 } }}
-          className="md:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group"
+          animate={isGoalReached ? {
+            backgroundColor: '#f59e0b',
+            backgroundImage: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 25%, #fbbf24 50%, #f59e0b 75%, #d97706 100%)',
+            borderColor: '#fcd34d',
+            boxShadow: '0 20px 25px -5px rgba(245, 158, 11, 0.3), 0 10px 10px -5px rgba(245, 158, 11, 0.2), inset 0 0 30px rgba(255, 255, 255, 0.3)',
+          } : {
+            backgroundColor: 'transparent',
+            backgroundImage: 'none',
+            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+          }}
+          transition={{ duration: 1, ease: "easeInOut" }}
+          className={`md:col-span-2 p-6 rounded-[2.5rem] border flex flex-col justify-between relative overflow-hidden group transition-colors duration-500 ${!isGoalReached ? 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800' : 'border-amber-300 dark:border-amber-500/50'}`}
         >
           <div className="relative z-10">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors duration-500 ${isGoalReached ? 'bg-white/30 text-white shadow-inner' : 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'}`}>
                   <Target size={18} strokeWidth={2.5} />
                 </div>
-                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Meta Diária</h3>
+                <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-500 ${isGoalReached ? 'text-amber-950/80' : 'text-slate-400 dark:text-slate-500'}`}>Meta Diária</h3>
               </div>
-              <div className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${isGoalReached ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400'}`}>
-                {isGoalReached ? 'Meta Batida!' : 'Em progresso'}
+              <div className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest transition-all duration-500 ${isGoalReached ? 'bg-white/40 text-white shadow-sm backdrop-blur-sm' : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400'}`}>
+                {isGoalReached ? '🏆 Meta Batida!' : 'Em progresso'}
               </div>
             </div>
             
             <div className="mb-6">
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-black text-slate-800 dark:text-white font-mono-num tracking-tighter">
+                <span className={`text-4xl font-black font-mono-num tracking-tighter transition-colors duration-500 ${isGoalReached ? 'text-amber-950 drop-shadow-sm' : 'text-slate-800 dark:text-white'}`}>
                   {formatCurrency(todaySum.totalGross).replace('R$', '')}
                 </span>
-                <span className="text-slate-300 dark:text-slate-600 text-lg font-bold">/ {formatCurrency(config.dailyGoal)}</span>
+                <span className={`text-lg font-bold transition-colors duration-500 ${isGoalReached ? 'text-amber-900/50' : 'text-slate-300 dark:text-slate-600'}`}>/ {formatCurrency(config.dailyGoal)}</span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div className={`h-3 w-full rounded-full overflow-hidden transition-colors duration-500 ${isGoalReached ? 'bg-black/10' : 'bg-slate-100 dark:bg-slate-800'}`}>
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${goalPercent}%` }}
                   transition={{ duration: 1.5, ease: "easeOut" }}
-                  className={`h-full ${isGoalReached ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                  className={`h-full transition-colors duration-500 ${isGoalReached ? 'bg-white shadow-[0_0_15px_rgba(255,255,255,1)]' : 'bg-indigo-500'}`}
                 />
               </div>
-              <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase">
+              <div className={`flex justify-between text-[10px] font-black uppercase transition-colors duration-500 ${isGoalReached ? 'text-amber-900/70' : 'text-slate-400'}`}>
                 <span>{goalPercent.toFixed(0)}% concluído</span>
-                <span>Faltam {formatCurrency(Math.max(0, config.dailyGoal - todaySum.totalGross))}</span>
+                <span>{isGoalReached ? 'Objetivo Alcançado!' : `Faltam ${formatCurrency(Math.max(0, config.dailyGoal - todaySum.totalGross))}`}</span>
               </div>
             </div>
           </div>
-          <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity">
+          <div className={`absolute -right-4 -bottom-4 opacity-[0.04] group-hover:opacity-[0.07] transition-all duration-700 ${isGoalReached ? 'text-amber-950 scale-110 rotate-12' : 'text-slate-900 dark:text-white'}`}>
             <Target size={180} />
           </div>
+          {isGoalReached && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 1, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12 translate-x-[-100%] animate-[shimmer_4s_infinite]"
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
         </motion.div>
 
         {/* Card Unificado: Hoje, Semana, Mês */}

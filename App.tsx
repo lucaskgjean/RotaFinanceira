@@ -828,7 +828,7 @@ const App: React.FC = () => {
         inputValidation={dialog.inputValidation}
       />
 
-      {user && !user.emailVerified && (
+      {user && !user.emailVerified && !isUserAdmin(user.email) && (
         <VerificationBanner 
           createdAt={(config.profile?.createdAt && config.profile.createdAt !== '') ? config.profile.createdAt : new Date().toISOString()} 
           onLogout={() => authService.logout()} 

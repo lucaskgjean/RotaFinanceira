@@ -180,19 +180,6 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       ? [] 
       : incomeEntries.filter(e => e.storeName === selectedStore);
 
-    const totalsByPayment = incomeEntries.reduce((acc, curr) => {
-      const method = curr.paymentMethod || 'pix';
-      acc[method] = (acc[method] || 0) + curr.grossAmount;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const expenseTotalsByMethod = expenseEntries.reduce((acc, curr) => {
-      const method = curr.paymentMethod || 'pix';
-      const total = curr.fuel + curr.food + curr.maintenance + (curr.others || 0);
-      acc[method] = (acc[method] || 0) + total;
-      return acc;
-    }, {} as Record<string, number>);
-
     const expenseTotalsByCategory = expenseEntries.reduce((acc, curr) => {
       acc.fuel = (acc.fuel || 0) + curr.fuel;
       acc.food = (acc.food || 0) + curr.food;
@@ -274,6 +261,74 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       }))
       .sort((a, b) => a.fullDate.localeCompare(b.fullDate));
 
+    // Dias trabalhados (dias com pelo menos um lançamento de ganho ou tempo)
+    const daysWithEarnings = new Set(incomeEntries.map(e => e.date));
+    const daysWithTime = new Set(filteredTime.map(t => t.date));
+    const daysWorked = new Set([...daysWithEarnings, ...daysWithTime]).size;
+
+    // Metas alcançadas
+    const dailyGoal = config.dailyGoal || 0;
+    const goalsReached = Object.values(dailyEarningsMap).filter(amount => amount >= dailyGoal).length;
+
+    const profitPercentage = summary.totalGross > 0 ? (summary.totalNet / summary.totalGross) * 100 : 0;
+    const expensePercentage = summary.totalGross > 0 ? (totalExpenses / summary.totalGross) * 100 : 0;
+
+    // Faturamento por Método de Pagamento
+    const paymentMethodsMap: Record<string, number> = {
+      'money': 0,
+      'pix': 0,
+      'debito': 0,
+      'caderno': 0
+    };
+
+    incomeEntries.forEach(e => {
+      const method = e.paymentMethod || 'pix';
+      paymentMethodsMap[method] = (paymentMethodsMap[method] || 0) + e.grossAmount;
+    });
+
+    const paymentMethodData = [
+      { name: config.paymentMethodLabels?.money || 'Dinheiro', value: paymentMethodsMap['money'], color: '#10b981' },
+      { name: config.paymentMethodLabels?.pix || 'PIX', value: paymentMethodsMap['pix'], color: '#06b6d4' },
+      { name: config.paymentMethodLabels?.caderno || 'Caderno', value: paymentMethodsMap['caderno'], color: '#f59e0b' },
+    ].filter(item => item.value > 0);
+
+    // Gastos por Método de Pagamento
+    const expenseMethodsMap: Record<string, number> = {
+      'money': 0,
+      'pix': 0,
+      'caderno': 0
+    };
+
+    expenseEntries.forEach(e => {
+      const method = e.paymentMethod || 'money';
+      const totalEntryExpense = e.fuel + e.food + e.maintenance + (e.others || 0);
+      expenseMethodsMap[method] = (expenseMethodsMap[method] || 0) + totalEntryExpense;
+    });
+
+    const expenseMethodData = [
+      { name: config.paymentMethodLabels?.money || 'Dinheiro', value: expenseMethodsMap['money'], color: '#ef4444' },
+      { name: config.paymentMethodLabels?.pix || 'PIX', value: expenseMethodsMap['pix'], color: '#f97316' },
+      { name: config.paymentMethodLabels?.caderno || 'Caderno', value: expenseMethodsMap['caderno'], color: '#7c3aed' },
+    ].filter(item => item.value > 0);
+
+    const avgGrossPerDay = daysWorked > 0 ? summary.totalGross / daysWorked : 0;
+    const avgGrossPerDelivery = quickLaunchesCount > 0 ? summary.totalGross / quickLaunchesCount : 0;
+    const avgGrossPerKm = summary.totalKm && summary.totalKm > 0 ? summary.totalGross / summary.totalKm : 0;
+
+    const avgExpensePerDay = daysWorked > 0 ? totalExpenses / daysWorked : 0;
+    const avgExpensePerDelivery = quickLaunchesCount > 0 ? totalExpenses / quickLaunchesCount : 0;
+    const avgExpensePerHour = totalHoursDecimal > 0 ? totalExpenses / totalHoursDecimal : 0;
+    const avgExpensePerKm = summary.totalKm && summary.totalKm > 0 ? totalExpenses / summary.totalKm : 0;
+
+    const avgKmPerDay = daysWorked > 0 ? summary.totalKm / daysWorked : 0;
+    const avgKmPerHour = totalHoursDecimal > 0 ? summary.totalKm / totalHoursDecimal : 0;
+    const avgKmPerDelivery = quickLaunchesCount > 0 ? summary.totalKm / quickLaunchesCount : 0;
+    const avgLitersPerKm = summary.totalKm && summary.totalKm > 0 ? totalFuelLiters / summary.totalKm : 0;
+
+    const avgHoursPerDay = daysWorked > 0 ? totalHoursDecimal / daysWorked : 0;
+    const avgHoursPerDelivery = quickLaunchesCount > 0 ? totalHoursDecimal / quickLaunchesCount : 0;
+    const avgHoursPerKm = summary.totalKm && summary.totalKm > 0 ? totalHoursDecimal / summary.totalKm : 0;
+
     return {
       summary,
       quickLaunchesCount,
@@ -289,6 +344,20 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       avgKmPerLaunch,
       avgFuelPerLaunch,
       avgGrossPerHour,
+      avgGrossPerDay,
+      avgGrossPerDelivery,
+      avgGrossPerKm,
+      avgExpensePerDay,
+      avgExpensePerDelivery,
+      avgExpensePerHour,
+      avgExpensePerKm,
+      avgKmPerDay,
+      avgKmPerHour,
+      avgKmPerDelivery,
+      avgLitersPerKm,
+      avgHoursPerDay,
+      avgHoursPerDelivery,
+      avgHoursPerKm,
       maintenanceEntries,
       totalFuelSpent,
       totalFoodSpent,
@@ -297,15 +366,19 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       filteredEntries,
       uniqueStores,
       storeDeliveries,
-      totalsByPayment,
-      expenseTotalsByMethod,
       expenseTotalsByCategory,
       fuelMetrics,
       totalOdometer,
       heatMapData,
-      maxHeatValue
+      maxHeatValue,
+      daysWorked,
+      goalsReached,
+      profitPercentage,
+      expensePercentage,
+      paymentMethodData,
+      expenseMethodData
     };
-  }, [entries, timeEntries, startDate, endDate, selectedStore, currentTime]);
+  }, [entries, timeEntries, startDate, endDate, selectedStore, currentTime, config.dailyGoal]);
 
   const exportToCSV = () => {
     if (!config.profile?.isPro) {
@@ -423,18 +496,20 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
                 <Filter size={20} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Análise de Período</h3>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Selecione o intervalo para o relatório</p>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Análise de Período</h3>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight">Selecione o intervalo para o relatório</p>
               </div>
             </div>
             <button 
               onClick={exportToCSV}
-              className="flex items-center gap-2 bg-slate-900 dark:bg-indigo-600 text-white px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black dark:hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-slate-200 dark:shadow-none relative overflow-hidden"
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg relative overflow-hidden ${
+                config.profile?.isPro 
+                  ? 'bg-slate-900 dark:bg-indigo-600 text-white hover:bg-black dark:hover:bg-indigo-700 shadow-slate-200 dark:shadow-none' 
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none'
+              }`}
             >
               {!config.profile?.isPro && (
-                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                  <Lock size={12} className="text-amber-400" />
-                </div>
+                <Lock size={12} className="text-slate-400" />
               )}
               <Download size={14} /> Exportar CSV
             </button>
@@ -442,29 +517,29 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
-              <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Início</label>
+              <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Início</label>
               <button 
                 type="button"
                 onClick={() => setShowStartDatePicker(true)}
-                className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-4 focus:ring-2 focus:ring-indigo-500 transition outline-none font-black text-slate-700 dark:text-slate-200 text-sm"
+                className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-4 focus:ring-2 focus:ring-indigo-500 transition outline-none font-bold text-slate-700 dark:text-slate-200 text-sm"
               >
                 <Calendar className="text-slate-300 dark:text-slate-600" size={18} />
                 <span>{startDate ? new Date(startDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Início'}</span>
               </button>
             </div>
             <div className="relative">
-              <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Fim</label>
+              <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Fim</label>
               <button 
                 type="button"
                 onClick={() => setShowEndDatePicker(true)}
-                className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-4 focus:ring-2 focus:ring-indigo-500 transition outline-none font-black text-slate-700 dark:text-slate-200 text-sm"
+                className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-4 focus:ring-2 focus:ring-indigo-500 transition outline-none font-bold text-slate-700 dark:text-slate-200 text-sm"
               >
                 <Calendar className="text-slate-300 dark:text-slate-600" size={18} />
                 <span>{endDate ? new Date(endDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Fim'}</span>
               </button>
             </div>
             <div className="relative">
-              <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Filtrar por Loja</label>
+              <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Filtrar por Loja</label>
               <CustomSelect
                 value={selectedStore}
                 options={[
@@ -486,43 +561,81 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       </motion.div>
 
       {/* Relatório por Loja Selecionada */}
-      {selectedStore !== 'all' && (
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
-          <div className="flex justify-between items-center mb-8">
-            <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-2">
-              <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-              Entregas: {selectedStore}
-            </h4>
-            <div className="text-right">
-              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase block mb-1">Total na Loja</span>
-              <p className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono-num">
-                {formatCurrency(reportData.storeDeliveries.reduce((acc, curr) => acc + curr.grossAmount, 0))}
-              </p>
-            </div>
-          </div>
-          
-          <div className="space-y-3 max-h-60 overflow-y-auto pr-2 scrollbar-hide">
-            {reportData.storeDeliveries.length === 0 ? (
-              <p className="text-center py-8 text-slate-400 text-xs font-bold uppercase">Nenhuma entrega no período</p>
-            ) : (
-              reportData.storeDeliveries.map(entry => (
-                <div key={entry.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100/50 dark:border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center text-indigo-500 shadow-sm">
-                      <Package size={14} />
+      <AnimatePresence mode="wait">
+        {selectedStore !== 'all' ? (
+          <motion.div 
+            key="store-report"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 mb-6">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-600">
+                    <Store size={20} />
+                  </div>
+                  <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Entregas: {selectedStore}</h3>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Total Faturado</span>
+                  <span className="text-lg font-black text-emerald-500 font-mono-num">
+                    {formatCurrency(reportData.storeDeliveries.reduce((acc, curr) => acc + curr.grossAmount, 0))}
+                  </span>
+                </div>
+              </div>
+
+              {/* Lista de Entregas Detalhada */}
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-hide">
+                <div className="flex items-center justify-between mb-4 px-1">
+                  <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Registros do Período</h4>
+                  <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1 rounded-full">
+                    {reportData.storeDeliveries.length} entregas
+                  </span>
+                </div>
+
+                {reportData.storeDeliveries.sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time)).map((delivery) => (
+                  <div key={delivery.id} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100/50 dark:border-slate-800 group hover:bg-white dark:hover:bg-slate-800 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-indigo-500 shadow-sm group-hover:scale-110 transition-transform">
+                        <Package size={18} />
+                      </div>
+                      <div>
+                        <span className="text-sm font-black text-slate-800 dark:text-white block leading-tight">
+                          {new Date(delivery.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">
+                          {delivery.time} • {delivery.kmDriven || 0} km
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-xs font-black text-slate-800 dark:text-white block">{entry.time}</span>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase">{new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                    <div className="text-right">
+                      <span className="text-sm font-black text-emerald-500 font-mono-num">{formatCurrency(delivery.grossAmount)}</span>
+                      <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">{delivery.paymentMethod || 'PIX'}</div>
                     </div>
                   </div>
-                  <span className="text-sm font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(entry.grossAmount)}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </motion.div>
-      )}
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="all-stores-summary"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="bg-indigo-50/50 dark:bg-indigo-500/5 p-6 rounded-[2.5rem] border border-indigo-100/50 dark:border-indigo-500/10 mb-6 flex items-center gap-4"
+          >
+            <div className="w-10 h-10 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center text-indigo-500 shadow-sm">
+              <TrendingUp size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Visão Geral Ativada</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Mostrando dados consolidados de todos os parceiros e aplicativos.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Gráfico de Ganhos */}
       <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
@@ -574,310 +687,347 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </div>
       </motion.div>
 
-      {/* Grid Bento de Métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
+      {/* Resumo Geral do Período */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Bruto Total */}
-        <motion.div variants={itemVariants} className="bg-slate-900 dark:bg-slate-800 p-8 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-between relative overflow-hidden group">
+        <motion.div variants={itemVariants} className="bg-indigo-600 p-6 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-between relative overflow-hidden group">
           <div className="relative z-10">
-            <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center mb-6">
-              <TrendingUp size={24} />
+            <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
+              <TrendingUp size={20} />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-50 block mb-1">Faturamento Bruto</span>
-            <div className="text-4xl font-black font-mono-num tracking-tighter">{formatCurrency(reportData.summary.totalGross)}</div>
+            <span className="text-[10px] font-bold uppercase tracking-widest opacity-70 block mb-1">Faturamento Bruto</span>
+            <div className="text-3xl font-black font-mono-num tracking-tighter">{formatCurrency(reportData.summary.totalGross)}</div>
           </div>
-          <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
-            <TrendingUp size={180} />
-          </div>
+          <TrendingUp size={120} className="absolute -right-8 -bottom-8 text-white/10 group-hover:scale-110 transition-transform" />
         </motion.div>
 
         {/* Líquido Total */}
-        <motion.div variants={itemVariants} className="bg-emerald-600 dark:bg-emerald-700 p-8 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-between relative overflow-hidden group">
+        <motion.div variants={itemVariants} className="bg-emerald-600 p-6 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-between relative overflow-hidden group">
           <div className="relative z-10">
-            <div className="w-12 h-12 bg-emerald-400 rounded-2xl flex items-center justify-center mb-6">
-              <Wallet size={24} />
+            <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
+              <Wallet size={20} />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-70 block mb-1">Lucro Líquido Real</span>
-            <div className="text-4xl font-black font-mono-num tracking-tighter">{formatCurrency(reportData.summary.totalNet)}</div>
+            <span className="text-[10px] font-bold uppercase tracking-widest opacity-70 block mb-1">Lucro Líquido Real</span>
+            <div className="text-3xl font-black font-mono-num tracking-tighter">{formatCurrency(reportData.summary.totalNet)}</div>
           </div>
-          <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
-            <Wallet size={180} />
-          </div>
+          <Wallet size={120} className="absolute -right-8 -bottom-8 text-white/10 group-hover:scale-110 transition-transform" />
         </motion.div>
 
         {/* Gastos Totais */}
-        <motion.div variants={itemVariants} className="bg-rose-600 dark:bg-rose-700 p-8 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-between relative overflow-hidden group">
+        <motion.div variants={itemVariants} className="bg-rose-600 p-6 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-between relative overflow-hidden group">
           <div className="relative z-10">
-            <div className="w-12 h-12 bg-rose-400 rounded-2xl flex items-center justify-center mb-6">
-              <ArrowDownRight size={24} />
+            <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center mb-4">
+              <ArrowDownRight size={20} />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-70 block mb-1">Total de Despesas</span>
-            <div className="text-4xl font-black font-mono-num tracking-tighter">{formatCurrency(reportData.totalExpenses)}</div>
+            <span className="text-[10px] font-bold uppercase tracking-widest opacity-70 block mb-1">Total de Despesas</span>
+            <div className="text-3xl font-black font-mono-num tracking-tighter">{formatCurrency(reportData.totalExpenses)}</div>
           </div>
-          <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
-            <ArrowDownRight size={180} />
-          </div>
+          <ArrowDownRight size={120} className="absolute -right-8 -bottom-8 text-white/10 group-hover:scale-110 transition-transform" />
         </motion.div>
 
+        {/* Porcentagens */}
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-center gap-4">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Margem de Lucro</span>
+            <span className="text-sm font-black text-emerald-500">{reportData.profitPercentage.toFixed(1)}%</span>
+          </div>
+          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div className="bg-emerald-500 h-full rounded-full shadow-[0_0_8px_rgba(16,185,129,0.3)]" style={{ width: `${Math.min(reportData.profitPercentage, 100)}%` }}></div>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Peso Gastos</span>
+            <span className="text-sm font-black text-rose-500">{reportData.expensePercentage.toFixed(1)}%</span>
+          </div>
+          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div className="bg-rose-500 h-full rounded-full shadow-[0_0_8px_rgba(244,63,94,0.3)]" style={{ width: `${Math.min(reportData.expensePercentage, 100)}%` }}></div>
+          </div>
+        </motion.div>
       </div>
 
-      {/* Novas Métricas de Performance */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Ganhos por Hora */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900 rounded-2xl flex items-center justify-center mb-6 text-indigo-600">
-              <Clock size={24} />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Ganhos por Hora</span>
-            <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num tracking-tighter">{formatCurrency(reportData.avgGrossPerHour)}</div>
+      {/* Grid Secundário de Métricas - Movido para cima para melhor organização */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {/* Horas */}
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Tempo Total</span>
+          <div className="flex items-center gap-2">
+            <Clock size={16} className="text-indigo-500" />
+            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatDuration(reportData.totalHours)}</p>
           </div>
         </motion.div>
 
-        {/* Ganhos por KM */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900 rounded-2xl flex items-center justify-center mb-6 text-emerald-600">
-              <Navigation size={24} />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Ganhos por KM</span>
-            <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num tracking-tighter">{formatCurrency(reportData.earningsPerKm)}</div>
+        {/* Quilometragem */}
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Quilometragem</span>
+          <div className="flex items-center gap-2">
+            <Navigation size={16} className="text-indigo-500" />
+            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.totalKm.toFixed(1)} <small className="text-[10px] opacity-40">km</small></p>
           </div>
         </motion.div>
 
-        {/* Gasto por KM */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-rose-50 dark:bg-rose-900 rounded-2xl flex items-center justify-center mb-6 text-rose-600">
-              <ArrowDownRight size={24} />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Gasto por KM</span>
-            <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num tracking-tighter">{formatCurrency(reportData.expensePerKm)}</div>
+        {/* Entregas */}
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Total Entregas</span>
+          <div className="flex items-center gap-2">
+            <Package size={16} className="text-indigo-500" />
+            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.quickLaunchesCount}</p>
           </div>
         </motion.div>
 
-        {/* Litros de Combustível */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-amber-50 dark:bg-amber-900 rounded-2xl flex items-center justify-center mb-6 text-amber-600">
-              <Fuel size={24} />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Litros Abastecidos</span>
-            <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.totalFuelLiters.toFixed(1)} <small className="text-xs opacity-40">L</small></div>
+        {/* Total de Lojas */}
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Total de Lojas</span>
+          <div className="flex items-center gap-2">
+            <Store size={16} className="text-indigo-500" />
+            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.uniqueStores.length}</p>
           </div>
         </motion.div>
 
-        {/* Média por KM */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900 rounded-2xl flex items-center justify-center mb-6 text-blue-600">
-              <Navigation size={24} />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Média (KM/L)</span>
-            <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerLiter.toFixed(1)} <small className="text-xs opacity-40">km/l</small></div>
+        {/* Dias Trabalhados */}
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Dias Trabalhados</span>
+          <div className="flex items-center gap-2">
+            <Calendar size={16} className="text-indigo-500" />
+            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.daysWorked}</p>
           </div>
         </motion.div>
 
-        {/* Custo por KM */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-rose-50 dark:bg-rose-500/10 rounded-2xl flex items-center justify-center mb-6 text-rose-600">
-              <Navigation size={24} />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Custo/KM</span>
-            <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.fuelMetrics.costPerKm)}</div>
+        {/* Metas Alcançadas */}
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Metas Alcançadas</span>
+          <div className="flex items-center gap-2">
+            <Sparkles size={16} className="text-amber-500" />
+            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.goalsReached}</p>
           </div>
         </motion.div>
 
-        {/* Custo por Entrega */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-amber-50 dark:bg-amber-500/10 rounded-2xl flex items-center justify-center mb-6 text-amber-600">
-              <Package size={24} />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Custo/Entrega</span>
-            <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.fuelMetrics.costPerDelivery)}</div>
-          </div>
-        </motion.div>
-
-        {/* Preço Médio Litro */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center mb-6 text-indigo-600">
-              <Wallet size={24} />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-1">Preço Médio/L</span>
-            <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.fuelMetrics.avgPricePerLiter)}</div>
+        {/* Litros */}
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Combustível</span>
+          <div className="flex items-center gap-2">
+            <Fuel size={16} className="text-rose-500" />
+            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.totalFuelLiters.toFixed(1)} <small className="text-[10px] opacity-40">L</small></p>
           </div>
         </motion.div>
 
         {/* Odômetro Total */}
-        <motion.div variants={itemVariants} className="bg-slate-100 dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between relative overflow-hidden group">
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center mb-6 text-slate-600 dark:text-slate-400">
-              <Gauge size={24} />
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1">Odômetro Total</span>
-            <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.totalOdometer.toLocaleString('pt-BR')} <small className="text-xs opacity-40">km</small></div>
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800">
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Odômetro Total</span>
+          <div className="flex items-center gap-2">
+            <Gauge size={16} className="text-indigo-500" />
+            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.totalOdometer.toLocaleString('pt-BR')} <small className="text-[10px] opacity-40">km</small></p>
           </div>
         </motion.div>
       </div>
 
-      {/* Relatório de Métodos de Pagamento e Gastos Detalhados */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        {/* Faturamento por Método */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
-          <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-2">
-            <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
-            Faturamento por Método
-          </h4>
-          <div className="space-y-4">
-            {['pix', 'money', 'caderno'].map(method => (
-              <div key={method} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100/50 dark:border-slate-800">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-emerald-500 shadow-sm">
-                    <CreditCard size={18} />
-                  </div>
-                  <span className="text-[10px] font-black text-slate-500 uppercase">{method === 'money' ? 'Dinheiro' : method === 'pix' ? 'PIX' : 'Caderno'}</span>
-                </div>
-                <span className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.totalsByPayment[method] || 0)}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
 
-        {/* Gastos por Método */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
-          <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-2">
-            <div className="w-1.5 h-4 bg-rose-500 rounded-full"></div>
-            Gastos por Método
-          </h4>
-          <div className="space-y-4">
-            {['pix', 'money', 'caderno'].map(method => (
-              <div key={method} className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100/50 dark:border-slate-800">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-rose-500 shadow-sm">
-                    <ArrowDownRight size={18} />
-                  </div>
-                  <span className="text-[10px] font-black text-slate-500 uppercase">{method === 'money' ? 'Dinheiro' : method === 'pix' ? 'PIX' : 'Caderno'}</span>
-                </div>
-                <span className="text-xl font-black text-rose-600 dark:text-rose-400 font-mono-num">{formatCurrency(reportData.expenseTotalsByMethod[method] || 0)}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-      </div>
-
-      {/* Médias e Volume */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        {/* Volume de Trabalho */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
-          <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-2">
-            <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
-            Performance Operacional
-          </h4>
-          <div className="grid grid-cols-2 gap-8">
-            <div className="space-y-1">
-              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight flex items-center gap-1.5">
-                <Package size={12} className="text-indigo-500" /> Entregas
-              </span>
-              <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.quickLaunchesCount}</p>
-            </div>
-            <div className="space-y-1">
-              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight flex items-center gap-1.5">
-                <Clock size={12} className="text-indigo-500" /> Tempo Total
-              </span>
-              <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatDuration(reportData.totalHours)}</p>
-            </div>
-            <div className="space-y-1">
-              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight flex items-center gap-1.5">
-                <Navigation size={12} className="text-indigo-500" /> KM Rodados
-              </span>
-              <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.totalKm.toFixed(0)} <small className="text-xs opacity-40">km</small></p>
-            </div>
-            <div className="space-y-1">
-              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight flex items-center gap-1.5">
-                <TrendingUp size={12} className="text-indigo-500" /> Ganho/Hora Trab.
-              </span>
-              <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono-num">{formatCurrency(reportData.avgGrossPerHour)}</p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Médias de Lançamento */}
-        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
-          <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-2">
-            <div className="w-1.5 h-4 bg-emerald-500 rounded-full"></div>
-            Médias por Lançamento
-          </h4>
-          <div className="space-y-6">
-            <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100/50 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 dark:text-slate-500 shadow-sm">
-                  <ArrowUpRight size={18} />
-                </div>
-                <span className="text-[10px] font-black text-slate-500 uppercase">Ticket Médio</span>
-              </div>
-              <span className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.avgValuePerLaunch)}</span>
-            </div>
-            <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100/50 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-rose-400 shadow-sm">
-                  <Fuel size={18} />
-                </div>
-                <span className="text-[10px] font-black text-slate-500 uppercase">Combustível/Lanç.</span>
-              </div>
-              <span className="text-xl font-black text-rose-600 dark:text-rose-400 font-mono-num">{formatCurrency(reportData.avgFuelPerLaunch)}</span>
-            </div>
-            <div className="flex justify-between items-center p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100/50 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center text-indigo-400 shadow-sm">
-                  <Navigation size={18} />
-                </div>
-                <span className="text-[10px] font-black text-slate-500 uppercase">KM Médio/Lanç.</span>
-              </div>
-              <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono-num">{reportData.avgKmPerLaunch.toFixed(1)} <small className="text-xs opacity-40">km</small></span>
-            </div>
-          </div>
-        </motion.div>
-
-      </div>
-
-      {/* Detalhamento de Gastos Reais */}
+      {/* Resumos de Ganhos Médios */}
       <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
-        <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8">Fluxo de Despesas Reais</h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-6 bg-rose-50 dark:bg-rose-900 rounded-[2rem] border border-rose-100 dark:border-rose-500/20 flex flex-col justify-between h-32">
-            <div className="flex justify-between items-start">
-              <Fuel size={20} className="text-rose-500 dark:text-rose-400" />
-              <span className="text-[10px] font-black text-rose-400 dark:text-rose-500 uppercase">Combustível</span>
-            </div>
-            <p className="text-2xl font-black text-rose-700 dark:text-rose-300 font-mono-num">{formatCurrency(reportData.totalFuelSpent)}</p>
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-1.5 h-5 bg-amber-500 rounded-full"></div>
+          <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Resumo de Ganhos Médios</h3>
+        </div>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Calendar size={12} className="text-amber-500" /> Ganhos por Dia
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.avgGrossPerDay)}</p>
           </div>
-          <div className="p-6 bg-amber-50 dark:bg-amber-900 rounded-[2rem] border border-amber-100 dark:border-amber-500/20 flex flex-col justify-between h-32">
-            <div className="flex justify-between items-start">
-              <Utensils size={20} className="text-amber-500 dark:text-amber-400" />
-              <span className="text-[10px] font-black text-amber-400 dark:text-amber-500 uppercase">Alimentação</span>
-            </div>
-            <p className="text-2xl font-black text-amber-700 dark:text-amber-300 font-mono-num">{formatCurrency(reportData.totalFoodSpent)}</p>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Clock size={12} className="text-amber-500" /> Ganhos por Hora
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.avgGrossPerHour)}</p>
           </div>
-          <div className="p-6 bg-blue-50 dark:bg-blue-900 rounded-[2rem] border border-blue-100 dark:border-blue-500/20 flex flex-col justify-between h-32">
-            <div className="flex justify-between items-start">
-              <Wrench size={20} className="text-blue-500 dark:text-blue-400" />
-              <span className="text-[10px] font-black text-blue-400 dark:text-blue-500 uppercase">Manutenção</span>
-            </div>
-            <p className="text-2xl font-black text-blue-700 dark:text-blue-300 font-mono-num">{formatCurrency(reportData.totalMaintenanceSpent)}</p>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Package size={12} className="text-amber-500" /> Ganhos por Entrega
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.avgGrossPerDelivery)}</p>
           </div>
-          <div className="p-6 bg-slate-50 dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-500/20 flex flex-col justify-between h-32">
-            <div className="flex justify-between items-start">
-              <MoreHorizontal size={20} className="text-slate-500 dark:text-slate-400" />
-              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase">Outros</span>
-            </div>
-            <p className="text-2xl font-black text-slate-700 dark:text-slate-300 font-mono-num">{formatCurrency(reportData.totalOthersSpent)}</p>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Navigation size={12} className="text-amber-500" /> Ganhos por KM
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.avgGrossPerKm)}</p>
           </div>
+        </div>
+      </motion.div>
+
+      {/* Resumos de Gastos Médios */}
+      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-1.5 h-5 bg-rose-500 rounded-full"></div>
+          <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Resumo de Gastos Médios</h3>
+        </div>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Calendar size={12} className="text-rose-500" /> Gasto por Dia
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.avgExpensePerDay)}</p>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Clock size={12} className="text-rose-500" /> Gasto por Hora
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.avgExpensePerHour)}</p>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Package size={12} className="text-rose-500" /> Gasto por Entrega
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.avgExpensePerDelivery)}</p>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Navigation size={12} className="text-rose-500" /> Gasto por KM
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.avgExpensePerKm)}</p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Resumo de Quilometragem */}
+      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-1.5 h-5 bg-blue-500 rounded-full"></div>
+          <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Resumo de Quilometragem</h3>
+        </div>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Calendar size={12} className="text-blue-500" /> KM por Dia
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerDay.toFixed(1)} <small className="text-xs opacity-40">km</small></p>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Clock size={12} className="text-blue-500" /> KM por Hora
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerHour.toFixed(1)} <small className="text-xs opacity-40">km</small></p>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Package size={12} className="text-blue-500" /> KM por Entrega
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerDelivery.toFixed(1)} <small className="text-xs opacity-40">km</small></p>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Fuel size={12} className="text-blue-500" /> KM por Litro
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerLiter.toFixed(2)} <small className="text-xs opacity-40">km/L</small></p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Resumo de Horas */}
+      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-1.5 h-5 bg-emerald-500 rounded-full"></div>
+          <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Resumo de Horas</h3>
+        </div>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Calendar size={12} className="text-emerald-500" /> Horas por Dia
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatDuration(Math.round(reportData.avgHoursPerDay * 3600))}</p>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Package size={12} className="text-emerald-500" /> Horas por Entrega
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatDuration(Math.round(reportData.avgHoursPerDelivery * 3600))}</p>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <Navigation size={12} className="text-emerald-500" /> Horas por KM
+            </span>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatDuration(Math.round(reportData.avgHoursPerKm * 3600))}</p>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
+              <TrendingUp size={12} className="text-emerald-500" /> Real por Hora
+            </span>
+            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num">{formatCurrency(reportData.avgGrossPerHour)}</p>
+          </div>
+        </div>
+      </motion.div>
+
+
+
+      {/* Métricas de Performance e Operação (Original, mantido para detalhes extras se necessário, ou podemos remover se estiver redundante) */}
+      {/* Vou remover as seções antigas para evitar redundância e seguir o pedido de "organizar da melhor forma" */}
+
+
+
+
+
+
+      {/* Detalhamento de Gastos Reais - Redesenhado */}
+      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-5 bg-rose-500 rounded-full"></div>
+            <h4 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Fluxo de Despesas Reais</h4>
+          </div>
+          <div className="px-4 py-2 bg-rose-50 dark:bg-rose-500/10 rounded-2xl border border-rose-100 dark:border-rose-500/20 text-right">
+            <span className="text-[9px] font-black text-rose-400 dark:text-rose-500 uppercase tracking-widest block leading-none mb-1">Total do Período</span>
+            <span className="text-lg font-black text-rose-600 dark:text-rose-400 font-mono-num leading-none">{formatCurrency(reportData.totalExpenses)}</span>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 gap-3">
+          {[
+            { label: 'Combustível', value: reportData.totalFuelSpent, icon: <Fuel size={18} />, colorClass: 'text-rose-500', bgClass: 'bg-rose-50 dark:bg-rose-500/10', barClass: 'bg-rose-500' },
+            { label: 'Alimentação', value: reportData.totalFoodSpent, icon: <Utensils size={18} />, colorClass: 'text-amber-500', bgClass: 'bg-amber-50 dark:bg-amber-500/10', barClass: 'bg-amber-500' },
+            { label: 'Manutenção', value: reportData.totalMaintenanceSpent, icon: <Wrench size={18} />, colorClass: 'text-blue-500', bgClass: 'bg-blue-50 dark:bg-blue-500/10', barClass: 'bg-blue-500' },
+            { label: 'Outros Gastos', value: reportData.totalOthersSpent, icon: <MoreHorizontal size={18} />, colorClass: 'text-slate-500', bgClass: 'bg-slate-100 dark:bg-slate-700/50', barClass: 'bg-slate-500' },
+          ].map((item, idx) => {
+            const percentage = reportData.totalExpenses > 0 ? (item.value / reportData.totalExpenses) * 100 : 0;
+            return (
+              <div key={idx} className="flex items-center gap-4 p-5 bg-slate-50/50 dark:bg-slate-800/30 rounded-[2rem] border border-slate-100 dark:border-slate-800/50 transition-all hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm group">
+                <div className={`w-12 h-12 ${item.bgClass} ${item.colorClass} rounded-2xl flex items-center justify-center shadow-sm shrink-0`}>
+                  {item.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">{item.label}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600">{percentage.toFixed(1)}%</span>
+                      <span className="text-base font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(item.value)}</span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${percentage}%` }}
+                      transition={{ duration: 1, delay: idx * 0.1 }}
+                      className={`h-full ${item.barClass} rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)]`}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </motion.div>
 
@@ -920,11 +1070,11 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       {/* Mapa de Calor de Ganhos */}
       <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="mb-8">
-          <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-2">
-            <div className="w-1.5 h-4 bg-amber-500 rounded-full"></div>
-            Mapa de Calor: Melhores Horários
+          <h4 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-2">
+            <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
+            Intensidade de Ganhos
           </h4>
-          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight mt-1">Quanto mais verde, maior o faturamento no período</p>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight mt-1">Quanto mais escuro, maior o faturamento no período</p>
         </div>
 
         <div className="overflow-x-auto pb-4 scrollbar-hide">
@@ -934,7 +1084,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
               {Array.from({ length: 24 }).map((_, i) => {
                 const hour = (i + 8) % 24;
                 return (
-                  <div key={hour} className="flex-1 text-center text-[8px] font-black text-slate-400 uppercase">
+                  <div key={hour} className="flex-1 text-center text-[8px] font-bold text-slate-400 uppercase">
                     {hour}h
                   </div>
                 );
@@ -943,7 +1093,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
 
             {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((day, dIdx) => (
               <div key={day} className="flex items-stretch mb-1">
-                <div className="w-16 shrink-0 text-[10px] font-black text-slate-500 uppercase sticky left-0 bg-white dark:bg-slate-900 z-20 pr-4 flex items-center shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
+                <div className="w-16 shrink-0 text-[10px] font-bold text-slate-500 uppercase sticky left-0 bg-white dark:bg-slate-900 z-20 pr-4 flex items-center shadow-[4px_0_8px_-4px_rgba(0,0,0,0.05)]">
                   {day}
                 </div>
                 <div className="flex-1 flex gap-1 py-1">
@@ -956,8 +1106,8 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
                         key={hIdx} 
                         className="flex-1 h-8 rounded-md transition-all group relative"
                         style={{ 
-                          backgroundColor: value > 0 ? `rgba(16, 185, 129, ${intensity})` : 'rgba(241, 245, 249, 0.5)',
-                          border: value > 0 ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid transparent'
+                          backgroundColor: value > 0 ? `rgba(79, 70, 229, ${0.1 + intensity * 0.9})` : 'rgba(241, 245, 249, 0.5)',
+                          border: value > 0 ? '1px solid rgba(79, 70, 229, 0.1)' : '1px solid transparent'
                         }}
                       >
                         {value > 0 && (
@@ -975,13 +1125,13 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </div>
         
         <div className="mt-6 flex items-center justify-end gap-4">
-          <span className="text-[9px] font-black text-slate-400 uppercase">Menos</span>
+          <span className="text-[9px] font-bold text-slate-400 uppercase">Menos</span>
           <div className="flex gap-1">
             {[0.1, 0.3, 0.6, 0.9].map(i => (
-              <div key={i} className="w-4 h-4 rounded-sm" style={{ backgroundColor: `rgba(16, 185, 129, ${i})` }}></div>
+              <div key={i} className="w-4 h-4 rounded-sm" style={{ backgroundColor: `rgba(79, 70, 229, ${i})` }}></div>
             ))}
           </div>
-          <span className="text-[9px] font-black text-slate-400 uppercase">Mais</span>
+          <span className="text-[9px] font-bold text-slate-400 uppercase">Mais</span>
         </div>
       </motion.div>
 
@@ -994,9 +1144,9 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-1">
               <div className="w-1.5 h-5 bg-indigo-500 rounded-full"></div>
-              <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Distribuição do Período</h3>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Distribuição do Período</h3>
             </div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight ml-4">Onde seu dinheiro foi parar no período selecionado</p>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight ml-4">Onde seu dinheiro foi parar no período selecionado</p>
           </div>
           
           <div className="grid grid-cols-2 gap-3">
@@ -1010,7 +1160,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
                <div key={item.name} className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100/50 dark:border-slate-800 group hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm transition-all">
                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }}></div>
                  <div className="text-left">
-                    <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight">{item.name}</span>
+                    <span className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">{item.name}</span>
                     <span className="block text-sm font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(item.value)}</span>
                  </div>
                </div>
@@ -1049,15 +1199,107 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
               </Pie>
               <Tooltip 
                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px', backgroundColor: '#1e293b', color: '#fff' }}
-                 itemStyle={{ fontWeight: '900', fontSize: '12px', color: '#fff' }}
+                 itemStyle={{ fontWeight: '700', fontSize: '12px', color: '#fff' }}
                  formatter={(value: number) => formatCurrency(value)} 
               />
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total Período</span>
+            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total Período</span>
             <span className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.summary.totalGross).replace('R$', '')}</span>
           </div>
+        </div>
+      </motion.div>
+      
+      {/* Faturamento por Método de Pagamento */}
+      <motion.div 
+        variants={itemVariants}
+        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
+      >
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-5 bg-emerald-500 rounded-full"></div>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Faturamento por Método</h3>
+          </div>
+          <div className="px-3 py-1 bg-emerald-50 dark:bg-emerald-500/10 rounded-full">
+            <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Recebimentos</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {reportData.paymentMethodData.length > 0 ? (
+            reportData.paymentMethodData.map((item, idx) => (
+              <div key={idx} className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-center gap-4 group hover:bg-white dark:hover:bg-slate-800 transition-all hover:shadow-md">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm shrink-0" style={{ backgroundColor: `${item.color}15`, color: item.color }}>
+                  {(item.name === (config.paymentMethodLabels?.money || 'Dinheiro')) && <Wallet size={20} />}
+                  {(item.name === (config.paymentMethodLabels?.pix || 'PIX')) && <ArrowUpRight size={20} />}
+                  {(item.name === (config.paymentMethodLabels?.caderno || 'Caderno')) && <MoreHorizontal size={20} />}
+                </div>
+                <div className="flex-1">
+                  <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight mb-0.5">{item.name}</span>
+                  <span className="block text-lg font-black text-slate-800 dark:text-white font-mono-num leading-none">{formatCurrency(item.value)}</span>
+                  <div className="mt-2 h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(item.value / reportData.summary.totalGross) * 100}%` }}
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full py-10 text-center bg-slate-50 dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Nenhum faturamento registrado no período</p>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Gasto por Método de Pagamento */}
+      <motion.div 
+        variants={itemVariants}
+        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
+      >
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-5 bg-rose-500 rounded-full"></div>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Gasto por Método</h3>
+          </div>
+          <div className="px-3 py-1 bg-rose-50 dark:bg-rose-500/10 rounded-full">
+            <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest">Despesas</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {reportData.expenseMethodData.length > 0 ? (
+            reportData.expenseMethodData.map((item, idx) => (
+              <div key={idx} className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-center gap-4 group hover:bg-white dark:hover:bg-slate-800 transition-all hover:shadow-md">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm shrink-0" style={{ backgroundColor: `${item.color}15`, color: item.color }}>
+                  {(item.name === (config.paymentMethodLabels?.money || 'Dinheiro')) && <Wallet size={20} />}
+                  {(item.name === (config.paymentMethodLabels?.pix || 'PIX')) && <ArrowUpRight size={20} />}
+                  {(item.name === (config.paymentMethodLabels?.caderno || 'Caderno')) && <MoreHorizontal size={20} />}
+                </div>
+                <div className="flex-1">
+                  <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight mb-0.5">{item.name}</span>
+                  <span className="block text-lg font-black text-slate-800 dark:text-white font-mono-num leading-none">{formatCurrency(item.value)}</span>
+                  <div className="mt-2 h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(item.value / reportData.totalExpenses) * 100}%` }}
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full py-10 text-center bg-slate-50 dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Nenhum gasto registrado no período</p>
+            </div>
+          )}
         </div>
       </motion.div>
 

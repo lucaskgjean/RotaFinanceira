@@ -89,6 +89,11 @@ export interface AppConfig {
   notificationsEnabled: boolean;
   customNotifications?: CustomNotification[];
   profile?: UserProfile;
+  paymentMethodLabels?: {
+    money: string;
+    pix: string;
+    caderno: string;
+  };
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -101,6 +106,11 @@ export const DEFAULT_CONFIG: AppConfig = {
   themeMode: 'auto',
   notificationsEnabled: false,
   customNotifications: [],
+  paymentMethodLabels: {
+    money: 'Dinheiro',
+    pix: 'PIX',
+    caderno: 'Caderno'
+  },
   profile: {
     firstName: '',
     lastName: '',

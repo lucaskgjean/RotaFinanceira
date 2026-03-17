@@ -33,7 +33,7 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
   const [storeName, setStoreName] = useState<string>('');
   const [time, setTime] = useState<string>(getCurrentTime());
   const [date, setDate] = useState<string>(getLocalDateStr());
-  const [paymentMethod, setPaymentMethod] = useState<'money' | 'pix' | 'caderno'>('pix');
+  const [paymentMethod, setPaymentMethod] = useState<'money' | 'pix' | 'debito' | 'caderno'>('pix');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -67,6 +67,10 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
     setStoreName('');
     setTime(getCurrentTime());
     setShowAdvanced(false);
+  };
+
+  const getPaymentLabel = (id: string, defaultLabel: string) => {
+    return config.paymentMethodLabels?.[id as keyof typeof config.paymentMethodLabels] || defaultLabel;
   };
 
   return (
@@ -166,9 +170,9 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
             </label>
             <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: 'pix', label: 'PIX' },
-                  { id: 'money', label: 'Din.' },
-                  { id: 'caderno', label: 'Cad.' }
+                  { id: 'pix', label: getPaymentLabel('pix', 'PIX') },
+                  { id: 'money', label: getPaymentLabel('money', 'Din.') },
+                  { id: 'caderno', label: getPaymentLabel('caderno', 'Cad.') }
                 ].map(method => (
                   <motion.button 
                     key={method.id}

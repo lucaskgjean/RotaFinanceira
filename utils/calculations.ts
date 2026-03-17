@@ -310,11 +310,16 @@ export const calculateDuration = (start: string, end: string, breakMinutes: numb
 };
 
 /**
- * Formata segundos em string Xh Ym Zs
+ * Formata segundos em string Xh Ym (sem segundos)
+ * Se horas for 0, mostra apenas minutos.
  */
 export const formatDuration = (seconds: number): string => {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return `${h}h ${m}m ${s}s`;
+  
+  if (h === 0) {
+    return `${m}m`;
+  }
+  
+  return `${h}h ${m}m`;
 };
