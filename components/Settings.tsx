@@ -628,9 +628,10 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
             <h3 className="text-xl font-black text-slate-800 dark:text-white mb-4">Taxas de reserva</h3>
             <div className="space-y-6">
               {[
-                { id: 'percFuel', label: 'Gasolina', color: 'red', val: localConfig.percFuel },
-                { id: 'percFood', label: 'Comida', color: 'orange', val: localConfig.percFood },
-                { id: 'percMaintenance', label: 'Manutenção', color: 'blue', val: localConfig.percMaintenance }
+                { id: 'percFuel', label: 'Gasolina', color: 'rose', val: localConfig.percFuel },
+                { id: 'percFood', label: 'Comida', color: 'amber', val: localConfig.percFood },
+                { id: 'percMaintenance', label: 'Manutenção', color: 'blue', val: localConfig.percMaintenance },
+                { id: 'percOthers', label: 'Outros', color: 'slate', val: localConfig.percOthers }
               ].map(item => (
                 <div key={item.id} className="space-y-2">
                   <div className="flex justify-between font-black text-[10px] uppercase text-slate-400 dark:text-slate-500">

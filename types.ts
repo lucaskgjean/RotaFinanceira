@@ -81,6 +81,7 @@ export interface AppConfig {
   percFuel: number;
   percFood: number;
   percMaintenance: number;
+  percOthers: number;
   dailyGoal: number; 
   lastFuelPrice?: number;
   lastTotalKm?: number;
@@ -100,6 +101,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   percFuel: 0.14,      // 14%
   percFood: 0.08,      // 8%
   percMaintenance: 0.08, // 8%
+  percOthers: 0.05,    // 5%
   dailyGoal: 250,       // Meta padrão de R$ 250
   lastFuelPrice: 5.50,   // Valor base sugerido
   lastTotalKm: 0,

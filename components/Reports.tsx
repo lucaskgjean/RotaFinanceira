@@ -174,7 +174,8 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
     const expenseEntries = filteredEntries.filter(e => e.grossAmount === 0);
     const maintenanceEntries = expenseEntries.filter(e => e.maintenance > 0);
 
-    const uniqueStores = Array.from(new Set(entries.filter(e => e.grossAmount > 0).map(e => e.storeName))).sort();
+    const allUniqueStores = Array.from(new Set(entries.filter(e => e.grossAmount > 0).map(e => e.storeName))).sort();
+    const periodUniqueStores = Array.from(new Set(incomeEntries.map(e => e.storeName))).sort();
     
     const storeDeliveries = selectedStore === 'all' 
       ? [] 
@@ -329,6 +330,45 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
     const avgHoursPerDelivery = quickLaunchesCount > 0 ? totalHoursDecimal / quickLaunchesCount : 0;
     const avgHoursPerKm = summary.totalKm && summary.totalKm > 0 ? totalHoursDecimal / summary.totalKm : 0;
 
+    // 1. Ranking de Categorias (Lojas/Apps)
+    const storeRanking = Object.entries(
+      incomeEntries.reduce((acc, curr) => {
+        acc[curr.storeName] = (acc[curr.storeName] || 0) + curr.grossAmount;
+        return acc;
+      }, {} as Record<string, number>)
+    )
+      .map(([name, value]) => ({ name, value: value as number }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+
+    // 2. Score de Eficiência (0-100)
+    const efficiencyScore = (() => {
+      if (summary.totalGross === 0) return 0;
+      const marginWeight = Math.min((summary.totalNet / summary.totalGross) * 100, 100) * 0.4;
+      const hourlyWeight = Math.min((avgGrossPerHour / 25) * 100, 100) * 0.3;
+      const kmWeight = Math.min((earningsPerKm / 2.5) * 100, 100) * 0.3;
+      return Math.round(marginWeight + hourlyWeight + kmWeight);
+    })();
+
+    // 3. Comparativo de Performance
+    const diffDays = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const prevStartDate = new Date(new Date(startDate).getTime() - (diffDays * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+    const prevEndDate = new Date(new Date(startDate).getTime() - (1 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+    const prevEntries = entries.filter(e => e.date >= prevStartDate && e.date <= prevEndDate);
+    const prevGross = prevEntries.reduce((acc, curr) => acc + curr.grossAmount, 0);
+    const performanceDiff = prevGross > 0 ? ((summary.totalGross - prevGross) / prevGross) * 100 : 0;
+
+    // 4. Meta do Mês
+    const monthlyGoal = config.dailyGoal * 22; 
+    const monthlyProgress = Math.min((summary.totalGross / monthlyGoal) * 100, 100);
+
+    // 5. Projeção de Reservas (Baseada no faturamento do período e porcentagens do usuário)
+    const projectedFuel = summary.totalGross * config.percFuel;
+    const projectedFood = summary.totalGross * config.percFood;
+    const projectedMaintenance = summary.totalGross * config.percMaintenance;
+    const projectedOthers = summary.totalGross * (config.percOthers || 0);
+    const projectedTotal = projectedFuel + projectedFood + projectedMaintenance + projectedOthers;
+
     return {
       summary,
       quickLaunchesCount,
@@ -364,7 +404,8 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       totalMaintenanceSpent,
       totalOthersSpent,
       filteredEntries,
-      uniqueStores,
+      uniqueStores: allUniqueStores,
+      periodUniqueStoresCount: periodUniqueStores.length,
       storeDeliveries,
       expenseTotalsByCategory,
       fuelMetrics,
@@ -376,7 +417,17 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       profitPercentage,
       expensePercentage,
       paymentMethodData,
-      expenseMethodData
+      expenseMethodData,
+      storeRanking,
+      efficiencyScore,
+      performanceDiff,
+      monthlyGoal,
+      monthlyProgress,
+      projectedFuel,
+      projectedFood,
+      projectedMaintenance,
+      projectedOthers,
+      projectedTotal
     };
   }, [entries, timeEntries, startDate, endDate, selectedStore, currentTime, config.dailyGoal]);
 
@@ -687,6 +738,42 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </div>
       </motion.div>
 
+      {/* Meta do Mês */}
+      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-1.5 h-5 bg-amber-500 rounded-full"></div>
+          <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Meta do Mês</h3>
+        </div>
+        <div className="space-y-6">
+          <div className="flex justify-between items-end">
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Progresso Mensal</span>
+              <span className="text-3xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.summary.totalGross)}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Objetivo</span>
+              <span className="text-sm font-black text-slate-500 dark:text-slate-400 font-mono-num">{formatCurrency(reportData.monthlyGoal)}</span>
+            </div>
+          </div>
+          <div className="relative h-4 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${reportData.monthlyProgress}%` }}
+              transition={{ duration: 1.5, ease: "easeOut" }}
+              className="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full shadow-[0_0_12px_rgba(245,158,11,0.4)]"
+            />
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+              {reportData.monthlyProgress.toFixed(1)}% Concluído
+            </span>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Faltam {formatCurrency(Math.max(0, reportData.monthlyGoal - reportData.summary.totalGross))}
+            </span>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Resumo Geral do Período */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Bruto Total */}
@@ -778,7 +865,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Total de Lojas</span>
           <div className="flex items-center gap-2">
             <Store size={16} className="text-indigo-500" />
-            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.uniqueStores.length}</p>
+            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.periodUniqueStoresCount}</p>
           </div>
         </motion.div>
 
@@ -972,6 +1059,77 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </div>
       </motion.div>
 
+      {/* Faturamento por Método de Pagamento */}
+      <motion.div 
+        variants={itemVariants}
+        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
+      >
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-5 bg-emerald-500 rounded-full"></div>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Faturamento por Método</h3>
+          </div>
+          <div className="px-3 py-1 bg-emerald-50 dark:bg-emerald-500/10 rounded-full">
+            <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Recebimentos</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {reportData.paymentMethodData.length > 0 ? (
+            reportData.paymentMethodData.map((item, idx) => (
+              <div key={idx} className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-center gap-4 group hover:bg-white dark:hover:bg-slate-800 transition-all hover:shadow-md">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm shrink-0" style={{ backgroundColor: `${item.color}15`, color: item.color }}>
+                  {(item.name === (config.paymentMethodLabels?.money || 'Dinheiro')) && <Wallet size={20} />}
+                  {(item.name === (config.paymentMethodLabels?.pix || 'PIX')) && <ArrowUpRight size={20} />}
+                  {(item.name === (config.paymentMethodLabels?.caderno || 'Caderno')) && <MoreHorizontal size={20} />}
+                </div>
+                <div className="flex-1">
+                  <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight mb-0.5">{item.name}</span>
+                  <span className="block text-lg font-black text-slate-800 dark:text-white font-mono-num leading-none">{formatCurrency(item.value)}</span>
+                  <div className="mt-2 h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(item.value / reportData.summary.totalGross) * 100}%` }}
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full py-10 text-center bg-slate-50 dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Nenhum faturamento registrado no período</p>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Ranking de Categorias (Lojas) */}
+      <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-1.5 h-5 bg-indigo-500 rounded-full"></div>
+          <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Ranking de Categorias</h3>
+        </div>
+        <div className="space-y-4">
+          {reportData.storeRanking.length > 0 ? (
+            reportData.storeRanking.map((store, idx) => (
+              <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-500/20 rounded-lg flex items-center justify-center text-indigo-600 font-black text-xs">
+                    {idx + 1}º
+                  </div>
+                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{store.name}</span>
+                </div>
+                <span className="text-sm font-black text-slate-900 dark:text-white">{formatCurrency(store.value)}</span>
+              </div>
+            ))
+          ) : (
+            <div className="py-8 text-center text-slate-400 text-xs font-bold uppercase">Sem dados suficientes</div>
+          )}
+        </div>
+      </motion.div>
+
 
 
       {/* Métricas de Performance e Operação (Original, mantido para detalhes extras se necessário, ou podemos remover se estiver redundante) */}
@@ -981,6 +1139,52 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
 
 
 
+
+      {/* Gasto por Método de Pagamento */}
+      <motion.div 
+        variants={itemVariants}
+        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
+      >
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-5 bg-rose-500 rounded-full"></div>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Gasto por Método</h3>
+          </div>
+          <div className="px-3 py-1 bg-rose-50 dark:bg-rose-500/10 rounded-full">
+            <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest">Despesas</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {reportData.expenseMethodData.length > 0 ? (
+            reportData.expenseMethodData.map((item, idx) => (
+              <div key={idx} className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-center gap-4 group hover:bg-white dark:hover:bg-slate-800 transition-all hover:shadow-md">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm shrink-0" style={{ backgroundColor: `${item.color}15`, color: item.color }}>
+                  {(item.name === (config.paymentMethodLabels?.money || 'Dinheiro')) && <Wallet size={20} />}
+                  {(item.name === (config.paymentMethodLabels?.pix || 'PIX')) && <ArrowUpRight size={20} />}
+                  {(item.name === (config.paymentMethodLabels?.caderno || 'Caderno')) && <MoreHorizontal size={20} />}
+                </div>
+                <div className="flex-1">
+                  <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight mb-0.5">{item.name}</span>
+                  <span className="block text-lg font-black text-slate-800 dark:text-white font-mono-num leading-none">{formatCurrency(item.value)}</span>
+                  <div className="mt-2 h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(item.value / reportData.totalExpenses) * 100}%` }}
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full py-10 text-center bg-slate-50 dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Nenhum gasto registrado no período</p>
+            </div>
+          )}
+        </div>
+      </motion.div>
 
       {/* Detalhamento de Gastos Reais - Redesenhado */}
       <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
@@ -1211,97 +1415,118 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </div>
       </motion.div>
       
-      {/* Faturamento por Método de Pagamento */}
-      <motion.div 
-        variants={itemVariants}
-        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
-      >
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-1.5 h-5 bg-emerald-500 rounded-full"></div>
-            <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Faturamento por Método</h3>
+      {/* NOVAS MÉTRICAS SOLICITADAS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Score de Eficiência & Comparativo de Performance */}
+        <motion.div 
+          variants={itemVariants} 
+          className="md:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-1.5 h-5 bg-emerald-500 rounded-full"></div>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Eficiência & Performance</h3>
+            </div>
+            <div className={`px-3 py-1 rounded-full flex items-center gap-1.5 ${reportData.performanceDiff >= 0 ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600'}`}>
+              {reportData.performanceDiff >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+              <span className="text-[10px] font-black uppercase tracking-widest">{reportData.performanceDiff >= 0 ? '+' : ''}{reportData.performanceDiff.toFixed(1)}%</span>
+            </div>
           </div>
-          <div className="px-3 py-1 bg-emerald-50 dark:bg-emerald-500/10 rounded-full">
-            <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Recebimentos</span>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {reportData.paymentMethodData.length > 0 ? (
-            reportData.paymentMethodData.map((item, idx) => (
-              <div key={idx} className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-center gap-4 group hover:bg-white dark:hover:bg-slate-800 transition-all hover:shadow-md">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm shrink-0" style={{ backgroundColor: `${item.color}15`, color: item.color }}>
-                  {(item.name === (config.paymentMethodLabels?.money || 'Dinheiro')) && <Wallet size={20} />}
-                  {(item.name === (config.paymentMethodLabels?.pix || 'PIX')) && <ArrowUpRight size={20} />}
-                  {(item.name === (config.paymentMethodLabels?.caderno || 'Caderno')) && <MoreHorizontal size={20} />}
-                </div>
-                <div className="flex-1">
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight mb-0.5">{item.name}</span>
-                  <span className="block text-lg font-black text-slate-800 dark:text-white font-mono-num leading-none">{formatCurrency(item.value)}</span>
-                  <div className="mt-2 h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="relative w-32 h-32 flex items-center justify-center shrink-0">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle
+                  cx="64"
+                  cy="64"
+                  r="56"
+                  stroke="currentColor"
+                  strokeWidth="10"
+                  fill="transparent"
+                  className="text-slate-100 dark:text-slate-800"
+                />
+                <motion.circle
+                  cx="64"
+                  cy="64"
+                  r="56"
+                  stroke="currentColor"
+                  strokeWidth="10"
+                  fill="transparent"
+                  strokeDasharray={352}
+                  initial={{ strokeDashoffset: 352 }}
+                  animate={{ strokeDashoffset: 352 - (352 * reportData.efficiencyScore) / 100 }}
+                  transition={{ duration: 1.5, ease: "easeOut" }}
+                  className="text-emerald-500"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-3xl font-black text-slate-800 dark:text-white">{reportData.efficiencyScore}</span>
+                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Score</span>
+              </div>
+            </div>
+
+            <div className="flex-1 space-y-4">
+              <div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                  Sua eficiência operacional é calculada com base no lucro líquido, ganho por hora e ganho por KM.
+                </p>
+              </div>
+              <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium italic leading-snug">
+                  "{reportData.performanceDiff >= 0 ? 'Excelente! Você está performando melhor do que no período anterior. Mantenha o ritmo.' : 'Atenção: sua performance caiu em relação ao período anterior. Revise suas rotas e gastos.'}"
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Projeção de Reservas */}
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-1.5 h-5 bg-indigo-500 rounded-full"></div>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Reserva Ideal do Período</h3>
+          </div>
+          <div className="space-y-6">
+            <div className="flex justify-between items-end mb-2">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Total a Reservar</span>
+                <span className="text-3xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.projectedTotal)}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Base: Faturamento Bruto</span>
+                <span className="text-xs font-bold text-indigo-500 uppercase tracking-widest">Cálculo por %</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              {[
+                { label: 'Reserva Combustível', value: reportData.projectedFuel, color: 'bg-rose-500', perc: config.percFuel },
+                { label: 'Reserva Alimentação', value: reportData.projectedFood, color: 'bg-amber-500', perc: config.percFood },
+                { label: 'Reserva Manutenção', value: reportData.projectedMaintenance, color: 'bg-blue-500', perc: config.percMaintenance },
+                { label: 'Outras Reservas', value: reportData.projectedOthers, color: 'bg-slate-500', perc: config.percOthers },
+              ].map((item, idx) => (
+                <div key={idx} className="space-y-2">
+                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                    <span className="text-slate-500">{item.label} ({(item.perc * 100).toFixed(1)}%)</span>
+                    <span className="text-slate-800 dark:text-white">{formatCurrency(item.value)}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
-                      animate={{ width: `${(item.value / reportData.summary.totalGross) * 100}%` }}
-                      className="h-full rounded-full"
-                      style={{ backgroundColor: item.color }}
+                      animate={{ width: `${reportData.projectedTotal > 0 ? (item.value / reportData.projectedTotal) * 100 : 0}%` }}
+                      className={`h-full ${item.color} rounded-full`}
                     />
                   </div>
                 </div>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-full py-10 text-center bg-slate-50 dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Nenhum faturamento registrado no período</p>
+              ))}
             </div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Gasto por Método de Pagamento */}
-      <motion.div 
-        variants={itemVariants}
-        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
-      >
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-1.5 h-5 bg-rose-500 rounded-full"></div>
-            <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Gasto por Método</h3>
+            
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-relaxed italic text-center mt-4">
+              * Valores ideais que deveriam ter sido reservados com base no faturamento bruto do período selecionado e nas taxas configuradas.
+            </p>
           </div>
-          <div className="px-3 py-1 bg-rose-50 dark:bg-rose-500/10 rounded-full">
-            <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest">Despesas</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {reportData.expenseMethodData.length > 0 ? (
-            reportData.expenseMethodData.map((item, idx) => (
-              <div key={idx} className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800 flex items-center gap-4 group hover:bg-white dark:hover:bg-slate-800 transition-all hover:shadow-md">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm shrink-0" style={{ backgroundColor: `${item.color}15`, color: item.color }}>
-                  {(item.name === (config.paymentMethodLabels?.money || 'Dinheiro')) && <Wallet size={20} />}
-                  {(item.name === (config.paymentMethodLabels?.pix || 'PIX')) && <ArrowUpRight size={20} />}
-                  {(item.name === (config.paymentMethodLabels?.caderno || 'Caderno')) && <MoreHorizontal size={20} />}
-                </div>
-                <div className="flex-1">
-                  <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight mb-0.5">{item.name}</span>
-                  <span className="block text-lg font-black text-slate-800 dark:text-white font-mono-num leading-none">{formatCurrency(item.value)}</span>
-                  <div className="mt-2 h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(item.value / reportData.totalExpenses) * 100}%` }}
-                      className="h-full rounded-full"
-                      style={{ backgroundColor: item.color }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-full py-10 text-center bg-slate-50 dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
-              <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Nenhum gasto registrado no período</p>
-            </div>
-          )}
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
 
       <AnimatePresence>
         {showStartDatePicker && (

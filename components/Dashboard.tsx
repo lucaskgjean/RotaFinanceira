@@ -35,8 +35,14 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
   const todayStr = getLocalDateStr();
   const currentMonthStr = todayStr.substring(0, 7);
   const [now, setNow] = useState(new Date());
+
+  const todayEntries = entries.filter(e => e.date === todayStr);
+  const todaySum = { ...getWeeklySummary(todayEntries), count: todayEntries.filter(e => e.grossAmount > 0).length };
+  const isGoalReached = todaySum.totalGross >= config.dailyGoal;
+
   const goalCardRef = useRef<HTMLDivElement>(null);
-  const [hasScrolledToGoal, setHasScrolledToGoal] = useState(false);
+  const prevIsGoalReached = useRef(isGoalReached);
+  const isFirstMount = useRef(true);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -55,16 +61,14 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
   const startOfWeek = getStartOfWeek(new Date());
   startOfWeek.setHours(0, 0, 0, 0);
 
-  const todayEntries = entries.filter(e => e.date === todayStr);
   const monthEntries = entries.filter(e => e.date.startsWith(currentMonthStr));
   const weekEntries = entries.filter(e => {
     const entryDate = new Date(e.date + 'T12:00:00');
     return entryDate >= startOfWeek;
   });
 
-  const todaySum = { ...getWeeklySummary(todayEntries), count: todayEntries.filter(e => e.grossAmount > 0).length };
-  const weekSum = { ...getWeeklySummary(weekEntries), count: weekEntries.filter(e => e.grossAmount > 0).length };
   const monthSum = { ...getWeeklySummary(monthEntries), count: monthEntries.filter(e => e.grossAmount > 0).length };
+  const weekSum = { ...getWeeklySummary(weekEntries), count: weekEntries.filter(e => e.grossAmount > 0).length };
   const generalSum = getWeeklySummary(entries);
 
   // Cálculo de Horas Trabalhadas Hoje em Tempo Real
@@ -86,13 +90,12 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
   const fuelMetrics = calculateFuelMetrics(entries);
 
   const goalPercent = Math.min(100, (todaySum.totalGross / config.dailyGoal) * 100);
-  const isGoalReached = todaySum.totalGross >= config.dailyGoal;
 
   // Efeito de scroll e celebração quando a meta é batida
   useEffect(() => {
-    if (isGoalReached && !hasScrolledToGoal) {
-      setHasScrolledToGoal(true);
-      
+    // Só faz o scroll se a meta ACABOU de ser batida (transição de false para true)
+    // E não faz no primeiro mount
+    if (isGoalReached && !prevIsGoalReached.current && !isFirstMount.current) {
       // Pequeno delay para garantir que o usuário veja o lançamento sendo processado
       setTimeout(() => {
         if (goalCardRef.current) {
@@ -104,11 +107,10 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
       }, 500);
     }
     
-    // Reset se o valor cair abaixo da meta (ex: exclusão de lançamento)
-    if (!isGoalReached && hasScrolledToGoal) {
-      setHasScrolledToGoal(false);
-    }
-  }, [isGoalReached, hasScrolledToGoal]);
+    // Atualiza o ref para a próxima mudança
+    prevIsGoalReached.current = isGoalReached;
+    isFirstMount.current = false;
+  }, [isGoalReached]);
 
   const pieData = [
     { name: `Combustível`, value: todaySum.totalSpentFuel, color: '#f43f5e' },
@@ -188,7 +190,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
             boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
           }}
           transition={{ duration: 1, ease: "easeInOut" }}
-          className={`md:col-span-2 p-6 rounded-[2.5rem] border flex flex-col justify-between relative overflow-hidden group transition-colors duration-500 ${!isGoalReached ? 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800' : 'border-amber-300 dark:border-amber-500/50'}`}
+          className={`md:col-span-2 p-6 rounded-[2.5rem] border flex flex-col justify-between relative overflow-hidden group transition-colors duration-500 ${!isGoalReached ? 'bg-indigo-50/40 dark:bg-indigo-500/5 border-indigo-100 dark:border-indigo-500/20 shadow-sm' : 'border-amber-300 dark:border-amber-500/50'}`}
         >
           <div className="relative z-10">
             <div className="flex justify-between items-center mb-6">
@@ -227,7 +229,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
               </div>
             </div>
           </div>
-          <div className={`absolute -right-4 -bottom-4 opacity-[0.04] group-hover:opacity-[0.07] transition-all duration-700 ${isGoalReached ? 'text-amber-950 scale-110 rotate-12' : 'text-slate-900 dark:text-white'}`}>
+          <div className={`absolute -right-4 -bottom-4 opacity-[0.1] group-hover:opacity-[0.15] transition-all duration-700 ${isGoalReached ? 'text-amber-950 scale-110 rotate-12' : 'text-red-500'}`}>
             <Target size={180} />
           </div>
           {isGoalReached && (
