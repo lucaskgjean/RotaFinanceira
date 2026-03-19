@@ -67,6 +67,13 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "jeangontijoo@gmail.com" || 
+         request.auth.token.email == "jeanlucasgontijo.15@gmail.com") && 
+        request.auth.token.email_verified == true;
+    }
+
     function hasOnlyAllowedFields(fields) {
       return request.resource.data.keys().hasOnly(fields);
     }
@@ -98,9 +105,9 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create, update: if isOwner(userId) && isValidUserDoc(request.resource.data);
-      allow delete: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
+      allow create, update: if (isOwner(userId) || isAdmin()) && isValidUserDoc(request.resource.data);
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     // Default deny
