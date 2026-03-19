@@ -79,6 +79,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         'auth/network-request-failed': 'Erro de conexão. Verifique sua internet ou o servidor.',
         'auth/operation-not-allowed': 'O login por e-mail/senha não está habilitado no servidor.',
         'auth/popup-closed-by-user': 'A janela de autenticação foi fechada antes de concluir.',
+        'auth/popup-blocked': 'O navegador bloqueou a janela de login. Por favor, permita popups para este site.',
         'auth/internal-error': 'Erro interno no servidor. Tente novamente em instantes.'
       };
 
