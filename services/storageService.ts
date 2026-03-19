@@ -3,7 +3,7 @@ import localforage from 'localforage';
 import CryptoJS from 'crypto-js';
 import { DailyEntry, TimeEntry, AppConfig } from '../types';
 import { db } from './firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, writeBatch, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 
 // Configuração do localforage
 localforage.config({
@@ -140,6 +140,32 @@ export const storageService = {
         const docRef = doc(db, 'users', userId);
         const sanitizedEntries = sanitizeForFirestore(entries);
         await setDoc(docRef, { entries: sanitizedEntries }, { merge: true });
+
+        // Sincronização com RotaBank (coleção raiz 'entries')
+        // Filtra apenas as entradas de renda (ganhos)
+        const incomeEntries = entries.filter(e => e.category === 'income');
+        
+        // Salva cada entrada de renda na coleção raiz 'entries'
+        // Nota: Usamos o ID da entrada original para manter consistência
+        for (const entry of incomeEntries) {
+          const entryRef = doc(db, 'entries', entry.id);
+          await setDoc(entryRef, {
+            netAmount: entry.netAmount,
+            uid: userId,
+            date: entry.date
+          }, { merge: true });
+        }
+
+        // Limpeza de entradas que não são mais de renda ou foram deletadas
+        const q = query(collection(db, 'entries'), where('uid', '==', userId));
+        const querySnapshot = await getDocs(q);
+        const currentIncomeIds = incomeEntries.map(e => e.id);
+        
+        for (const docSnap of querySnapshot.docs) {
+          if (!currentIncomeIds.includes(docSnap.id)) {
+            await deleteDoc(docSnap.ref);
+          }
+        }
       } catch (e: any) {
         console.error("Erro ao salvar entradas no Firestore:", e);
       }

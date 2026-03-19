@@ -71,6 +71,10 @@
     "/users/{userId}/profile/data": {
       "schema": "UserProfile",
       "description": "User profile data"
+    },
+    "/entries/{entryId}": {
+      "schema": "DailyEntry",
+      "description": "Global entries collection for RotaBank synchronization"
     }
   }
 }

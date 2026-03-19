@@ -69,6 +69,15 @@ app.use((req, res, next) => {
 // Servir arquivos estáticos da pasta public explicitamente
 app.use(express.static(path.join(__dirname, "public")));
 
+// Rota específica para o Service Worker para garantir o MIME type correto
+app.get("/sw.js", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "sw.js"), {
+    headers: {
+      'Content-Type': 'application/javascript'
+    }
+  });
+});
+
 // Rota de Webhook do Stripe
 app.post("/api/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
   const stripe = getStripe();

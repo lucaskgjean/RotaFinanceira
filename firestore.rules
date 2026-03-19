@@ -100,6 +100,12 @@ service cloud.firestore {
              (!('config' in data) || data.config is map);
     }
 
+    function isValidRotaBankEntry(data) {
+      return data.netAmount is number &&
+             data.uid is string &&
+             isValidDateString(data.date);
+    }
+
     // ===============================================================
     // Match Rules
     // ===============================================================
@@ -108,6 +114,13 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin();
       allow create, update: if (isOwner(userId) || isAdmin()) && isValidUserDoc(request.resource.data);
       allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    match /entries/{entryId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.uid || isAdmin());
+      allow create: if isAuthenticated() && (request.auth.uid == request.resource.data.uid || isAdmin()) && isValidRotaBankEntry(request.resource.data);
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.uid || isAdmin()) && isValidRotaBankEntry(request.resource.data);
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.uid || isAdmin());
     }
 
     // Default deny
