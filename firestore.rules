@@ -95,13 +95,15 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUserDoc(data) {
-      return (!('entries' in data) || data.entries is list) &&
+      return hasOnlyAllowedFields(['entries', 'timeEntries', 'config']) &&
+             (!('entries' in data) || data.entries is list) &&
              (!('timeEntries' in data) || data.timeEntries is list) &&
              (!('config' in data) || data.config is map);
     }
 
     function isValidRotaBankEntry(data) {
-      return data.netAmount is number &&
+      return hasOnlyAllowedFields(['netAmount', 'uid', 'date']) &&
+             data.netAmount is number &&
              data.uid is string &&
              isValidDateString(data.date);
     }

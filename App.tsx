@@ -373,6 +373,7 @@ const App: React.FC = () => {
     if (!authChecked || !user) return;
 
     const initApp = async () => {
+      console.log(`Inicializando app para o usuário: ${user.uid} (${user.email})`);
       try {
         // 0. Migra se necessário (agora isolado por usuário)
         await storageService.migrateFromLocalStorage(user.uid);

@@ -2,7 +2,7 @@
 import localforage from 'localforage';
 import CryptoJS from 'crypto-js';
 import { DailyEntry, TimeEntry, AppConfig } from '../types';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { doc, setDoc, getDoc, collection, writeBatch, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 
 // Configuração do localforage
@@ -48,6 +48,12 @@ const sanitizeForFirestore = (data: any) => {
   return JSON.parse(JSON.stringify(data));
 };
 
+// Cache para evitar sincronizações redundantes e melhorar performance
+let lastSyncedHash: string | null = null;
+let lastSyncedTimeHash: string | null = null;
+let lastSyncedConfigHash: string | null = null;
+let lastSyncedIncomeMap: Map<string, string> = new Map(); // id -> hash dos campos relevantes
+
 export const storageService = {
   /**
    * Migra dados do localStorage/IndexedDB antigo para o novo formato isolado e criptografado
@@ -88,21 +94,40 @@ export const storageService = {
     if (!userId) return [];
     const key = `${KEYS.ENTRIES}_${userId}`;
     const encrypted = await localforage.getItem<string>(key);
-    return decrypt(encrypted, userId) || [];
+    const entries = decrypt(encrypted, userId) || [];
+    
+    // Inicializa o hash local para evitar sync imediato se os dados forem iguais
+    if (entries.length > 0 && !lastSyncedHash) {
+      lastSyncedHash = CryptoJS.MD5(JSON.stringify(entries)).toString();
+      // Popula o mapa de renda para sync cirúrgico
+      entries.filter((e: DailyEntry) => e.category === 'income').forEach((e: DailyEntry) => {
+        lastSyncedIncomeMap.set(e.id, JSON.stringify({ netAmount: e.netAmount, uid: userId, date: e.date }));
+      });
+    }
+    
+    return entries;
   },
 
   async getLocalTimeEntries(userId: string): Promise<TimeEntry[]> {
     if (!userId) return [];
     const key = `${KEYS.TIME_ENTRIES}_${userId}`;
     const encrypted = await localforage.getItem<string>(key);
-    return decrypt(encrypted, userId) || [];
+    const timeEntries = decrypt(encrypted, userId) || [];
+    if (timeEntries.length > 0 && !lastSyncedTimeHash) {
+      lastSyncedTimeHash = CryptoJS.MD5(JSON.stringify(timeEntries)).toString();
+    }
+    return timeEntries;
   },
 
   async getLocalConfig(userId: string): Promise<AppConfig | null> {
     if (!userId) return null;
     const key = `${KEYS.CONFIG}_${userId}`;
     const encrypted = await localforage.getItem<string>(key);
-    return decrypt(encrypted, userId);
+    const config = decrypt(encrypted, userId);
+    if (config && !lastSyncedConfigHash) {
+      lastSyncedConfigHash = CryptoJS.MD5(JSON.stringify(config)).toString();
+    }
+    return config;
   },
 
   async getEntries(userId: string): Promise<DailyEntry[]> {
@@ -113,13 +138,20 @@ export const storageService = {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data.entries) {
+            // Atualiza caches de sincronização
+            lastSyncedHash = CryptoJS.MD5(JSON.stringify(data.entries)).toString();
+            lastSyncedIncomeMap.clear();
+            data.entries.filter((e: DailyEntry) => e.category === 'income').forEach((e: DailyEntry) => {
+              lastSyncedIncomeMap.set(e.id, JSON.stringify({ netAmount: e.netAmount, uid: userId, date: e.date }));
+            });
+
             await this.saveEntries(data.entries, userId, false); // Salva localmente (criptografado)
             return data.entries;
           }
         }
       } catch (e: any) {
         if (e.code !== 'unavailable' && !e.message?.includes('offline')) {
-          console.error("Erro ao buscar entradas do Firestore:", e);
+          console.error(`Erro ao buscar entradas do Firestore (User: ${userId}, Auth: ${auth?.currentUser?.uid}):`, e);
         }
       }
     }
@@ -129,45 +161,80 @@ export const storageService = {
   async saveEntries(entries: DailyEntry[], userId: string, syncToCloud: boolean = true) {
     if (!userId) return;
     
+    // 1. Salva Localmente Primeiro (Sempre)
     const key = `${KEYS.ENTRIES}_${userId}`;
     const encrypted = encrypt(entries, userId);
     if (encrypted) {
       await localforage.setItem(key, encrypted);
     }
 
+    // 2. Verifica se precisa sincronizar com a nuvem
     if (syncToCloud && db) {
+      const currentHash = CryptoJS.MD5(JSON.stringify(entries)).toString();
+      
+      // Se o hash for igual ao último sincronizado, não faz nada na nuvem
+      if (currentHash === lastSyncedHash) {
+        return;
+      }
+
       try {
         const docRef = doc(db, 'users', userId);
         const sanitizedEntries = sanitizeForFirestore(entries);
-        await setDoc(docRef, { entries: sanitizedEntries }, { merge: true });
+        
+        // Promessa para o documento principal (sempre atualiza o array completo)
+        const mainSavePromise = setDoc(docRef, { entries: sanitizedEntries }, { merge: true });
 
-        // Sincronização com RotaBank (coleção raiz 'entries')
-        // Filtra apenas as entradas de renda (ganhos)
+        // Sincronização Cirúrgica com RotaBank (coleção raiz 'entries')
         const incomeEntries = entries.filter(e => e.category === 'income');
+        const syncPromises: Promise<void>[] = [];
         
-        // Salva cada entrada de renda na coleção raiz 'entries'
-        // Nota: Usamos o ID da entrada original para manter consistência
-        for (const entry of incomeEntries) {
-          const entryRef = doc(db, 'entries', entry.id);
-          await setDoc(entryRef, {
-            netAmount: entry.netAmount,
-            uid: userId,
-            date: entry.date
-          }, { merge: true });
+        // Identifica o que mudou ou é novo
+        incomeEntries.forEach(entry => {
+          const entryData = { netAmount: entry.netAmount, uid: userId, date: entry.date };
+          const entryHash = JSON.stringify(entryData);
+          
+          if (lastSyncedIncomeMap.get(entry.id) !== entryHash) {
+            const entryRef = doc(db, 'entries', entry.id);
+            syncPromises.push(setDoc(entryRef, entryData, { merge: true }));
+            lastSyncedIncomeMap.set(entry.id, entryHash);
+          }
+        });
+
+        // Identifica o que foi deletado (apenas se o mapa não estiver vazio, para evitar deletar tudo no primeiro sync)
+        const currentIncomeIds = new Set(incomeEntries.map(e => e.id));
+        const deletePromises: Promise<void>[] = [];
+        
+        // Se temos um estado anterior conhecido, deletamos apenas o que sumiu
+        // Caso contrário (primeiro sync da sessão), precisamos buscar no banco para limpar
+        if (lastSyncedIncomeMap.size > 0) {
+          for (const id of lastSyncedIncomeMap.keys()) {
+            if (!currentIncomeIds.has(id)) {
+              const entryRef = doc(db, 'entries', id);
+              deletePromises.push(deleteDoc(entryRef));
+              lastSyncedIncomeMap.delete(id);
+            }
+          }
+        } else {
+          // Reconciliação total (apenas uma vez por sessão se o cache estiver vazio)
+          const q = query(collection(db, 'entries'), where('uid', '==', userId));
+          const querySnapshot = await getDocs(q);
+          querySnapshot.docs.forEach(docSnap => {
+            if (!currentIncomeIds.has(docSnap.id)) {
+              deletePromises.push(deleteDoc(docSnap.ref));
+            }
+          });
         }
 
-        // Limpeza de entradas que não são mais de renda ou foram deletadas
-        const q = query(collection(db, 'entries'), where('uid', '==', userId));
-        const querySnapshot = await getDocs(q);
-        const currentIncomeIds = incomeEntries.map(e => e.id);
+        // Executa todas as operações em paralelo
+        await Promise.all([mainSavePromise, ...syncPromises, ...deletePromises]);
         
-        for (const docSnap of querySnapshot.docs) {
-          if (!currentIncomeIds.includes(docSnap.id)) {
-            await deleteDoc(docSnap.ref);
-          }
-        }
+        // Atualiza o hash de sincronização global após sucesso
+        lastSyncedHash = currentHash;
+        
       } catch (e: any) {
-        console.error("Erro ao salvar entradas no Firestore:", e);
+        if (e.code !== 'unavailable' && !e.message?.includes('offline')) {
+          console.error(`Erro ao salvar entradas no Firestore (User: ${userId}, Auth: ${auth?.currentUser?.uid}):`, e);
+        }
       }
     }
   },
@@ -180,13 +247,14 @@ export const storageService = {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data.timeEntries) {
+            lastSyncedTimeHash = CryptoJS.MD5(JSON.stringify(data.timeEntries)).toString();
             await this.saveTimeEntries(data.timeEntries, userId, false);
             return data.timeEntries;
           }
         }
       } catch (e: any) {
         if (e.code !== 'unavailable' && !e.message?.includes('offline')) {
-          console.error("Erro ao buscar pontos do Firestore:", e);
+          console.error(`Erro ao buscar pontos do Firestore (User: ${userId}, Auth: ${auth?.currentUser?.uid}):`, e);
         }
       }
     }
@@ -203,12 +271,18 @@ export const storageService = {
     }
 
     if (syncToCloud && db) {
+      const currentHash = CryptoJS.MD5(JSON.stringify(timeEntries)).toString();
+      if (currentHash === lastSyncedTimeHash) return;
+
       try {
         const docRef = doc(db, 'users', userId);
         const sanitizedTimeEntries = sanitizeForFirestore(timeEntries);
         await setDoc(docRef, { timeEntries: sanitizedTimeEntries }, { merge: true });
+        lastSyncedTimeHash = currentHash;
       } catch (e: any) {
-        console.error("Erro ao salvar pontos no Firestore:", e);
+        if (e.code !== 'unavailable' && !e.message?.includes('offline')) {
+          console.error(`Erro ao salvar pontos no Firestore (User: ${userId}, Auth: ${auth?.currentUser?.uid}):`, e);
+        }
       }
     }
   },
@@ -221,13 +295,14 @@ export const storageService = {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data.config) {
+            lastSyncedConfigHash = CryptoJS.MD5(JSON.stringify(data.config)).toString();
             await this.saveConfig(data.config, userId, false);
             return data.config;
           }
         }
       } catch (e: any) {
         if (e.code !== 'unavailable' && !e.message?.includes('offline')) {
-          console.error("Erro ao buscar config do Firestore:", e);
+          console.error(`Erro ao buscar config do Firestore (User: ${userId}, Auth: ${auth?.currentUser?.uid}):`, e);
         }
       }
     }
@@ -244,12 +319,18 @@ export const storageService = {
     }
 
     if (syncToCloud && db) {
+      const currentHash = CryptoJS.MD5(JSON.stringify(config)).toString();
+      if (currentHash === lastSyncedConfigHash) return;
+
       try {
         const docRef = doc(db, 'users', userId);
         const sanitizedConfig = sanitizeForFirestore(config);
         await setDoc(docRef, { config: sanitizedConfig }, { merge: true });
+        lastSyncedConfigHash = currentHash;
       } catch (e: any) {
-        console.error("Erro ao salvar config no Firestore:", e);
+        if (e.code !== 'unavailable' && !e.message?.includes('offline')) {
+          console.error(`Erro ao salvar config no Firestore (User: ${userId}, Auth: ${auth?.currentUser?.uid}):`, e);
+        }
       }
     }
   },
@@ -264,8 +345,10 @@ export const storageService = {
       try {
         const docRef = doc(db, 'users', userId);
         await setDoc(docRef, { entries: [], timeEntries: [] }, { merge: true });
-      } catch (e) {
-        console.error("Erro ao resetar dados no Firestore:", e);
+      } catch (e: any) {
+        if (e.code !== 'unavailable' && !e.message?.includes('offline')) {
+          console.error(`Erro ao resetar dados no Firestore (User: ${userId}, Auth: ${auth?.currentUser?.uid}):`, e);
+        }
       }
     }
   },

@@ -67,15 +67,20 @@ app.use((req, res, next) => {
 });
 
 // Servir arquivos estáticos da pasta public explicitamente
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(process.cwd(), "public")));
 
 // Rota específica para o Service Worker para garantir o MIME type correto
 app.get("/sw.js", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "sw.js"), {
-    headers: {
-      'Content-Type': 'application/javascript'
-    }
-  });
+  const swPath = path.join(process.cwd(), "public", "sw.js");
+  res.setHeader('Content-Type', 'application/javascript');
+  res.sendFile(swPath);
+});
+
+// Rota específica para o manifest.json
+app.get("/manifest.json", (req, res) => {
+  const manifestPath = path.join(process.cwd(), "public", "manifest.json");
+  res.setHeader('Content-Type', 'application/json');
+  res.sendFile(manifestPath);
 });
 
 // Rota de Webhook do Stripe
@@ -439,9 +444,9 @@ if (process.env.NODE_ENV !== "production") {
   });
 } else {
   // Servir arquivos estáticos em produção
-  app.use(express.static(path.join(__dirname, "dist")));
+  app.use(express.static(path.join(process.cwd(), "dist")));
   app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "dist", "index.html"));
+    res.sendFile(path.join(process.cwd(), "dist", "index.html"));
   });
 }
 

@@ -57,23 +57,36 @@
         "subscriptionStatus": { "type": "string", "enum": ["active", "canceled", "past_due", "none"] },
         "createdAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "UserDocument": {
+      "title": "User Document",
+      "description": "Main user document containing all data",
+      "type": "object",
+      "properties": {
+        "entries": { "type": "array", "items": { "$ref": "DailyEntry" } },
+        "timeEntries": { "type": "array", "items": { "type": "object" } },
+        "config": { "$ref": "AppConfig" }
+      }
+    },
+    "RotaBankEntry": {
+      "title": "RotaBank Entry",
+      "description": "Entry synchronized to RotaBank",
+      "type": "object",
+      "properties": {
+        "netAmount": { "type": "number" },
+        "uid": { "type": "string" },
+        "date": { "type": "string", "format": "date" }
+      },
+      "required": ["netAmount", "uid", "date"]
     }
   },
   "firestore": {
-    "/users/{userId}/config/settings": {
-      "schema": "AppConfig",
-      "description": "User application settings"
-    },
-    "/users/{userId}/entries/{entryId}": {
-      "schema": "DailyEntry",
-      "description": "User financial entries"
-    },
-    "/users/{userId}/profile/data": {
-      "schema": "UserProfile",
-      "description": "User profile data"
+    "/users/{userId}": {
+      "schema": "UserDocument",
+      "description": "User document containing all application data"
     },
     "/entries/{entryId}": {
-      "schema": "DailyEntry",
+      "schema": "RotaBankEntry",
       "description": "Global entries collection for RotaBank synchronization"
     }
   }
