@@ -99,7 +99,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
         staggerChildren: 0.05
       }
     }
-  };
+  } as const;
 
   const itemVariants = {
     hidden: { opacity: 0, y: 15, scale: 0.98 },
@@ -113,7 +113,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
         damping: 25
       }
     }
-  };
+  } as const;
 
   return (
     <motion.div 

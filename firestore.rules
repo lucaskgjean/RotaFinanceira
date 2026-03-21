@@ -5,53 +5,30 @@ service cloud.firestore {
     // Assumed Data Model
     // ===============================================================
     //
-    // Collection: users/{userId}/entries
+    // Collection: users/{userId}
+    // Document ID: userId
+    // Fields:
+    //   - entries: list (DailyEntry)
+    //   - timeEntries: list (TimeEntry)
+    //   - config: map (AppConfig)
+    //
+    // Collection: entries/{entryId}
     // Document ID: entryId
     // Fields:
-    //   - id: string (required)
-    //   - date: string (required, YYYY-MM-DD)
-    //   - time: string (required)
-    //   - storeName: string (required)
-    //   - grossAmount: number (required)
-    //   - fuel: number
-    //   - food: number
-    //   - maintenance: number
-    //   - others: number
+    //   - uid: string (required)
     //   - netAmount: number (required)
-    //   - kmDriven: number
-    //   - fuelPrice: number
-    //   - liters: number
-    //   - kmAtMaintenance: number
-    //   - kmType: string (enum: work, personal)
-    //   - paymentMethod: string (enum: money, pix, debito, caderno)
-    //   - isPaid: boolean
-    //   - category: string (enum: income, fuel, food, maintenance, others)
+    //   - valor_liquido: number
+    //   - date: string (required, YYYY-MM-DD)
+    //   - description: string (required)
     //
-    // Collection: users/{userId}/config
-    // Document ID: settings
+    // Collection: balances/{userId}
+    // Document ID: userId
     // Fields:
-    //   - percFuel: number
-    //   - percFood: number
-    //   - percMaintenance: number
-    //   - percOthers: number
-    //   - dailyGoal: number
-    //   - lastFuelPrice: number
-    //   - lastTotalKm: number
-    //   - themeMode: string (enum: light, dark, auto)
-    //   - notificationsEnabled: boolean
-    //
-    // Collection: users/{userId}/profile
-    // Document ID: data
-    // Fields:
-    //   - firstName: string
-    //   - lastName: string
-    //   - displayName: string
-    //   - nickname: string
-    //   - phone: string
-    //   - photoURL: string
-    //   - isPro: boolean
-    //   - subscriptionStatus: string (enum: active, canceled, past_due, none)
-    //   - createdAt: string (date-time)
+    //   - totalNetAmount: number (required)
+    //   - valor_liquido: number
+    //   - uid: string (required)
+    //   - month: string (required, YYYY-MM)
+    //   - updatedAt: string (date-time)
     //
     // ===============================================================
 
@@ -69,9 +46,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (request.auth.token.email == "jeangontijoo@gmail.com" || 
-         request.auth.token.email == "jeanlucasgontijo.15@gmail.com") && 
-        request.auth.token.email_verified == true;
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
+         (request.auth.token.email == "jeanlucasgontijo.15@gmail.com" && request.auth.token.email_verified == true));
     }
 
     function hasOnlyAllowedFields(fields) {
@@ -95,50 +71,57 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUserDoc(data) {
-      return hasOnlyAllowedFields(['entries', 'timeEntries', 'config']) &&
-             (!('entries' in data) || data.entries is list) &&
+      return (!('entries' in data) || data.entries is list) &&
              (!('timeEntries' in data) || data.timeEntries is list) &&
-             (!('config' in data) || data.config is map);
+             (!('config' in data) || data.config is map) &&
+             (!('role' in data) || data.role is string);
     }
 
     function isValidRotaBankEntry(data) {
-      return hasOnlyAllowedFields(['netAmount', 'valor_liquido', 'uid', 'date']) &&
+      return hasRequiredFields(['netAmount', 'uid', 'date', 'description']) &&
              data.netAmount is number &&
              (!('valor_liquido' in data) || data.valor_liquido is number) &&
              data.uid is string &&
-             isValidDateString(data.date);
+             isValidDateString(data.date) &&
+             data.description is string &&
+             data.description.size() < 200;
     }
 
     function isValidMonthlyBalance(data) {
-      return hasOnlyAllowedFields(['totalNetAmount', 'valor_liquido', 'uid', 'month', 'updatedAt']) &&
+      return hasRequiredFields(['totalNetAmount', 'uid', 'month']) &&
              data.totalNetAmount is number &&
              (!('valor_liquido' in data) || data.valor_liquido is number) &&
              data.uid is string &&
              data.month is string &&
-             data.month.matches("^\\d{4}-\\d{2}$");
+             data.month.matches("^\\d{4}-\\d{2}$") &&
+             (!('updatedAt' in data) || isValidDateTimeString(data.updatedAt));
     }
 
     // ===============================================================
     // Match Rules
     // ===============================================================
 
+    // User Documents
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create, update: if (isOwner(userId) || isAdmin()) && isValidUserDoc(request.resource.data);
-      allow delete: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUserDoc(request.resource.data) && (!('role' in request.resource.data) || request.resource.data.role == 'user');
+      allow update: if (isOwner(userId) && isValidUserDoc(request.resource.data) && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role)) || isAdmin();
+      allow delete: if isAdmin();
     }
 
+    // RotaBank Entries
     match /entries/{entryId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.uid || isAdmin());
-      allow create: if isAuthenticated() && (request.auth.uid == request.resource.data.uid || isAdmin()) && isValidRotaBankEntry(request.resource.data);
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.uid || isAdmin()) && isValidRotaBankEntry(request.resource.data);
-      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.uid || isAdmin());
+      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow list: if isAuthenticated() && (request.query.limit <= 100) && (isAdmin() || (request.auth.uid != null)); 
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && isValidRotaBankEntry(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && isValidRotaBankEntry(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
     }
 
+    // Monthly Balances
     match /balances/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create, update: if (isOwner(userId) || isAdmin()) && isValidMonthlyBalance(request.resource.data);
-      allow delete: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) && isValidMonthlyBalance(request.resource.data);
     }
 
     // Default deny

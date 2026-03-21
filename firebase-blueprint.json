@@ -76,9 +76,10 @@
         "netAmount": { "type": "number" },
         "valor_liquido": { "type": "number" },
         "uid": { "type": "string" },
-        "date": { "type": "string", "format": "date" }
+        "date": { "type": "string", "format": "date" },
+        "description": { "type": "string" }
       },
-      "required": ["netAmount", "uid", "date"]
+      "required": ["netAmount", "uid", "date", "description"]
     },
     "MonthlyBalance": {
       "title": "Monthly Balance",

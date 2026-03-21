@@ -14,7 +14,7 @@ if (isConfigValid) {
   try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
-    db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    db = getFirestore(app);
     
     // Habilitar persistência offline
     if (typeof window !== 'undefined') {

@@ -509,7 +509,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         staggerChildren: 0.05
       }
     }
-  };
+  } as const;
 
   const itemVariants = {
     hidden: { opacity: 0, y: 15, scale: 0.98 },
@@ -523,7 +523,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         damping: 25
       }
     }
-  };
+  } as const;
 
   return (
     <motion.div 

@@ -45,6 +45,8 @@ import Login from './components/Login';
 import VerificationBanner from './components/VerificationBanner';
 import { User as FirebaseUser } from 'firebase/auth';
 import { isUserAdmin } from './constants';
+import { db, auth } from './services/firebase';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -479,25 +481,65 @@ const App: React.FC = () => {
     }).length;
   }, [entries]);
 
-  // Persistência Assíncrona com Feedback
+  // Test Firestore connection on boot
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        const { doc, getDocFromServer } = await import('firebase/firestore');
+        await getDocFromServer(doc(db, 'test', 'connection'));
+        console.log("Firestore connection test successful.");
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration. The client is offline.");
+        }
+        // Skip logging for other errors, as this is simply a connection test.
+      }
+    };
+    testConnection();
+  }, []);
+
+  // Monitor isSaving state changes
+  useEffect(() => {
+    console.log(`[Persistence] isSaving state changed: ${isSaving}`);
+  }, [isSaving]);
+
+  // Persistência Assíncrona com Feedback (Debounced)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (isInitialLoading || isRefreshing || !user) return; // Evita salvar durante o carregamento inicial ou atualização manual
 
-    const saveData = async () => {
+    // Limpa timeout anterior se houver
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce de 1.5 segundos para evitar excesso de escritas no Firestore
+    saveTimeoutRef.current = setTimeout(async () => {
+      console.log(`[App] Iniciando saveData (debounced). Entries: ${entries.length}, TimeEntries: ${timeEntries.length}`);
       setIsSaving(true);
       try {
         await Promise.all([
           storageService.saveEntries(entries, user.uid, config.profile?.isPro),
           storageService.saveTimeEntries(timeEntries, user.uid, config.profile?.isPro)
         ]);
+        console.log(`[App] saveData concluído com sucesso.`);
       } catch (e) {
-        console.error("Erro ao salvar dados", e);
+        console.error("[App] Erro ao salvar dados", e);
       } finally {
-        setTimeout(() => setIsSaving(false), 800);
+        // Pequeno atraso visual para o feedback de "Salvo"
+        setTimeout(() => {
+          setIsSaving(false);
+          console.log(`[App] isSaving set to false.`);
+        }, 1000);
+      }
+    }, 1500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
     };
-
-    saveData();
   }, [entries, timeEntries, isInitialLoading, isRefreshing, user, config.profile?.isPro]);
 
   useEffect(() => {

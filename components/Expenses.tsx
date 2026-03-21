@@ -156,7 +156,7 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
         staggerChildren: 0.05
       }
     }
-  };
+  } as const;
 
   const itemVariants = {
     hidden: { opacity: 0, y: 15, scale: 0.98 },
@@ -170,7 +170,7 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
         damping: 25
       }
     }
-  };
+  } as const;
 
   return (
     <motion.div 

@@ -3,7 +3,58 @@ import localforage from 'localforage';
 import CryptoJS from 'crypto-js';
 import { DailyEntry, TimeEntry, AppConfig } from '../types';
 import { db, auth } from './firebase';
-import { doc, setDoc, getDoc, collection, writeBatch, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, writeBatch, query, where, getDocs, deleteDoc, getDocFromServer } from 'firebase/firestore';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth?.currentUser?.uid,
+      email: auth?.currentUser?.email,
+      emailVerified: auth?.currentUser?.emailVerified,
+      isAnonymous: auth?.currentUser?.isAnonymous,
+      tenantId: auth?.currentUser?.tenantId,
+      providerInfo: auth?.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error Details: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 // Configuração do localforage
 localforage.config({
@@ -53,7 +104,20 @@ let lastSyncedHash: string | null = null;
 let lastSyncedTimeHash: string | null = null;
 let lastSyncedConfigHash: string | null = null;
 let lastSyncedIncomeMap: Map<string, string> = new Map(); // id -> hash dos campos relevantes
-let reconciliationDone: Set<string> = new Set(); // userId -> boolean
+let oldEntriesCleared: Set<string> = new Set(); // userId -> boolean
+let syncReconciliationDone: Set<string> = new Set(); // userId -> boolean
+
+async function testConnection() {
+  if (!db) return;
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if(error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration. ");
+    }
+  }
+}
+testConnection();
 
 export const storageService = {
   /**
@@ -101,12 +165,14 @@ export const storageService = {
       lastSyncedHash = CryptoJS.MD5(JSON.stringify(entries)).toString();
       // Popula o mapa de renda para sync cirúrgico
       entries.filter((e: DailyEntry) => e.category === 'income').forEach((e: DailyEntry) => {
-        lastSyncedIncomeMap.set(e.id, JSON.stringify({ 
-          netAmount: e.netAmount, 
-          valor_liquido: e.netAmount, 
-          uid: userId, 
-          date: e.date 
-        }));
+        const entryData = {
+          uid: userId,
+          netAmount: e.netAmount || 0,
+          valor_liquido: e.netAmount || 0,
+          date: e.date,
+          description: e.storeName || `Faturamento - ${e.date}`
+        };
+        lastSyncedIncomeMap.set(e.id, CryptoJS.MD5(JSON.stringify(entryData)).toString());
       });
     }
     
@@ -147,15 +213,17 @@ export const storageService = {
             lastSyncedHash = CryptoJS.MD5(JSON.stringify(data.entries)).toString();
             lastSyncedIncomeMap.clear();
             data.entries.filter((e: DailyEntry) => e.category === 'income').forEach((e: DailyEntry) => {
-              lastSyncedIncomeMap.set(e.id, JSON.stringify({ 
-                netAmount: e.netAmount, 
-                valor_liquido: e.netAmount, 
-                uid: userId, 
-                date: e.date 
-              }));
+              const entryData = {
+                uid: userId,
+                netAmount: e.netAmount || 0,
+                valor_liquido: e.netAmount || 0,
+                date: e.date,
+                description: e.storeName || `Faturamento - ${e.date}`
+              };
+              lastSyncedIncomeMap.set(e.id, CryptoJS.MD5(JSON.stringify(entryData)).toString());
             });
             // Marca como reconciliado pois acabamos de puxar a verdade da nuvem
-            reconciliationDone.add(userId);
+            syncReconciliationDone.add(userId);
 
             await this.saveEntries(data.entries, userId, false); // Salva localmente (criptografado)
             return data.entries;
@@ -173,6 +241,8 @@ export const storageService = {
   async saveEntries(entries: DailyEntry[], userId: string, syncToCloud: boolean = true) {
     if (!userId) return;
     
+    console.log(`[storageService] Iniciando saveEntries para ${userId}. Sync: ${syncToCloud}`);
+    
     // 1. Salva Localmente Primeiro (Sempre)
     const key = `${KEYS.ENTRIES}_${userId}`;
     const encrypted = encrypt(entries, userId);
@@ -186,6 +256,7 @@ export const storageService = {
       
       // Se o hash for igual ao último sincronizado, não faz nada na nuvem
       if (currentHash === lastSyncedHash) {
+        console.log(`[storageService] Hash idêntico (${currentHash}), pulando sync na nuvem.`);
         return;
       }
 
@@ -214,28 +285,78 @@ export const storageService = {
         
         const syncPromises: Promise<void>[] = [setDoc(balanceRef, balanceData)];
 
-        // Limpeza da coleção antiga 'entries' (para garantir que o RotaBank use apenas o saldo mensal)
-        const deletePromises: Promise<void>[] = [];
+        // Sincronização de Entradas Individuais para o RotaBank (Extrato Consolidado)
+        const incomeEntries = entries.filter(e => e.category === 'income');
         
-        // Reconciliação com a nuvem (apenas uma vez por sessão para limpar a coleção antiga)
-        if (!reconciliationDone.has(userId)) {
-          const q = query(collection(db, 'entries'), where('uid', '==', userId));
-          const querySnapshot = await getDocs(q);
-          querySnapshot.docs.forEach(docSnap => {
-            deletePromises.push(deleteDoc(docSnap.ref));
-          });
-          reconciliationDone.add(userId);
+        // 1. Limpeza da coleção antiga (apenas uma vez por sessão para garantir integridade)
+        // Isso garante que entradas deletadas localmente também sejam removidas da nuvem
+        if (!oldEntriesCleared.has(userId)) {
+          try {
+            console.log(`[storageService] Limpando entradas antigas para ${userId}...`);
+            const q = query(collection(db, 'entries'), where('uid', '==', userId));
+            const querySnapshot = await getDocs(q);
+            
+            // Deleta em chunks de 450 para respeitar o limite do Firestore
+            const allDocs = querySnapshot.docs;
+            for (let i = 0; i < allDocs.length; i += 450) {
+              const batch = writeBatch(db);
+              allDocs.slice(i, i + 450).forEach(docSnap => {
+                batch.delete(docSnap.ref);
+              });
+              await batch.commit();
+            }
+            
+            oldEntriesCleared.add(userId);
+            lastSyncedIncomeMap.clear(); // Limpa o cache para forçar re-sync após a limpeza
+            console.log(`[storageService] Limpeza concluída.`);
+          } catch (err) {
+            console.error("[storageService] Erro ao limpar entradas antigas:", err);
+          }
         }
 
-        // Executa todas as operações em paralelo
-        await Promise.all([mainSavePromise, ...syncPromises, ...deletePromises]);
+        // 2. Salva cada entrada de faturamento individualmente usando BATCH para performance
+        console.log(`[storageService] Sincronizando ${incomeEntries.length} entradas de faturamento...`);
+        
+        const BATCH_SIZE = 450;
+        for (let i = 0; i < incomeEntries.length; i += BATCH_SIZE) {
+          const batch = writeBatch(db);
+          const chunk = incomeEntries.slice(i, i + BATCH_SIZE);
+          
+          let hasChangesInBatch = false;
+          for (const entry of chunk) {
+            const entryData = {
+              uid: userId,
+              netAmount: entry.netAmount || 0,
+              valor_liquido: entry.netAmount || 0,
+              date: entry.date,
+              description: entry.storeName || `Faturamento - ${entry.date}`
+            };
+            
+            const entryHash = CryptoJS.MD5(JSON.stringify(entryData)).toString();
+            if (lastSyncedIncomeMap.get(entry.id) !== entryHash) {
+              const entryRef = doc(db, 'entries', entry.id);
+              batch.set(entryRef, entryData, { merge: true });
+              lastSyncedIncomeMap.set(entry.id, entryHash);
+              hasChangesInBatch = true;
+            }
+          }
+          
+          if (hasChangesInBatch) {
+            await batch.commit();
+          }
+        }
+
+        // Executa as operações principais (array completo e saldo mensal)
+        await Promise.all([mainSavePromise, ...syncPromises]);
         
         // Atualiza o hash de sincronização global após sucesso
         lastSyncedHash = currentHash;
+        console.log(`[storageService] Sincronização concluída com sucesso. Hash: ${currentHash}`);
         
       } catch (e: any) {
+        console.error(`[storageService] Erro na sincronização com a nuvem:`, e);
         if (e.code !== 'unavailable' && !e.message?.includes('offline')) {
-          console.error(`Erro ao salvar entradas no Firestore (User: ${userId}):`, e);
+          handleFirestoreError(e, OperationType.WRITE, `users/${userId} (and others)`);
         }
       }
     }
@@ -304,7 +425,7 @@ export const storageService = {
         }
       } catch (e: any) {
         if (e.code !== 'unavailable' && !e.message?.includes('offline')) {
-          console.error(`Erro ao buscar config do Firestore (User: ${userId}, Auth: ${auth?.currentUser?.uid}):`, e);
+          handleFirestoreError(e, OperationType.GET, `users/${userId}`);
         }
       }
     }
@@ -331,7 +452,7 @@ export const storageService = {
         lastSyncedConfigHash = currentHash;
       } catch (e: any) {
         if (e.code !== 'unavailable' && !e.message?.includes('offline')) {
-          console.error(`Erro ao salvar config no Firestore (User: ${userId}, Auth: ${auth?.currentUser?.uid}):`, e);
+          handleFirestoreError(e, OperationType.WRITE, `users/${userId}`);
         }
       }
     }
