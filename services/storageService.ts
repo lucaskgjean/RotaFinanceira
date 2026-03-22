@@ -324,33 +324,44 @@ export const storageService = {
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const currentMonth = `${year}-${month}`;
         
-        // Calcula o saldo líquido do mês (Ganhos Líquidos - Gastos Reais)
-        // Garantimos que o faturamento use o valor líquido (após reservas)
-        const monthlyTotal = entries
+        // Calcula as estatísticas do mês
+        const stats = entries
           .filter(e => e.date.startsWith(currentMonth))
           .reduce((acc, curr) => {
             if (curr.category === 'income') {
-              // Se tivermos o config, garantimos o cálculo do líquido mesmo para entradas antigas
+              acc.grossIncome += (curr.grossAmount || 0);
+              
+              // Calcula o líquido (após reservas) para fins informativos
+              let net = curr.netAmount || 0;
               if (config && (curr.netAmount === curr.grossAmount || !curr.netAmount)) {
                 const fuel = curr.grossAmount * config.percFuel;
                 const food = curr.grossAmount * config.percFood;
                 const maintenance = curr.grossAmount * config.percMaintenance;
                 const others = curr.grossAmount * (config.percOthers || 0);
-                const net = curr.grossAmount - fuel - food - maintenance - others;
-                return acc + net;
+                net = curr.grossAmount - fuel - food - maintenance - others;
               }
-              return acc + (curr.netAmount || 0);
+              acc.netIncome += net;
+            } else {
+              // Despesas reais (valor negativo no netAmount)
+              acc.totalExpenses += Math.abs(curr.netAmount || 0);
             }
-            // Despesas reais (negativas)
-            return acc + (curr.netAmount || 0);
-          }, 0);
+            return acc;
+          }, { grossIncome: 0, netIncome: 0, totalExpenses: 0 });
 
-        console.log(`[storageService] Sync RotaBank - Mês: ${currentMonth}, Total Líquido: ${monthlyTotal}`);
+        // Conforme pedido: Faturamento Bruto - Gasto Total (Despesas Reais)
+        const saldoFinal = stats.grossIncome - stats.totalExpenses;
+        
+        // Também calculamos o lucro real (após reservas) para o campo valor_liquido
+        const lucroReal = stats.netIncome - stats.totalExpenses;
+
+        console.log(`[storageService] Sync RotaBank - Bruto: ${stats.grossIncome}, Gastos: ${stats.totalExpenses}, Saldo: ${saldoFinal}`);
 
         const balanceRef = doc(db, 'balances', userId);
         const balanceData = {
-          totalNetAmount: monthlyTotal,
-          valor_liquido: monthlyTotal,
+          totalGrossIncome: stats.grossIncome,
+          totalExpenses: stats.totalExpenses,
+          totalNetAmount: saldoFinal, // Faturamento Bruto - Gasto Total
+          valor_liquido: lucroReal,    // Lucro Real (após reservas)
           uid: userId,
           month: currentMonth,
           updatedAt: new Date().toISOString()
