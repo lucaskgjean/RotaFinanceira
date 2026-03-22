@@ -21,9 +21,10 @@ interface SettingsProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
   onResetData: (type: 'total' | 'period', start?: string, end?: string) => Promise<void>;
   onDeleteAccount: (password?: string) => Promise<void>;
+  onForceSync: () => Promise<void>;
 }
 
-const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onChange, onImport, onOpenSubscription, showToast, onResetData, onDeleteAccount }) => {
+const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onChange, onImport, onOpenSubscription, showToast, onResetData, onDeleteAccount, onForceSync }) => {
   const [localConfig, setLocalConfig] = useState<AppConfig>(config);
   const [showTutorial, setShowTutorial] = useState(false);
   const [activeTab, setActiveTab] = useState<'perfil' | 'sistema' | 'aparencia'>('perfil');
@@ -921,6 +922,13 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
               </button>
 
               <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={onForceSync}
+                  className="flex flex-col items-center justify-center p-5 bg-amber-600/30 rounded-2xl border border-white/10 hover:bg-amber-600/50 transition-all"
+                >
+                  <RefreshCw size={24} className="mb-2 text-amber-400" />
+                  <span className="text-[10px] font-black uppercase">Sincronizar Agora</span>
+                </button>
                 <button onClick={handleFullBackup} className="flex flex-col items-center justify-center p-5 bg-indigo-600/30 rounded-2xl border border-white/10 hover:bg-indigo-600/50 transition-all relative overflow-hidden">
                   {!config.profile?.isPro && (
                     <div className="absolute inset-0 bg-slate-900/20 flex items-center justify-center">

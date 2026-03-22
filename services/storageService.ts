@@ -288,11 +288,11 @@ export const storageService = {
     return { entries: local };
   },
 
-  async saveEntries(entries: DailyEntry[], userId: string, syncToCloud: boolean = true) {
+  async saveEntries(entries: DailyEntry[], userId: string, syncToCloud: boolean = true, forceSync: boolean = false) {
     if (!userId) return;
     
     const updatedAt = new Date().toISOString();
-    console.log(`[storageService] Iniciando saveEntries para ${userId}. Sync: ${syncToCloud}, UpdatedAt: ${updatedAt}`);
+    console.log(`[storageService] Iniciando saveEntries para ${userId}. Sync: ${syncToCloud}, Force: ${forceSync}, UpdatedAt: ${updatedAt}`);
     
     // 1. Salva Localmente Primeiro (Sempre)
     const key = `${KEYS.ENTRIES}_${userId}`;
@@ -305,8 +305,8 @@ export const storageService = {
     if (syncToCloud && db) {
       const currentHash = CryptoJS.MD5(JSON.stringify(entries)).toString();
       
-      // Se o hash for igual ao último sincronizado, não faz nada na nuvem
-      if (currentHash === lastSyncedHash) {
+      // Se o hash for igual ao último sincronizado e não for forceSync, não faz nada na nuvem
+      if (currentHash === lastSyncedHash && !forceSync) {
         console.log(`[storageService] Hash idêntico (${currentHash}), pulando sync na nuvem.`);
         return;
       }
@@ -320,10 +320,16 @@ export const storageService = {
 
         // Sincronização com RotaBank (Saldo Mensal)
         const now = new Date();
-        const currentMonth = now.toISOString().slice(0, 7); // "YYYY-MM"
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const currentMonth = `${year}-${month}`;
+        
+        // Calcula o saldo líquido do mês (Ganhos - Gastos Reais)
         const monthlyTotal = entries
           .filter(e => e.date.startsWith(currentMonth))
           .reduce((acc, curr) => acc + (curr.netAmount || 0), 0);
+
+        console.log(`[storageService] Sync RotaBank - Mês: ${currentMonth}, Total: ${monthlyTotal}`);
 
         const balanceRef = doc(db, 'balances', userId);
         const balanceData = {
@@ -334,7 +340,7 @@ export const storageService = {
           updatedAt: new Date().toISOString()
         };
         
-        const syncPromises: Promise<void>[] = [setDoc(balanceRef, balanceData)];
+        const syncPromises: Promise<void>[] = [setDoc(balanceRef, balanceData, { merge: true })];
 
         // Sincronização de Entradas Individuais para o RotaBank (Extrato Consolidado)
         const incomeEntries = entries.filter(e => e.category === 'income');
@@ -440,7 +446,7 @@ export const storageService = {
     return { timeEntries: local };
   },
 
-  async saveTimeEntries(timeEntries: TimeEntry[], userId: string, syncToCloud: boolean = true) {
+  async saveTimeEntries(timeEntries: TimeEntry[], userId: string, syncToCloud: boolean = true, forceSync: boolean = false) {
     if (!userId) return;
 
     const updatedAt = new Date().toISOString();
@@ -454,7 +460,7 @@ export const storageService = {
 
     if (syncToCloud && db) {
       const currentHash = CryptoJS.MD5(JSON.stringify(timeEntries)).toString();
-      if (currentHash === lastSyncedTimeHash) return;
+      if (currentHash === lastSyncedTimeHash && !forceSync) return;
 
       try {
         const docRef = doc(db, 'users', userId);
@@ -491,7 +497,7 @@ export const storageService = {
     return await this.getLocalConfig(userId);
   },
 
-  async saveConfig(config: AppConfig, userId: string, syncToCloud: boolean = true) {
+  async saveConfig(config: AppConfig, userId: string, syncToCloud: boolean = true, forceSync: boolean = false) {
     if (!userId) return;
 
     const key = `${KEYS.CONFIG}_${userId}`;
@@ -502,7 +508,7 @@ export const storageService = {
 
     if (syncToCloud && db) {
       const currentHash = CryptoJS.MD5(JSON.stringify(config)).toString();
-      if (currentHash === lastSyncedConfigHash) return;
+      if (currentHash === lastSyncedConfigHash && !forceSync) return;
 
       try {
         const docRef = doc(db, 'users', userId);

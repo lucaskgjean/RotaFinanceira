@@ -602,6 +602,24 @@ const App: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [config, isInitialLoading, isRefreshing, user]);
 
+  const handleForceSync = async () => {
+    if (!user) return;
+    setIsSaving(true);
+    try {
+      await Promise.all([
+        storageService.saveEntries(entries, user.uid, true, true),
+        storageService.saveTimeEntries(timeEntries, user.uid, true, true),
+        storageService.saveConfig(config, user.uid, true, true)
+      ]);
+      showToast("Sincronização forçada concluída!", "success");
+    } catch (e) {
+      console.error("[App] Erro na sincronização forçada", e);
+      showToast("Erro ao sincronizar. Tente novamente.", "error");
+    } finally {
+      setTimeout(() => setIsSaving(false), 1000);
+    }
+  };
+
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
@@ -1045,7 +1063,7 @@ const App: React.FC = () => {
                 />
               </div>
             )}
-            {activeTab === 'settings' && <Settings config={config} entries={entries} timeEntries={timeEntries} onChange={setConfig} onImport={importData} onOpenSubscription={() => setIsSubModalOpen(true)} showToast={showToast} onResetData={resetData} onDeleteAccount={deleteAccount} />}
+            {activeTab === 'settings' && <Settings config={config} entries={entries} timeEntries={timeEntries} onChange={setConfig} onImport={importData} onOpenSubscription={() => setIsSubModalOpen(true)} showToast={showToast} onResetData={resetData} onDeleteAccount={deleteAccount} onForceSync={handleForceSync} />}
           </motion.div>
         </AnimatePresence>
       </main>
