@@ -138,7 +138,7 @@ export const storageService = {
 
     // Se existirem dados antigos, salva no novo formato isolado para este usuário
     if (oldEntries) {
-      await this.saveEntries(oldEntries, userId, false);
+      await this.saveEntries(oldEntries, userId, oldConfig || undefined, false);
     }
     if (oldTimeEntries) {
       await this.saveTimeEntries(oldTimeEntries, userId, false);
@@ -288,7 +288,7 @@ export const storageService = {
     return { entries: local };
   },
 
-  async saveEntries(entries: DailyEntry[], userId: string, syncToCloud: boolean = true, forceSync: boolean = false) {
+  async saveEntries(entries: DailyEntry[], userId: string, config?: AppConfig, syncToCloud: boolean = true, forceSync: boolean = false) {
     if (!userId) return;
     
     const updatedAt = new Date().toISOString();
@@ -324,12 +324,28 @@ export const storageService = {
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const currentMonth = `${year}-${month}`;
         
-        // Calcula o saldo líquido do mês (Ganhos - Gastos Reais)
+        // Calcula o saldo líquido do mês (Ganhos Líquidos - Gastos Reais)
+        // Garantimos que o faturamento use o valor líquido (após reservas)
         const monthlyTotal = entries
           .filter(e => e.date.startsWith(currentMonth))
-          .reduce((acc, curr) => acc + (curr.netAmount || 0), 0);
+          .reduce((acc, curr) => {
+            if (curr.category === 'income') {
+              // Se tivermos o config, garantimos o cálculo do líquido mesmo para entradas antigas
+              if (config && (curr.netAmount === curr.grossAmount || !curr.netAmount)) {
+                const fuel = curr.grossAmount * config.percFuel;
+                const food = curr.grossAmount * config.percFood;
+                const maintenance = curr.grossAmount * config.percMaintenance;
+                const others = curr.grossAmount * (config.percOthers || 0);
+                const net = curr.grossAmount - fuel - food - maintenance - others;
+                return acc + net;
+              }
+              return acc + (curr.netAmount || 0);
+            }
+            // Despesas reais (negativas)
+            return acc + (curr.netAmount || 0);
+          }, 0);
 
-        console.log(`[storageService] Sync RotaBank - Mês: ${currentMonth}, Total: ${monthlyTotal}`);
+        console.log(`[storageService] Sync RotaBank - Mês: ${currentMonth}, Total Líquido: ${monthlyTotal}`);
 
         const balanceRef = doc(db, 'balances', userId);
         const balanceData = {
@@ -373,7 +389,7 @@ export const storageService = {
         }
 
         // 2. Salva cada entrada de faturamento individualmente usando BATCH para performance
-        console.log(`[storageService] Sincronizando ${incomeEntries.length} entradas de faturamento...`);
+        console.log(`[storageService] Sincronizando ${incomeEntries.length} entradas de faturamento (Líquido)...`);
         
         const BATCH_SIZE = 450;
         for (let i = 0; i < incomeEntries.length; i += BATCH_SIZE) {
@@ -385,10 +401,20 @@ export const storageService = {
             // Constrói data ISO combinando data e hora do lançamento
             const isoDate = new Date(`${entry.date}T${entry.time || '12:00'}:00`).toISOString();
             
+            // Recalcula o líquido se necessário para o extrato do RotaBank
+            let netAmount = entry.netAmount || 0;
+            if (config && (entry.netAmount === entry.grossAmount || !entry.netAmount)) {
+              const fuel = entry.grossAmount * config.percFuel;
+              const food = entry.grossAmount * config.percFood;
+              const maintenance = entry.grossAmount * config.percMaintenance;
+              const others = entry.grossAmount * (config.percOthers || 0);
+              netAmount = entry.grossAmount - fuel - food - maintenance - others;
+            }
+
             const entryData = {
               uid: userId,
-              netAmount: entry.netAmount || 0,
-              valor_liquido: entry.netAmount || 0,
+              netAmount: netAmount,
+              valor_liquido: netAmount,
               date: isoDate,
               description: entry.storeName || `Faturamento - ${entry.date}`
             };
@@ -541,7 +567,7 @@ export const storageService = {
     }
   },
 
-  async deleteDataByPeriod(startDate: string, endDate: string, userId: string) {
+  async deleteDataByPeriod(startDate: string, endDate: string, userId: string, config?: AppConfig) {
     if (!userId) return { entries: [], timeEntries: [] };
 
     const entries = await this.getLocalEntries(userId);
@@ -550,7 +576,7 @@ export const storageService = {
     const filteredEntries = entries.filter(e => e.date < startDate || e.date > endDate);
     const filteredTimeEntries = timeEntries.filter(e => e.date < startDate || e.date > endDate);
 
-    await this.saveEntries(filteredEntries, userId, true);
+    await this.saveEntries(filteredEntries, userId, config, true);
     await this.saveTimeEntries(filteredTimeEntries, userId, true);
 
     return { entries: filteredEntries, timeEntries: filteredTimeEntries };

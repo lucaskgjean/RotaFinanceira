@@ -40,7 +40,8 @@ export const calculateDailyEntry = (
   const fuel = gross * config.percFuel;
   const food = gross * config.percFood;
   const maintenance = gross * config.percMaintenance;
-  const net = gross; // O líquido da entrada individual agora é o bruto, as reservas são apenas referência
+  const others = gross * (config.percOthers || 0);
+  const net = gross - fuel - food - maintenance - others;
 
   return {
     id: generateId(),
@@ -51,7 +52,7 @@ export const calculateDailyEntry = (
     fuel,
     food,
     maintenance,
-    others: 0,
+    others,
     netAmount: net,
     kmDriven,
     fuelPrice,

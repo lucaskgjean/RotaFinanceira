@@ -557,7 +557,7 @@ const App: React.FC = () => {
     const timeout = setTimeout(async () => {
       try {
         await Promise.all([
-          storageService.saveEntries(entries, user.uid, false),
+          storageService.saveEntries(entries, user.uid, config, false),
           storageService.saveTimeEntries(timeEntries, user.uid, false)
         ]);
       } catch (e) {
@@ -566,7 +566,7 @@ const App: React.FC = () => {
     }, 200); // 200ms para agrupar mudanças mas salvar quase na hora
     
     return () => clearTimeout(timeout);
-  }, [entries, timeEntries, isInitialLoading, user]);
+  }, [entries, timeEntries, isInitialLoading, user, config]);
 
   // 2. Sincronização com a Nuvem (Debounced)
   useEffect(() => {
@@ -577,7 +577,7 @@ const App: React.FC = () => {
       setIsSaving(true);
       try {
         await Promise.all([
-          storageService.saveEntries(entries, user.uid, true),
+          storageService.saveEntries(entries, user.uid, config, true),
           storageService.saveTimeEntries(timeEntries, user.uid, true)
         ]);
         console.log(`[App] Sync na nuvem concluído.`);
@@ -589,7 +589,7 @@ const App: React.FC = () => {
     }, 2500); // 2.5 segundos para a nuvem para evitar excesso de escritas
     
     return () => clearTimeout(timeout);
-  }, [entries, timeEntries, isInitialLoading, isRefreshing, user, config.profile?.isPro]);
+  }, [entries, timeEntries, isInitialLoading, isRefreshing, user, config]);
 
   useEffect(() => {
     if (isInitialLoading || isRefreshing || !user) return;
@@ -607,7 +607,7 @@ const App: React.FC = () => {
     setIsSaving(true);
     try {
       await Promise.all([
-        storageService.saveEntries(entries, user.uid, true, true),
+        storageService.saveEntries(entries, user.uid, config, true, true),
         storageService.saveTimeEntries(timeEntries, user.uid, true, true),
         storageService.saveConfig(config, user.uid, true, true)
       ]);
@@ -830,7 +830,7 @@ const App: React.FC = () => {
         setTimeEntries([]);
         showToast("Todos os dados foram resetados.");
       } else if (type === 'period' && start && end) {
-        const result = await storageService.deleteDataByPeriod(start, end, user.uid);
+        const result = await storageService.deleteDataByPeriod(start, end, user.uid, config);
         setEntries(result.entries);
         setTimeEntries(result.timeEntries);
         showToast("Dados do período removidos.");
