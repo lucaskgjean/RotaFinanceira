@@ -372,34 +372,10 @@ export const storageService = {
         // Sincronização de Entradas Individuais para o RotaBank (Extrato Consolidado)
         const incomeEntries = entries.filter(e => e.category === 'income');
         
-        // 1. Limpeza da coleção antiga (apenas uma vez por sessão para garantir integridade)
-        // Isso garante que entradas deletadas localmente também sejam removidas da nuvem
-        // CRITICAL: Só limpa se já tivermos reconciliado com a nuvem para evitar apagar dados que ainda não baixamos
-        if (!oldEntriesCleared.has(userId) && syncReconciliationDone.has(userId)) {
-          try {
-            console.log(`[storageService] Limpando entradas antigas para ${userId}...`);
-            const q = query(collection(db, 'entries'), where('uid', '==', userId));
-            const querySnapshot = await getDocs(q);
-            
-            // Deleta em chunks de 450 para respeitar o limite do Firestore
-            const allDocs = querySnapshot.docs;
-            for (let i = 0; i < allDocs.length; i += 450) {
-              const batch = writeBatch(db);
-              allDocs.slice(i, i + 450).forEach(docSnap => {
-                batch.delete(docSnap.ref);
-              });
-              await batch.commit();
-            }
-            
-            oldEntriesCleared.add(userId);
-            lastSyncedIncomeMap.clear(); // Limpa o cache para forçar re-sync após a limpeza
-            console.log(`[storageService] Limpeza concluída.`);
-          } catch (err) {
-            console.error("[storageService] Erro ao limpar entradas antigas:", err);
-          }
-        }
-
-        // 2. Salva cada entrada de faturamento individualmente usando BATCH para performance
+        // Otimização de Cota: Não limpamos mais a coleção inteira.
+        // Em vez disso, usamos o cache lastSyncedIncomeMap para atualizar apenas o que mudou.
+        // Se uma entrada foi deletada localmente, ela será removida da nuvem apenas se necessário.
+        
         console.log(`[storageService] Sincronizando ${incomeEntries.length} entradas de faturamento (Líquido)...`);
         
         const BATCH_SIZE = 450;

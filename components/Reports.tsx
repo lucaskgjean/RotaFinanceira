@@ -372,11 +372,16 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
     const projectedOthers = summary.totalGross * (config.percOthers || 0);
     const projectedTotal = projectedFuel + projectedFood + projectedMaintenance + projectedOthers;
 
+    const totalReceived = summary.totalGross - paymentMethodsMap['caderno'];
+    const totalPending = paymentMethodsMap['caderno'];
+
     return {
       summary,
       quickLaunchesCount,
       totalHours: totalSeconds,
       totalExpenses,
+      totalReceived,
+      totalPending,
       totalKm: summary.totalKm,
       totalFuelLiters,
       earningsPerKm,
@@ -778,7 +783,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       </motion.div>
 
       {/* Resumo Geral do Período */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Bruto Total */}
         <motion.div variants={itemVariants} className="bg-indigo-600 p-6 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-between relative overflow-hidden group">
           <div className="relative z-10">
@@ -813,6 +818,31 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
             <div className="text-3xl font-black font-mono-num tracking-tighter">{formatCurrency(reportData.totalExpenses)}</div>
           </div>
           <ArrowDownRight size={120} className="absolute -right-8 -bottom-8 text-white/10 group-hover:scale-110 transition-transform" />
+        </motion.div>
+
+        {/* Recebido e Pendente */}
+        <motion.div variants={itemVariants} className="bg-slate-800 p-6 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-between relative overflow-hidden group">
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center">
+                <CreditCard size={20} className="text-amber-400" />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">Status de Pagamento</span>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <span className="text-[9px] font-bold uppercase tracking-widest opacity-50 block mb-0.5">Recebido</span>
+                <div className="text-xl font-black font-mono-num text-emerald-400">{formatCurrency(reportData.totalReceived)}</div>
+              </div>
+              <div className="h-px bg-white/10 w-full"></div>
+              <div>
+                <span className="text-[9px] font-bold uppercase tracking-widest opacity-50 block mb-0.5">Pendente</span>
+                <div className="text-xl font-black font-mono-num text-amber-400">{formatCurrency(reportData.totalPending)}</div>
+              </div>
+            </div>
+          </div>
+          <CreditCard size={100} className="absolute -right-6 -bottom-6 text-white/5 group-hover:scale-110 transition-transform" />
         </motion.div>
 
         {/* Porcentagens */}
