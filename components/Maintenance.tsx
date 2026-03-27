@@ -17,7 +17,7 @@ import {
   X
 } from 'lucide-react';
 import QuickKM from './QuickKM';
-import CustomDatePicker from './CustomDatePicker';
+import CustomDateRangePicker from './CustomDateRangePicker';
 
 interface MaintenanceProps {
   entries: DailyEntry[];
@@ -31,8 +31,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
   const todayStr = getLocalDateStr();
   const [filterStartDate, setFilterStartDate] = useState<string>(todayStr);
   const [filterEndDate, setFilterEndDate] = useState<string>(todayStr);
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [showRangePicker, setShowRangePicker] = useState(false);
 
   const currentMonthStr = todayStr.substring(0, 7);
 
@@ -257,26 +256,61 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div className="space-y-2">
-            <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Início</label>
+          <div className="space-y-2 md:col-span-2">
+            <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Período</label>
+            
+            <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
+              {[
+                { label: 'Hoje', start: todayStr, end: todayStr },
+                { label: '7 dias', days: 7 },
+                { label: '30 dias', days: 30 }
+              ].map((p, i) => {
+                let pStart = p.start;
+                let pEnd = p.end;
+                
+                if (p.days) {
+                  const end = new Date();
+                  const start = new Date();
+                  start.setDate(end.getDate() - p.days + 1);
+                  pStart = start.toISOString().split('T')[0];
+                  pEnd = end.toISOString().split('T')[0];
+                }
+
+                const isSelected = pStart === filterStartDate && pEnd === filterEndDate;
+
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      setFilterStartDate(pStart!);
+                      setFilterEndDate(pEnd!);
+                    }}
+                    className={`whitespace-nowrap px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
+                      isSelected 
+                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-100 dark:shadow-none' 
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <button 
               type="button"
-              onClick={() => setShowStartDatePicker(true)}
-              className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-blue-200 dark:hover:border-blue-500/30"
+              onClick={() => setShowRangePicker(true)}
+              className="w-full flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-blue-200 dark:hover:border-blue-500/30"
             >
-              <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
-              <span>{filterStartDate ? new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Início'}</span>
-            </button>
-          </div>
-          <div className="space-y-2">
-            <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Fim</label>
-            <button 
-              type="button"
-              onClick={() => setShowEndDatePicker(true)}
-              className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-blue-200 dark:hover:border-blue-500/30"
-            >
-              <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
-              <span>{filterEndDate ? new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Fim'}</span>
+              <div className="flex items-center gap-3">
+                <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
+                <span>{new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+              </div>
+              <ChevronRight size={14} className="text-slate-300" />
+              <div className="flex items-center gap-3">
+                <span>{new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+              </div>
             </button>
           </div>
           <button 
@@ -396,18 +430,15 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
         </div>
       </motion.div>
       <AnimatePresence>
-        {showStartDatePicker && (
-          <CustomDatePicker 
-            value={filterStartDate} 
-            onChange={setFilterStartDate} 
-            onClose={() => setShowStartDatePicker(false)} 
-          />
-        )}
-        {showEndDatePicker && (
-          <CustomDatePicker 
-            value={filterEndDate} 
-            onChange={setFilterEndDate} 
-            onClose={() => setShowEndDatePicker(false)} 
+        {showRangePicker && (
+          <CustomDateRangePicker 
+            startDate={filterStartDate} 
+            endDate={filterEndDate} 
+            onChange={(start, end) => {
+              setFilterStartDate(start);
+              setFilterEndDate(end);
+            }} 
+            onClose={() => setShowRangePicker(false)} 
           />
         )}
       </AnimatePresence>

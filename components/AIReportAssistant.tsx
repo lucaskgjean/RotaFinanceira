@@ -4,16 +4,29 @@ import { GoogleGenAI } from "@google/genai";
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Send, User, Loader2, AlertCircle, Paperclip } from 'lucide-react';
 import { formatCurrency, generateId, getLocalDateStr } from '../utils/calculations';
-import { DailyEntry } from '../types';
+import { DailyEntry, TimeEntry } from '../types';
 
 interface AIReportAssistantProps {
   reportData: any;
+  entries: DailyEntry[];
+  timeEntries: TimeEntry[];
   onAddEntries: (entries: DailyEntry[]) => void;
+  onUpdateEntry: (entry: DailyEntry) => void;
+  onDeleteEntry: (id: string) => void;
   config: any;
   onClose: () => void;
 }
 
-const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAddEntries, config, onClose }) => {
+const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ 
+  reportData, 
+  entries,
+  timeEntries,
+  onAddEntries, 
+  onUpdateEntry,
+  onDeleteEntry,
+  config, 
+  onClose 
+}) => {
   if (!config.profile?.isPro) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
@@ -37,13 +50,54 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
     );
   }
 
-  const [messages, setMessages] = useState<{ role: 'user' | 'model'; text: string }[]>([]);
+  // Carregar histórico do localStorage
+  const [messages, setMessages] = useState<{ role: 'user' | 'model'; text: string }[]>(() => {
+    const saved = localStorage.getItem('mestre_rotas_chat');
+    return saved ? JSON.parse(saved) : [];
+  });
+  
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [image, setImage] = useState<{ data: string; mimeType: string } | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Ajuste para teclado mobile
+  useEffect(() => {
+    if (!window.visualViewport) return;
+
+    const handleResize = () => {
+      const viewport = window.visualViewport;
+      if (!viewport) return;
+      
+      const heightDiff = window.innerHeight - viewport.height;
+      setKeyboardHeight(heightDiff > 0 ? heightDiff : 0);
+      
+      // Scroll para o fim quando o teclado abre
+      if (heightDiff > 100 && scrollRef.current) {
+        setTimeout(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          }
+        }, 100);
+      }
+    };
+
+    window.visualViewport.addEventListener('resize', handleResize);
+    window.visualViewport.addEventListener('scroll', handleResize);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleResize);
+      window.visualViewport?.removeEventListener('scroll', handleResize);
+    };
+  }, []);
+
+  // Salvar histórico no localStorage
+  useEffect(() => {
+    localStorage.setItem('mestre_rotas_chat', JSON.stringify(messages));
+  }, [messages]);
 
   useEffect(() => {
     // Bloquear scroll do body quando o chat estiver aberto
@@ -58,6 +112,11 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
+
+  const handleNewChat = () => {
+    setMessages([]);
+    localStorage.removeItem('mestre_rotas_chat');
+  };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -101,106 +160,128 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
 
       const ai = new GoogleGenAI({ apiKey });
       
+      // Filtrar dados relevantes para não estourar o contexto, mas dar visão total
+      const recentEntries = entries.slice(-50); // Últimos 50 lançamentos para contexto imediato
+      const recentTime = timeEntries.slice(-20);
+
       const context = `
-        Você é o "Mestre das Rotas", um parceiro veterano de estrada e consultor financeiro para entregadores.
-        Seu tom de voz é motivador, direto, carismático e entende o "corre" do dia a dia.
+        Você é o "Mestre das Rotas", um consultor financeiro e parceiro de estrada realista e experiente para entregadores.
+        Seu tom é profissional, direto, amigável e focado em resultados. Você entende a realidade das ruas, mas mantém uma postura de mentor.
         
         OBJETIVOS:
-        1. Analisar os dados financeiros com inteligência e carisma.
-        2. Ajudar a LANÇAR NOVOS DADOS a partir de textos ou imagens de relatórios (iFood, Uber, Rappi, etc.).
-        3. Ser proativo: não apenas liste números, dê insights acionáveis (ex: sugerir economia, comparar dias, motivar metas).
+        1. Analisar dados financeiros com precisão.
+        2. LANÇAR, EDITAR ou EXCLUIR dados conforme solicitado.
+        3. Dar insights realistas sobre lucro, gastos e metas.
         
         PERSONALIDADE:
-        - Nunca use saudações repetitivas. Varie como começa a conversa.
-        - Use gírias leves de quem está na rua (rota, entrega, meta batida, taxa, corre).
-        - Se o usuário estiver indo bem, comemore com ele. Se estiver devagar, dê uma dica ou incentivo.
+        - Seja realista e suave. Evite gírias excessivas ou caricatas.
+        - Fale como um colega experiente que quer ver o outro crescer.
+        - Se o usuário pedir para mudar algo, confirme que entendeu e execute via comando.
         
-        DADOS DO SISTEMA (Últimos 30 dias):
-        - Período: ${reportData.startDate} até ${reportData.endDate}
+        DADOS ATUAIS DO USUÁRIO (Amostra recente):
+        - Lançamentos: ${JSON.stringify(recentEntries.map(e => ({ id: e.id, date: e.date, store: e.storeName, gross: e.grossAmount, category: e.category })))}
+        - Ponto/Tempo: ${JSON.stringify(recentTime)}
+        
+        RESUMO GERAL:
         - Faturamento Bruto: ${formatCurrency(reportData.summary?.totalGross || 0)}
-        - Lucro Líquido Real: ${formatCurrency(reportData.summary?.totalNet || 0)}
-        - Gasto Real Combustível: ${formatCurrency(reportData.summary?.totalSpentFuel || 0)}
-        - Gasto Real Alimentação: ${formatCurrency(reportData.summary?.totalSpentFood || 0)}
-        - Gasto Real Manutenção: ${formatCurrency(reportData.summary?.totalSpentMaintenance || 0)}
-        - Faturamento dos últimos 7 dias: ${JSON.stringify(reportData.last7Days || {})}
-        
-        METAS E CONFIGS:
+        - Lucro Líquido: ${formatCurrency(reportData.summary?.totalNet || 0)}
+        - Gasto Combustível: ${formatCurrency(reportData.summary?.totalSpentFuel || 0)}
         - Meta Diária: ${formatCurrency(config.dailyGoal)}
-        - % Reserva Combustível: ${config.percFuel * 100}%
-        - % Reserva Manutenção: ${config.percMaintenance * 100}%
         
-        INSTRUÇÕES DE IMPORTAÇÃO:
-        Se o usuário enviar um texto ou imagem que pareça um relatório de ganhos:
-        1. Identifique cada entrega/taxa individualmente.
-        2. Extraia: Data (YYYY-MM-DD), Valor Bruto (grossAmount), Nome da Loja/App (storeName) e Hora (HH:mm).
-        3. Se a data não estiver clara, use a data atual: ${getLocalDateStr()}.
-        4. Se o usuário pedir para "lançar" ou "importar", você DEVE responder com uma mensagem amigável E incluir no final da sua resposta EXATAMENTE este formato de comando (sem blocos de código markdown):
-           ACTION:IMPORT:[{"date":"YYYY-MM-DD","time":"HH:mm","storeName":"Nome","grossAmount":10.50}]
+        COMANDOS DE AÇÃO (Use no final da resposta, sem markdown):
+        1. IMPORTAR: ACTION:IMPORT:[{"date":"YYYY-MM-DD","time":"HH:mm","storeName":"Nome","grossAmount":10.50}]
+        2. EDITAR: ACTION:UPDATE:{"id":"ID_DO_ITEM","date":"YYYY-MM-DD","storeName":"Novo Nome","grossAmount":15.00}
+        3. EXCLUIR: ACTION:DELETE:{"id":"ID_DO_ITEM"}
         
-        REGRAS PARA O JSON:
-        - grossAmount deve ser um número.
-        - storeName deve ser o nome do restaurante ou do app.
-        - NÃO use blocos de código markdown (\`\`\`) para o comando ACTION.
+        REGRAS:
+        - Para EDITAR, você deve identificar o ID correto na lista fornecida.
+        - Se o usuário disser "mude o valor de ontem", procure o lançamento de ontem e use o ID dele.
+        - Responda de forma humana primeiro, depois coloque o comando.
         
-        Seja o parceiro que o entregador precisa para crescer financeiramente.
+        Data Atual: ${getLocalDateStr()}
       `;
 
-      const parts: any[] = [{ text: context + "\n\nPergunta/Relatório do usuário: " + userMessage }];
-      
-      if (currentImage) {
-        parts.push({
-          inlineData: {
-            data: currentImage.data,
-            mimeType: currentImage.mimeType
-          }
-        });
-      }
+      const historyParts = messages.slice(-6).map(m => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: m.text }]
+      }));
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: { parts },
+        contents: [
+          ...historyParts,
+          { parts: [{ text: context + "\n\nUsuário: " + userMessage }] },
+          ...(currentImage ? [{ parts: [{ inlineData: { data: currentImage.data, mimeType: currentImage.mimeType } }] }] : [])
+        ],
       });
 
       let modelText = response.text || "Desculpe, não consegui processar sua solicitação.";
       
-      // Verifica se há comando de importação
+      // Processamento de Comandos
       if (modelText.includes('ACTION:IMPORT:')) {
         const parts = modelText.split('ACTION:IMPORT:');
         const displayMessage = parts[0].trim();
         const jsonStr = parts[1].trim();
-
         try {
           const rawEntries = JSON.parse(jsonStr);
-          const entriesToImport: DailyEntry[] = rawEntries.map((re: any) => {
-            // Calcula os percentuais com base na config do usuário
+          const entriesToImport = rawEntries.map((re: any) => {
             const fuel = re.grossAmount * (config.percFuel || 0.14);
             const food = re.grossAmount * (config.percFood || 0.08);
             const maintenance = re.grossAmount * (config.percMaintenance || 0.08);
-            const netAmount = re.grossAmount - fuel - food - maintenance;
-
             return {
               id: generateId(),
               date: re.date || getLocalDateStr(),
               time: re.time || "12:00",
               storeName: re.storeName || "Importado via IA",
               grossAmount: re.grossAmount,
-              fuel,
-              food,
-              maintenance,
-              netAmount,
+              fuel, food, maintenance,
+              netAmount: re.grossAmount - fuel - food - maintenance,
               paymentMethod: 'pix',
               isPaid: true,
               category: 'income'
             };
           });
-
           onAddEntries(entriesToImport);
-          setMessages(prev => [...prev, { role: 'model', text: displayMessage || "Lançamentos processados com sucesso!" }]);
-        } catch (e) {
-          console.error("Erro ao processar JSON da IA:", e);
-          setMessages(prev => [...prev, { role: 'model', text: "Consegui ler os dados, mas houve um erro ao formatar os lançamentos. Por favor, tente novamente ou cole o texto de forma mais clara." }]);
-        }
-      } else {
+          setMessages(prev => [...prev, { role: 'model', text: displayMessage || "Lançamentos realizados!" }]);
+        } catch (e) { setMessages(prev => [...prev, { role: 'model', text: "Erro ao processar importação." }]); }
+      } 
+      else if (modelText.includes('ACTION:UPDATE:')) {
+        const parts = modelText.split('ACTION:UPDATE:');
+        const displayMessage = parts[0].trim();
+        const jsonStr = parts[1].trim();
+        try {
+          const updateData = JSON.parse(jsonStr);
+          const original = entries.find(e => e.id === updateData.id);
+          if (original) {
+            const updated = { ...original, ...updateData };
+            // Recalcular líquidos se o valor bruto mudou
+            if (updateData.grossAmount !== undefined) {
+              const fuel = updated.grossAmount * (config.percFuel || 0.14);
+              const food = updated.grossAmount * (config.percFood || 0.08);
+              const maintenance = updated.grossAmount * (config.percMaintenance || 0.08);
+              updated.fuel = fuel;
+              updated.food = food;
+              updated.maintenance = maintenance;
+              updated.netAmount = updated.grossAmount - fuel - food - maintenance;
+            }
+            onUpdateEntry(updated);
+            setMessages(prev => [...prev, { role: 'model', text: displayMessage || "Registro atualizado com sucesso." }]);
+          } else {
+            setMessages(prev => [...prev, { role: 'model', text: "Não encontrei o registro para editar." }]);
+          }
+        } catch (e) { setMessages(prev => [...prev, { role: 'model', text: "Erro ao processar edição." }]); }
+      }
+      else if (modelText.includes('ACTION:DELETE:')) {
+        const parts = modelText.split('ACTION:DELETE:');
+        const displayMessage = parts[0].trim();
+        const jsonStr = parts[1].trim();
+        try {
+          const deleteData = JSON.parse(jsonStr);
+          onDeleteEntry(deleteData.id);
+          setMessages(prev => [...prev, { role: 'model', text: displayMessage || "Registro removido." }]);
+        } catch (e) { setMessages(prev => [...prev, { role: 'model', text: "Erro ao processar exclusão." }]); }
+      }
+      else {
         setMessages(prev => [...prev, { role: 'model', text: modelText }]);
       }
     } catch (err: any) {
@@ -222,10 +303,20 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
       />
       
       <motion.div 
+        ref={containerRef}
         initial={{ opacity: 0, y: 100, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
+        animate={{ 
+          opacity: 1, 
+          y: 0, 
+          scale: 1,
+          bottom: keyboardHeight > 0 ? keyboardHeight : 'auto'
+        }}
         exit={{ opacity: 0, y: 100, scale: 0.95 }}
-        className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col h-[80vh] sm:h-[600px]"
+        style={{
+          height: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight}px - 32px)` : '80vh',
+          maxHeight: keyboardHeight > 0 ? 'none' : '600px'
+        }}
+        className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col sm:h-[600px]"
       >
         {/* Header */}
         <div className="p-6 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between bg-indigo-600 dark:bg-indigo-500 text-white">
@@ -235,15 +326,24 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
             </div>
             <div>
               <h3 className="text-sm font-black uppercase tracking-widest">Mestre das Rotas</h3>
-              <p className="text-[10px] opacity-70 font-bold uppercase tracking-tight">Seu parceiro de inteligência</p>
+              <p className="text-[10px] opacity-70 font-bold uppercase tracking-tight">Consultor de Estratégia</p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="w-10 h-10 bg-indigo-700 hover:bg-indigo-800 rounded-xl flex items-center justify-center transition-colors"
-          >
-            <AlertCircle size={20} className="rotate-45" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleNewChat}
+              className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-800 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
+              title="Nova Conversa"
+            >
+              Novo Chat
+            </button>
+            <button 
+              onClick={onClose}
+              className="w-10 h-10 bg-indigo-700 hover:bg-indigo-800 rounded-xl flex items-center justify-center transition-colors"
+            >
+              <AlertCircle size={20} className="rotate-45" />
+            </button>
+          </div>
         </div>
 
         {/* Chat Area */}
@@ -257,10 +357,9 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ reportData, onAdd
                 <Sparkles size={32} />
               </div>
               <div className="max-w-xs">
-                <p className="text-xs font-black uppercase tracking-widest text-slate-500">Fala, Mestre das Rotas! 👊</p>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">Olá! Sou o Mestre das Rotas. 👊</p>
                 <p className="text-[10px] font-bold text-slate-400 mt-1">
-                  Manda um print do seu relatório ou cole o texto dos ganhos aqui. 
-                  Eu lanço tudo pra você e ainda te dou aquela letra sobre como tá seu lucro!
+                  Estou aqui para analisar seus ganhos, ajudar com lançamentos ou ajustar qualquer registro que você precisar. Como posso te ajudar hoje?
                 </p>
               </div>
             </div>

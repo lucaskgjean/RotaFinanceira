@@ -7,7 +7,8 @@ export const ADMIN_EMAILS = [
   'admin@rotafinanceira.com.br',
   'tester@rotafinanceira.com.br',
   'teste@gmail.com',
-  'test@test.com'
+  'test@test.com',
+  'allysonbreno003@gmail.com'
 ];
 
 export const isUserAdmin = (email: string | null | undefined): boolean => {

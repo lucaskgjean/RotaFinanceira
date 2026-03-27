@@ -1,5 +1,5 @@
 
-import { DailyEntry, AppConfig, WeeklySummary } from '../types';
+import { DailyEntry, AppConfig, WeeklySummary, TimeEntry } from '../types';
 
 /**
  * Gerador de ID robusto com fallback para ambientes sem suporte a crypto.randomUUID
@@ -79,7 +79,7 @@ export const calculateManualExpense = (
     id: generateId(),
     date,
     time,
-    storeName: `[GASTO] ${description || 'Despesa Extra'}`,
+    storeName: description ? `[GASTO] ${description}` : '[GASTO]',
     grossAmount: 0,
     fuel: category === 'fuel' ? amount : 0,
     food: category === 'food' ? amount : 0,
@@ -232,7 +232,19 @@ export const getWeeklyGroupedSummaries = (entries: DailyEntry[]) => {
   }).sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
 };
 
-export const getDailyStats = (entries: DailyEntry[], config: AppConfig) => {
+export const getDailyStats = (entries: DailyEntry[], timeEntries: TimeEntry[], config: AppConfig) => {
+  const workedDates = new Set<string>();
+  
+  // Adiciona datas com faturamento (Quick Launch)
+  entries.forEach(e => {
+    if (e.grossAmount > 0) workedDates.add(e.date);
+  });
+  
+  // Adiciona datas com registro de ponto
+  timeEntries.forEach(t => {
+    workedDates.add(t.date);
+  });
+
   const groups: { [key: string]: DailyEntry[] } = {};
   
   entries.forEach(entry => {
@@ -240,8 +252,8 @@ export const getDailyStats = (entries: DailyEntry[], config: AppConfig) => {
     groups[entry.date].push(entry);
   });
 
-  return Object.keys(groups).map(date => {
-    const dayEntries = groups[date];
+  return Array.from(workedDates).map(date => {
+    const dayEntries = groups[date] || [];
     const summary = getWeeklySummary(dayEntries);
     return {
       gross: summary.totalGross,

@@ -72,6 +72,12 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
     };
 
     onAdd(newEntry);
+
+    // Fecha o teclado removendo o foco do elemento ativo
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
     setTotalKm('');
     setKmType('work');
     setShowAdvanced(false);
@@ -197,6 +203,11 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
 
         <motion.button 
           whileTap={{ scale: 0.98 }}
+          onMouseDown={(e) => {
+            // Previne o blur do input antes do clique ser registrado, 
+            // evitando que o teclado bloqueie a ação no primeiro toque.
+            e.preventDefault();
+          }}
           type="submit" 
           className="w-full bg-blue-600 dark:bg-blue-500 text-white font-black py-4 rounded-[1.5rem] hover:bg-blue-700 dark:hover:bg-blue-600 transition-all shadow-lg shadow-blue-100 dark:shadow-none uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"
         >

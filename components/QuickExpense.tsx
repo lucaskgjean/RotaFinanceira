@@ -55,6 +55,11 @@ const QuickExpense: React.FC<QuickExpenseProps> = ({ onAdd }) => {
     const newEntry = calculateManualExpense(numAmount, category, date, time, description, numKm, paymentMethod, numLiters);
     onAdd(newEntry);
     
+    // Fecha o teclado removendo o foco do elemento ativo
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    
     setAmount('');
     setLiters('');
     setDescription('');
@@ -80,7 +85,7 @@ const QuickExpense: React.FC<QuickExpenseProps> = ({ onAdd }) => {
           <div className="w-8 h-8 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl flex items-center justify-center">
             <PlusCircle size={18} />
           </div>
-          <h3 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest">Lançar Gasto Extra</h3>
+          <h3 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest">Lançar Gasto</h3>
         </div>
         <button 
           type="button"
@@ -287,6 +292,11 @@ const QuickExpense: React.FC<QuickExpenseProps> = ({ onAdd }) => {
 
         <motion.button
           whileTap={{ scale: 0.98 }}
+          onMouseDown={(e) => {
+            // Previne o blur do input antes do clique ser registrado, 
+            // evitando que o teclado bloqueie a ação no primeiro toque.
+            e.preventDefault();
+          }}
           type="submit"
           className="w-full bg-slate-900 dark:bg-slate-800 text-white font-black py-4 rounded-[1.5rem] hover:bg-black dark:hover:bg-slate-700 transition-all shadow-xl shadow-slate-200 dark:shadow-none uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"
         >

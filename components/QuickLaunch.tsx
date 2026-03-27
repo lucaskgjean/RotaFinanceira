@@ -63,6 +63,11 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
     const newEntry = calculateDailyEntry(numAmount, date, time, finalStoreName, config, undefined, undefined, paymentMethod);
     onAdd(newEntry);
     
+    // Fecha o teclado removendo o foco do elemento ativo
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    
     setAmount('6');
     setStoreName('');
     setTime(getCurrentTime());
@@ -245,6 +250,11 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
 
         <motion.button 
           whileTap={{ scale: 0.98 }}
+          onMouseDown={(e) => {
+            // Previne o blur do input antes do clique ser registrado, 
+            // evitando que o teclado bloqueie a ação no primeiro toque.
+            e.preventDefault();
+          }}
           type="submit" 
           className="w-full bg-indigo-600 dark:bg-indigo-500 text-white font-black py-5 rounded-[2rem] hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-100 dark:shadow-none uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-3"
         >

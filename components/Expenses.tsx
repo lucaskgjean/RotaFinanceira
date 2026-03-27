@@ -3,7 +3,7 @@ import React from 'react';
 import { DailyEntry, AppConfig } from '../types';
 import { formatCurrency, getWeeklyGroupedSummaries, getLocalDateStr, getWeeklySummary } from '../utils/calculations';
 import { motion, AnimatePresence } from 'motion/react';
-import CustomDatePicker from './CustomDatePicker';
+import CustomDateRangePicker from './CustomDateRangePicker';
 import CustomSelect from './CustomSelect';
 import { 
   Fuel, 
@@ -24,7 +24,8 @@ import {
   Clock,
   CreditCard,
   Filter,
-  Layers
+  Layers,
+  X
 } from 'lucide-react';
 import QuickExpense from './QuickExpense';
 
@@ -44,8 +45,7 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
   const [historyFilterStartDate, setHistoryFilterStartDate] = React.useState(todayStr);
   const [historyFilterEndDate, setHistoryFilterEndDate] = React.useState(todayStr);
   const [historyFilterCategory, setHistoryFilterCategory] = React.useState<string>('');
-  const [showStartDatePicker, setShowStartDatePicker] = React.useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = React.useState(false);
+  const [showRangePicker, setShowRangePicker] = React.useState(false);
   const [showCategorySelect, setShowCategorySelect] = React.useState(false);
   
   const getStartOfWeek = (d: Date) => {
@@ -356,31 +356,77 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
             </div>
           </div>
 
-          {/* Filtros do Histórico */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-              <button 
-                onClick={() => setShowStartDatePicker(true)}
-                className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-rose-500 transition-all dark:text-white text-left truncate"
-              >
-                {historyFilterStartDate ? new Date(historyFilterStartDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Início'}
-              </button>
-              <span className="absolute -top-2 left-3 bg-white dark:bg-slate-900 px-1 text-[8px] font-black text-slate-400 uppercase tracking-widest">Início</span>
+        {/* Filtros do Histórico */}
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500">
+              <Filter size={16} />
             </div>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Filtro de Histórico</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="space-y-2 md:col-span-2">
+              <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Período</label>
+              
+              <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
+                {[
+                  { label: 'Hoje', start: todayStr, end: todayStr },
+                  { label: '7 dias', days: 7 },
+                  { label: '30 dias', days: 30 }
+                ].map((p, i) => {
+                  let pStart = p.start;
+                  let pEnd = p.end;
+                  
+                  if (p.days) {
+                    const end = new Date();
+                    const start = new Date();
+                    start.setDate(end.getDate() - p.days + 1);
+                    pStart = start.toISOString().split('T')[0];
+                    pEnd = end.toISOString().split('T')[0];
+                  }
+
+                  const isSelected = pStart === historyFilterStartDate && pEnd === historyFilterEndDate;
+
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setHistoryFilterStartDate(pStart!);
+                        setHistoryFilterEndDate(pEnd!);
+                      }}
+                      className={`whitespace-nowrap px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
+                        isSelected 
+                          ? 'bg-rose-500 text-white shadow-lg shadow-rose-100 dark:shadow-none' 
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               <button 
-                onClick={() => setShowEndDatePicker(true)}
-                className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-2 focus:ring-rose-500 transition-all dark:text-white text-left truncate"
+                type="button"
+                onClick={() => setShowRangePicker(true)}
+                className="w-full flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-rose-200 dark:hover:border-rose-500/30"
               >
-                {historyFilterEndDate ? new Date(historyFilterEndDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Fim'}
+                <div className="flex items-center gap-3">
+                  <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
+                  <span>{new Date(historyFilterStartDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                </div>
+                <ChevronRight size={14} className="text-slate-300" />
+                <div className="flex items-center gap-3">
+                  <span>{new Date(historyFilterEndDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                </div>
               </button>
-              <span className="absolute -top-2 left-3 bg-white dark:bg-slate-900 px-1 text-[8px] font-black text-slate-400 uppercase tracking-widest">Fim</span>
             </div>
-            <div className="col-span-2 sm:col-span-1">
+            <div className="space-y-2">
+              <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Categoria</label>
               <CustomSelect
-                label="Categoria"
+                label=""
                 value={historyFilterCategory}
                 options={[
                   { id: '', label: 'Todas Categorias', icon: <Layers size={14} /> },
@@ -395,7 +441,18 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
                 onClose={() => setShowCategorySelect(false)}
               />
             </div>
+            <button 
+              onClick={() => {
+                setHistoryFilterStartDate(todayStr);
+                setHistoryFilterEndDate(todayStr);
+                setHistoryFilterCategory('');
+              }}
+              className="w-full py-3.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 font-black text-[10px] uppercase tracking-widest rounded-2xl transition flex items-center justify-center gap-2"
+            >
+              <X size={14} /> Limpar Filtro
+            </button>
           </div>
+        </motion.div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -420,7 +477,7 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
                 }
               };
               const catInfo = getCategoryInfo(entry.category);
-              const displayTitle = entry.storeName.replace('[GASTO] ', '').trim() || catInfo.label;
+              const displayTitle = entry.storeName.replace('[GASTO]', '').trim() || catInfo.label;
 
               return (
                 <motion.div 
@@ -489,18 +546,15 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
       </motion.div>
 
       <AnimatePresence>
-        {showStartDatePicker && (
-          <CustomDatePicker 
-            value={historyFilterStartDate} 
-            onChange={setHistoryFilterStartDate} 
-            onClose={() => setShowStartDatePicker(false)} 
-          />
-        )}
-        {showEndDatePicker && (
-          <CustomDatePicker 
-            value={historyFilterEndDate} 
-            onChange={setHistoryFilterEndDate} 
-            onClose={() => setShowEndDatePicker(false)} 
+        {showRangePicker && (
+          <CustomDateRangePicker 
+            startDate={historyFilterStartDate} 
+            endDate={historyFilterEndDate} 
+            onChange={(start, end) => {
+              setHistoryFilterStartDate(start);
+              setHistoryFilterEndDate(end);
+            }} 
+            onClose={() => setShowRangePicker(false)} 
           />
         )}
       </AnimatePresence>

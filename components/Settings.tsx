@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { AppConfig, DEFAULT_CONFIG, DailyEntry, TimeEntry } from '../types';
 import { formatCurrency, entriesToCSV } from '../utils/calculations';
 import CustomDialog from './CustomDialog';
-import CustomDatePicker from './CustomDatePicker';
+import CustomDateRangePicker from './CustomDateRangePicker';
 import { Sun, Moon, Monitor, Settings as SettingsIcon, Bell, Plus, Trash2, Clock, LogOut, User, Camera, Phone, Mail, Lock, ChevronRight, Sparkles, ShieldCheck, RefreshCw, AlertTriangle, Calendar, Wallet, ArrowUpRight, CreditCard, MoreHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { notificationService } from '../services/notificationService';
@@ -29,8 +29,7 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
   const [showTutorial, setShowTutorial] = useState(false);
   const [activeTab, setActiveTab] = useState<'perfil' | 'sistema' | 'aparencia'>('perfil');
   const [resetPeriod, setResetPeriod] = useState({ start: '', end: '' });
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [showRangePicker, setShowRangePicker] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [dialog, setDialog] = useState<{
     isOpen: boolean;
@@ -958,24 +957,20 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
               {/* Reset por Período */}
               <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3">
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Limpar por Período</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button 
-                    type="button"
-                    onClick={() => setShowStartDatePicker(true)}
-                    className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none text-left"
-                  >
+                <button 
+                  type="button"
+                  onClick={() => setShowRangePicker(true)}
+                  className="w-full flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all hover:border-rose-200 dark:hover:border-rose-500/30 shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
                     <Calendar size={14} className="text-slate-400" />
-                    <span>{resetPeriod.start ? new Date(resetPeriod.start + 'T12:00:00').toLocaleDateString('pt-BR') : 'Início'}</span>
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setShowEndDatePicker(true)}
-                    className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none text-left"
-                  >
-                    <Calendar size={14} className="text-slate-400" />
-                    <span>{resetPeriod.end ? new Date(resetPeriod.end + 'T12:00:00').toLocaleDateString('pt-BR') : 'Fim'}</span>
-                  </button>
-                </div>
+                    <span>{new Date(resetPeriod.start + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  <ChevronRight size={12} className="text-slate-300" />
+                  <div className="flex items-center gap-3">
+                    <span>{new Date(resetPeriod.end + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                  </div>
+                </button>
                 <button 
                   onClick={handleResetPeriod}
                   className="w-full py-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all"
@@ -985,18 +980,12 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
               </div>
 
               <AnimatePresence>
-                {showStartDatePicker && (
-                  <CustomDatePicker 
-                    value={resetPeriod.start} 
-                    onChange={(val) => setResetPeriod(prev => ({ ...prev, start: val }))} 
-                    onClose={() => setShowStartDatePicker(false)} 
-                  />
-                )}
-                {showEndDatePicker && (
-                  <CustomDatePicker 
-                    value={resetPeriod.end} 
-                    onChange={(val) => setResetPeriod(prev => ({ ...prev, end: val }))} 
-                    onClose={() => setShowEndDatePicker(false)} 
+                {showRangePicker && (
+                  <CustomDateRangePicker 
+                    startDate={resetPeriod.start} 
+                    endDate={resetPeriod.end} 
+                    onChange={(start, end) => setResetPeriod({ start, end })} 
+                    onClose={() => setShowRangePicker(false)} 
                   />
                 )}
               </AnimatePresence>

@@ -149,6 +149,35 @@ const App: React.FC = () => {
     return () => window.removeEventListener('message', handleMessage);
   }, [user]);
 
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  // Global keyboard visibility handler for mobile
+  useEffect(() => {
+    const handleFocus = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        setIsKeyboardOpen(true);
+        setTimeout(() => {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    };
+
+    const handleBlur = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        setIsKeyboardOpen(false);
+      }
+    };
+
+    window.addEventListener('focusin', handleFocus);
+    window.addEventListener('focusout', handleBlur);
+    return () => {
+      window.removeEventListener('focusin', handleFocus);
+      window.removeEventListener('focusout', handleBlur);
+    };
+  }, []);
+
   // Scroll to top on tab change
   useEffect(() => {
     const scrollToTop = () => {
@@ -731,6 +760,21 @@ const App: React.FC = () => {
     showToast("Registro atualizado com sucesso!");
   };
 
+  const bulkUpdateStoreName = (oldName: string, newName: string) => {
+    if (!oldName || !newName || oldName === newName) return;
+
+    setEntries(prev => {
+      const updated = prev.map(entry => {
+        if (entry.storeName === oldName) {
+          return { ...entry, storeName: newName };
+        }
+        return entry;
+      });
+      return updated;
+    });
+    showToast(`Loja "${oldName}" renomeada para "${newName}" em todos os registros!`);
+  };
+
   const deleteEntry = useCallback((id: string) => {
     if (!id) return;
     
@@ -1054,10 +1098,12 @@ const App: React.FC = () => {
                 <QuickLaunch onAdd={addEntry} existingEntries={entries} config={config} />
                 <History 
                   entries={entries} 
+                  timeEntries={timeEntries} 
                   config={config} 
                   onDelete={deleteEntry} 
                   onEdit={setEditingEntry} 
                   onUpdate={updateEntry}
+                  onBulkUpdateStoreName={bulkUpdateStoreName}
                   filterStore={globalStoreFilter === 'all' ? '' : globalStoreFilter}
                   onFilterStoreChange={(val) => setGlobalStoreFilter(val === '' ? 'all' : val)}
                 />
@@ -1068,7 +1114,7 @@ const App: React.FC = () => {
         </AnimatePresence>
       </main>
 
-      {activeTab !== 'settings' && (
+      {activeTab !== 'settings' && !isKeyboardOpen && (
         <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 md:hidden pb-safe z-50 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.3)]">
           <div className="flex justify-around items-center h-20 px-2">
             {[
@@ -1097,7 +1143,7 @@ const App: React.FC = () => {
       )}
 
       {/* Floating AI Button */}
-      {activeTab !== 'settings' && (
+      {activeTab !== 'settings' && !isKeyboardOpen && (
         <div className="fixed bottom-24 right-6 z-40">
           <motion.button
             whileHover={{ scale: 1.1 }}
@@ -1134,6 +1180,10 @@ const App: React.FC = () => {
           <AIReportAssistant 
             onClose={() => setIsAIChatOpen(false)}
             onAddEntries={(newEntries) => newEntries.forEach(addEntry)}
+            onUpdateEntry={updateEntry}
+            onDeleteEntry={deleteEntry}
+            entries={entries}
+            timeEntries={timeEntries}
             config={config}
             reportData={{
               startDate: 'Últimos 30 dias',

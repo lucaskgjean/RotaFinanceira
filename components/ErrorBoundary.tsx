@@ -56,7 +56,7 @@ class ErrorBoundary extends Component<Props, State> {
           </p>
           
           {details && (
-            <div className="w-full max-w-2xl bg-slate-900 text-slate-300 p-4 rounded-xl text-left overflow-auto max-h-64 mb-8 font-mono text-xs">
+            <div className="w-full max-w-2xl bg-slate-900 text-slate-300 p-4 rounded-xl text-left overflow-auto scrollbar-hide max-h-64 mb-8 font-mono text-xs">
               <pre>{details}</pre>
             </div>
           )}

@@ -39,6 +39,19 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (!window.visualViewport) return;
+    const handleResize = () => {
+      const viewport = window.visualViewport;
+      if (!viewport) return;
+      const heightDiff = window.innerHeight - viewport.height;
+      setKeyboardHeight(heightDiff > 0 ? heightDiff : 0);
+    };
+    window.visualViewport.addEventListener('resize', handleResize);
+    return () => window.visualViewport?.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,8 +101,16 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
         />
         <motion.div 
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
+          animate={{ 
+            opacity: 1, 
+            scale: 1, 
+            y: 0,
+            bottom: keyboardHeight > 0 ? keyboardHeight : 'auto'
+          }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          style={{
+            maxHeight: keyboardHeight > 0 ? `calc(100vh - ${keyboardHeight}px - 32px)` : '90vh'
+          }}
           className="relative bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-transparent dark:border-slate-800 pointer-events-auto"
         >
           <div className={`p-6 text-white flex justify-between items-center ${isKmClosing ? 'bg-rose-500' : isIncome ? 'bg-indigo-600' : 'bg-rose-500'}`}>
@@ -188,27 +209,6 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
                     </div>
                   )}
                 </div>
-
-                {isIncome && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-2 tracking-widest">KM Rodado</label>
-                      <input 
-                        type="number" step="0.1"
-                        value={kmDriven} onChange={(e) => setKmDriven(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-2 tracking-widest">Preço Gasolina</label>
-                      <input 
-                        type="number" step="0.001"
-                        value={fuelPrice} onChange={(e) => setFuelPrice(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500 outline-none"
-                      />
-                    </div>
-                  </div>
-                )}
 
                 {!isIncome && (
                   <div className="space-y-5">

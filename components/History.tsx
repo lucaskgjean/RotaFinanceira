@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { DailyEntry, AppConfig } from '../types';
+import { DailyEntry, AppConfig, TimeEntry } from '../types';
 import { formatCurrency, getWeeklySummary, getDailyStats, getLocalDateStr } from '../utils/calculations';
 import { motion, AnimatePresence } from 'motion/react';
-import CustomDatePicker from './CustomDatePicker';
+import CustomDateRangePicker from './CustomDateRangePicker';
 import CustomSelect from './CustomSelect';
 import { 
   Search, 
@@ -29,29 +29,33 @@ import {
   Activity
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
+import PerformanceCalendar from './PerformanceCalendar';
 
 interface HistoryProps {
   entries: DailyEntry[];
+  timeEntries: TimeEntry[];
   config: AppConfig;
   onDelete: (id: string) => void;
   onEdit: (entry: DailyEntry) => void;
   onUpdate: (entry: DailyEntry) => void;
+  onBulkUpdateStoreName: (oldName: string, newName: string) => void;
   filterStore: string;
   onFilterStoreChange: (val: string) => void;
 }
 
-const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, onUpdate, filterStore, onFilterStoreChange }) => {
+const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelete, onEdit, onUpdate, onBulkUpdateStoreName, filterStore, onFilterStoreChange }) => {
   const todayStr = getLocalDateStr();
   const [filterStartDate, setFilterStartDate] = useState<string>(todayStr);
   const [filterEndDate, setFilterEndDate] = useState<string>(todayStr);
   const [filterPayment, setFilterPayment] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>('');
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [showRangePicker, setShowRangePicker] = useState(false);
   const [showPaymentSelect, setShowPaymentSelect] = useState(false);
   const [showStatusSelect, setShowStatusSelect] = useState(false);
   const [showStoreSelect, setShowStoreSelect] = useState(false);
-  const [showFullHistory, setShowFullHistory] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(3);
+  const [isEditingStoreName, setIsEditingStoreName] = useState(false);
+  const [newStoreName, setNewStoreName] = useState('');
 
   const uniqueStores = useMemo(() => {
     return Array.from(new Set(entries.filter(e => e.grossAmount > 0).map(e => e.storeName))).sort();
@@ -83,7 +87,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
   }, [entries, filterStartDate, filterEndDate, filterPayment, filterStatus, filterStore]);
 
   const stats = useMemo(() => getWeeklySummary(filteredEntries), [filteredEntries]);
-  const dailyBreakdown = useMemo(() => getDailyStats(entries, config), [entries, config]);
+  const dailyBreakdown = useMemo(() => getDailyStats(entries, timeEntries, config), [entries, timeEntries, config]);
 
   const clearFilters = () => {
     setFilterStartDate(todayStr);
@@ -125,26 +129,61 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-          <div className="space-y-2">
-            <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Início</label>
+          <div className="space-y-2 lg:col-span-2">
+            <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Período</label>
+            
+            <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
+              {[
+                { label: 'Hoje', start: todayStr, end: todayStr },
+                { label: '7 dias', days: 7 },
+                { label: '30 dias', days: 30 }
+              ].map((p, i) => {
+                let pStart = p.start;
+                let pEnd = p.end;
+                
+                if (p.days) {
+                  const end = new Date();
+                  const start = new Date();
+                  start.setDate(end.getDate() - p.days + 1);
+                  pStart = start.toISOString().split('T')[0];
+                  pEnd = end.toISOString().split('T')[0];
+                }
+
+                const isSelected = pStart === filterStartDate && pEnd === filterEndDate;
+
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      setFilterStartDate(pStart!);
+                      setFilterEndDate(pEnd!);
+                    }}
+                    className={`whitespace-nowrap px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
+                      isSelected 
+                        ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-100 dark:shadow-none' 
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <button 
               type="button"
-              onClick={() => setShowStartDatePicker(true)}
-              className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-indigo-200 dark:hover:border-indigo-500/30"
+              onClick={() => setShowRangePicker(true)}
+              className="w-full flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-indigo-200 dark:hover:border-indigo-500/30"
             >
-              <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
-              <span>{filterStartDate ? new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Início'}</span>
-            </button>
-          </div>
-          <div className="space-y-2">
-            <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Fim</label>
-            <button 
-              type="button"
-              onClick={() => setShowEndDatePicker(true)}
-              className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-indigo-200 dark:hover:border-indigo-500/30"
-            >
-              <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
-              <span>{filterEndDate ? new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Fim'}</span>
+              <div className="flex items-center gap-3">
+                <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
+                <span>{new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+              </div>
+              <ChevronRight size={14} className="text-slate-300" />
+              <div className="flex items-center gap-3">
+                <span>{new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+              </div>
             </button>
           </div>
           <div className="space-y-2">
@@ -169,8 +208,8 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
               value={filterStatus}
               options={[
                 { id: '', label: 'Todos', icon: <Activity size={14} /> },
-                { id: 'paid', label: 'Pago', icon: <CheckCircle2 size={14} className="text-emerald-500" /> },
-                { id: 'pending', label: 'Pendente', icon: <AlertCircle size={14} className="text-rose-500" /> }
+                { id: 'paid', label: 'Pago', icon: <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" /> },
+                { id: 'pending', label: 'Pendente', icon: <AlertCircle size={14} className="text-rose-600 dark:text-rose-400" /> }
               ]}
               onChange={setFilterStatus}
               isOpen={showStatusSelect}
@@ -179,22 +218,38 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
             />
           </div>
           <div className="space-y-2">
-            <CustomSelect
-              label="Filtrar por Loja"
-              value={filterStore}
-              options={[
-                { id: '', label: 'Todas as Lojas', icon: <HistoryIcon size={14} /> },
-                ...uniqueStores.map(store => ({
-                  id: store,
-                  label: store,
-                  icon: <Tag size={14} />
-                }))
-              ]}
-              onChange={onFilterStoreChange}
-              isOpen={showStoreSelect}
-              onOpen={() => setShowStoreSelect(true)}
-              onClose={() => setShowStoreSelect(false)}
-            />
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <CustomSelect
+                  label="Filtrar por Loja"
+                  value={filterStore}
+                  options={[
+                    { id: '', label: 'Todas as Lojas', icon: <HistoryIcon size={14} /> },
+                    ...uniqueStores.map(store => ({
+                      id: store,
+                      label: store,
+                      icon: <Tag size={14} />
+                    }))
+                  ]}
+                  onChange={onFilterStoreChange}
+                  isOpen={showStoreSelect}
+                  onOpen={() => setShowStoreSelect(true)}
+                  onClose={() => setShowStoreSelect(false)}
+                />
+              </div>
+              {filterStore && (
+                <button
+                  onClick={() => {
+                    setNewStoreName(filterStore);
+                    setIsEditingStoreName(true);
+                  }}
+                  className="mt-6 p-3.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all shadow-sm border border-indigo-100 dark:border-indigo-500/20"
+                  title="Editar nome desta loja em todos os registros"
+                >
+                  <Edit3 size={18} />
+                </button>
+              )}
+            </div>
           </div>
           <button 
             onClick={clearFilters}
@@ -210,8 +265,8 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
         {[
           { label: 'Bruto Total', value: formatCurrency(stats.totalGross), color: 'text-slate-800 dark:text-white', bg: 'bg-white dark:bg-slate-900' },
           { label: 'Líquido Total', value: formatCurrency(stats.totalNet), color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-white dark:bg-slate-900' },
-          { label: 'Recebido', value: formatCurrency(stats.totalPaid), color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900' },
-          { label: 'Pendente', value: formatCurrency(stats.totalPending), color: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-900' },
+          { label: 'Recebido', value: formatCurrency(stats.totalPaid), color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+          { label: 'Pendente', value: formatCurrency(stats.totalPending), color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10' },
         ].map((stat, i) => (
           <motion.div 
             key={i}
@@ -250,7 +305,7 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                 <p className="text-xs text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest">Nenhum registro encontrado</p>
               </motion.div>
             ) : (
-              (showFullHistory ? filteredEntries : filteredEntries.slice(0, 1)).map((entry) => (
+              filteredEntries.slice(0, visibleCount).map((entry) => (
                 <motion.div 
                   layout
                   key={entry.id}
@@ -273,9 +328,9 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-slate-800 dark:text-white leading-tight text-lg">{entry.storeName.replace('[GASTO] ', '')}</h4>
+                          <h4 className="font-bold text-slate-800 dark:text-white leading-tight text-lg">{entry.storeName.replace('[GASTO]', '').trim()}</h4>
                           {entry.paymentMethod !== 'money' && (
-                            <span className={`text-[8px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-widest border ${entry.isPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900 dark:text-emerald-400 dark:border-emerald-500/20' : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-900 dark:text-rose-400 dark:border-rose-500/20'}`}>
+                            <span className={`text-[8px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-widest border ${entry.isPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'}`}>
                               {entry.isPaid ? 'Pago' : 'Pendente'}
                             </span>
                           )}
@@ -343,18 +398,25 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
             )}
           </AnimatePresence>
 
-          {filteredEntries.length > 1 && (
+          {filteredEntries.length > visibleCount && (
             <motion.button
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              onClick={() => setShowFullHistory(!showFullHistory)}
+              onClick={() => setVisibleCount(prev => prev + 40)}
               className="w-full mt-4 py-4 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-all flex items-center justify-center gap-2"
             >
-              {showFullHistory ? (
-                <>Ocultar Histórico <X size={14} /></>
-              ) : (
-                <>Ver Todos os Lançamentos ({filteredEntries.length}) <ChevronRight size={14} /></>
-              )}
+              Ver Mais <ChevronRight size={14} />
+            </motion.button>
+          )}
+
+          {visibleCount > 3 && (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              onClick={() => setVisibleCount(3)}
+              className="w-full mt-2 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 hover:text-rose-500 transition-all flex items-center justify-center gap-2"
+            >
+              Recolher <X size={12} />
             </motion.button>
           )}
         </div>
@@ -364,157 +426,74 @@ const History: React.FC<HistoryProps> = ({ entries, config, onDelete, onEdit, on
       <PerformanceCalendar dailyStats={dailyBreakdown} />
 
       <AnimatePresence>
-        {showStartDatePicker && (
-          <CustomDatePicker 
-            value={filterStartDate} 
-            onChange={setFilterStartDate} 
-            onClose={() => setShowStartDatePicker(false)} 
+        {showRangePicker && (
+          <CustomDateRangePicker 
+            startDate={filterStartDate} 
+            endDate={filterEndDate} 
+            onChange={(start, end) => {
+              setFilterStartDate(start);
+              setFilterEndDate(end);
+            }} 
+            onClose={() => setShowRangePicker(false)} 
           />
         )}
-        {showEndDatePicker && (
-          <CustomDatePicker 
-            value={filterEndDate} 
-            onChange={setFilterEndDate} 
-            onClose={() => setShowEndDatePicker(false)} 
-          />
+        {isEditingStoreName && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl border border-slate-100 dark:border-slate-800"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <Edit3 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-widest">Renomear Loja</h3>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Atualização em massa</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Isso alterará o nome <span className="font-black text-indigo-500">"{filterStore}"</span> para o novo nome em <span className="font-black text-slate-800 dark:text-white">TODOS</span> os registros do seu histórico.
+                </p>
+                <div className="space-y-2">
+                  <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Novo Nome da Loja</label>
+                  <input 
+                    type="text"
+                    value={newStoreName}
+                    onChange={(e) => setNewStoreName(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 text-slate-800 dark:text-white font-bold focus:border-indigo-500 outline-none transition-all"
+                    placeholder="Ex: Novo Nome da Loja"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setIsEditingStoreName(false)}
+                  className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black text-[10px] uppercase tracking-widest rounded-2xl hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => {
+                    onBulkUpdateStoreName(filterStore, newStoreName);
+                    onFilterStoreChange(newStoreName);
+                    setIsEditingStoreName(false);
+                  }}
+                  disabled={!newStoreName || newStoreName === filterStore}
+                  className="flex-1 py-4 bg-indigo-600 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
-    </motion.div>
-  );
-};
-
-const PerformanceCalendar = ({ dailyStats }: { dailyStats: any[] }) => {
-  const [currentDate, setCurrentDate] = useState(new Date());
-
-  const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
-
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-
-  const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(currentDate);
-  const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-
-  const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-  const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
-
-  const days = [];
-  const totalDays = daysInMonth(year, month);
-  const startDay = firstDayOfMonth(year, month);
-
-  // Preencher dias vazios no início
-  for (let i = 0; i < startDay; i++) {
-    days.push(null);
-  }
-
-  // Preencher dias do mês
-  for (let d = 1; d <= totalDays; d++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const stats = dailyStats.find(s => s.date === dateStr);
-    days.push({ day: d, stats });
-  }
-
-  const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-100 dark:border-slate-800 shadow-sm mt-6"
-    >
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-500">
-            <Calendar size={18} />
-          </div>
-          <div>
-            <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest">{capitalizedMonth}</h4>
-            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{year}</span>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={prevMonth} className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-400">
-            <ChevronRight className="rotate-180" size={18} />
-          </button>
-          <button onClick={nextMonth} className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors text-slate-400">
-            <ChevronRight size={18} />
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 gap-2 mb-2">
-        {weekDays.map(wd => (
-          <div key={wd} className="text-center text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-            {wd}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-2">
-        {days.map((d, i) => {
-          if (!d) return <div key={`empty-${i}`} className="aspect-square" />;
-          
-          const isToday = new Date().toDateString() === new Date(year, month, d.day).toDateString();
-          const hasWorked = !!d.stats;
-          const goalMet = d.stats?.goalMet;
-
-          let bgColor = 'bg-slate-50 dark:bg-slate-800/50';
-          let textColor = 'text-slate-400 dark:text-slate-600';
-          let borderColor = 'border-transparent';
-
-          if (hasWorked) {
-            if (goalMet) {
-              bgColor = 'bg-emerald-500/10';
-              textColor = 'text-emerald-600 dark:text-emerald-400';
-              borderColor = 'border-emerald-500/20';
-            } else {
-              bgColor = 'bg-indigo-500/10';
-              textColor = 'text-indigo-600 dark:text-indigo-400';
-              borderColor = 'border-indigo-500/20';
-            }
-          }
-
-          if (isToday) {
-            borderColor = 'border-indigo-500';
-          }
-
-          return (
-            <div 
-              key={d.day} 
-              className={`aspect-square rounded-2xl border ${borderColor} ${bgColor} flex flex-col items-center justify-center relative group transition-all`}
-            >
-              <span className={`text-xs font-black font-mono-num ${textColor}`}>{d.day}</span>
-              {hasWorked && (
-                <div className={`w-1 h-1 rounded-full mt-1 ${goalMet ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
-              )}
-              
-              {/* Tooltip simples no hover */}
-              {hasWorked && (
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-20">
-                  <div className="bg-slate-900 text-white text-[8px] font-black px-2 py-1 rounded-lg whitespace-nowrap uppercase tracking-widest shadow-xl">
-                    {formatCurrency(d.stats.gross)}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-6 flex flex-wrap gap-4 justify-center">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Meta Batida</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-indigo-500" />
-          <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Trabalhado</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-700" />
-          <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Folga</span>
-        </div>
-      </div>
     </motion.div>
   );
 };

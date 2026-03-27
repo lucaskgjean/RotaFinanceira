@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DailyEntry, AppConfig, TimeEntry } from '../types';
-import { formatCurrency, getWeeklySummary, calculateFuelMetrics, getLocalDateStr, calculateDuration, formatDuration } from '../utils/calculations';
+import { formatCurrency, getWeeklySummary, calculateFuelMetrics, getLocalDateStr, calculateDuration, formatDuration, getDailyStats } from '../utils/calculations';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { motion } from 'motion/react';
 import { 
@@ -19,6 +19,7 @@ import {
   Gauge
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
+import PerformanceCalendar from './PerformanceCalendar';
 
 interface DashboardProps {
   entries: DailyEntry[];
@@ -88,6 +89,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
   const todayTotalSpent = todaySum.totalSpentFuel + todaySum.totalSpentFood + todaySum.totalSpentMaintenance + (todaySum.totalSpentOthers || 0);
 
   const fuelMetrics = calculateFuelMetrics(entries);
+  const dailyBreakdown = useMemo(() => getDailyStats(entries, timeEntries, config), [entries, timeEntries, config]);
 
   const goalPercent = Math.min(100, (todaySum.totalGross / config.dailyGoal) * 100);
 
@@ -361,69 +363,63 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
         ))}
       </div>
 
-      {/* 4. Divisão de Reservas - Today Only */}
-      <div className="grid grid-cols-1 gap-6">
-        
-        {/* Card de Reservas */}
-        <motion.div 
-          variants={itemVariants}
-          whileHover={{ y: -4, transition: { duration: 0.2 } }}
-          className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-8"
-        >
-          <div className="flex-1 w-full">
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-1.5 h-5 bg-indigo-500 rounded-full"></div>
-                <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Distribuição do Faturamento</h3>
-              </div>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight ml-4">Onde seu dinheiro foi parar (Hoje)</p>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-               {pieData.map(item => (
-                 <div key={item.name} className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100/50 dark:border-slate-800 group hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm transition-all">
-                   <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }}></div>
-                   <div className="text-left">
-                      <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight">{item.name}</span>
-                      <span className="block text-sm font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(item.value)}</span>
-                   </div>
-                 </div>
-               ))}
-            </div>
+      {/* 4. Distribuição do Faturamento Simplificada */}
+      <motion.div 
+        variants={itemVariants}
+        whileHover={{ y: -2, transition: { duration: 0.2 } }}
+        className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
+      >
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-5 bg-indigo-500 rounded-full"></div>
+            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Distribuição (Hoje)</h3>
           </div>
-          
-          <div className="w-full md:w-64 h-64 relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie 
-                  data={pieData} 
-                  cx="50%" 
-                  cy="50%" 
-                  innerRadius={75} 
-                  outerRadius={95} 
-                  paddingAngle={8} 
-                  dataKey="value"
-                  stroke="none"
-                  animationBegin={200}
-                  animationDuration={1000}
-                >
-                  {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                </Pie>
-                <Tooltip 
-                   contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px', backgroundColor: '#1e293b', color: '#fff' }}
-                   itemStyle={{ fontWeight: '900', fontSize: '12px', color: '#fff' }}
-                   formatter={(value: number) => formatCurrency(value)} 
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total Hoje</span>
-              <span className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(todaySum.totalGross).replace('R$', '')}</span>
-            </div>
+          <div className="text-right">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Total Bruto</span>
+            <span className="text-sm font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(todaySum.totalGross)}</span>
           </div>
-        </motion.div>
+        </div>
 
-      </div>
+        {/* Barra de Distribuição Horizontal */}
+        <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex mb-6">
+          {pieData.map((item, index) => (
+            <motion.div
+              key={index}
+              initial={{ width: 0 }}
+              animate={{ width: todaySum.totalGross > 0 ? `${(item.value / todaySum.totalGross) * 100}%` : '0%' }}
+              transition={{ duration: 1, delay: index * 0.1 }}
+              style={{ backgroundColor: item.color }}
+              className="h-full first:rounded-l-full last:rounded-r-full"
+            />
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {pieData.map((item) => (
+            <div key={item.name} className="flex flex-col">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
+                <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight">{item.name}</span>
+              </div>
+              <span className="text-xs font-black text-slate-800 dark:text-white font-mono-num">
+                {formatCurrency(item.value)}
+              </span>
+              <span className="text-[8px] font-bold text-slate-300 dark:text-slate-600 uppercase">
+                {todaySum.totalGross > 0 ? ((item.value / todaySum.totalGross) * 100).toFixed(1) : 0}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* 5. Calendário de Performance */}
+      <motion.div variants={itemVariants}>
+        <div className="flex items-center gap-3 mb-1 ml-4">
+          <div className="w-1.5 h-5 bg-indigo-500 rounded-full"></div>
+          <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Calendário de Performance</h3>
+        </div>
+        <PerformanceCalendar dailyStats={dailyBreakdown} />
+      </motion.div>
     </motion.div>
   );
 };

@@ -3,14 +3,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { DailyEntry, AppConfig, TimeEntry } from '../types';
 import { formatCurrency, getWeeklySummary, calculateDuration, formatDuration, getLocalDateStr, calculateFuelMetrics } from '../utils/calculations';
 import { motion, AnimatePresence } from 'motion/react';
-import CustomDatePicker from './CustomDatePicker';
+import CustomDateRangePicker from './CustomDateRangePicker';
 import CustomDialog from './CustomDialog';
 import CustomSelect from './CustomSelect';
 import { 
   BarChart, 
   Bar, 
-  PieChart,
-  Pie,
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -148,8 +146,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
 
   const [startDate, setStartDate] = useState<string>(today);
   const [endDate, setEndDate] = useState<string>(today);
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [showRangePicker, setShowRangePicker] = useState(false);
   const [showStoreSelect, setShowStoreSelect] = useState(false);
   const [showStoreFilter, setShowStoreFilter] = useState(false);
   const [dialog, setDialog] = useState<{
@@ -575,26 +572,61 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Início</label>
+            <div className="relative md:col-span-2">
+              <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Período</label>
+              
+              <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
+                {[
+                  { label: 'Hoje', start: today, end: today },
+                  { label: '7 dias', days: 7 },
+                  { label: '30 dias', days: 30 }
+                ].map((p, i) => {
+                  let pStart = p.start;
+                  let pEnd = p.end;
+                  
+                  if (p.days) {
+                    const end = new Date();
+                    const start = new Date();
+                    start.setDate(end.getDate() - p.days + 1);
+                    pStart = start.toISOString().split('T')[0];
+                    pEnd = end.toISOString().split('T')[0];
+                  }
+
+                  const isSelected = pStart === startDate && pEnd === endDate;
+
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setStartDate(pStart!);
+                        setEndDate(pEnd!);
+                      }}
+                      className={`whitespace-nowrap px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
+                        isSelected 
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 dark:shadow-none' 
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               <button 
                 type="button"
-                onClick={() => setShowStartDatePicker(true)}
-                className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-4 focus:ring-2 focus:ring-indigo-500 transition outline-none font-bold text-slate-700 dark:text-slate-200 text-sm"
+                onClick={() => setShowRangePicker(true)}
+                className="w-full flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 focus:ring-2 focus:ring-indigo-500 transition outline-none font-bold text-slate-700 dark:text-slate-200 text-sm"
               >
-                <Calendar className="text-slate-300 dark:text-slate-600" size={18} />
-                <span>{startDate ? new Date(startDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Início'}</span>
-              </button>
-            </div>
-            <div className="relative">
-              <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Fim</label>
-              <button 
-                type="button"
-                onClick={() => setShowEndDatePicker(true)}
-                className="w-full flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-4 focus:ring-2 focus:ring-indigo-500 transition outline-none font-bold text-slate-700 dark:text-slate-200 text-sm"
-              >
-                <Calendar className="text-slate-300 dark:text-slate-600" size={18} />
-                <span>{endDate ? new Date(endDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Fim'}</span>
+                <div className="flex items-center gap-3">
+                  <Calendar className="text-slate-300 dark:text-slate-600" size={18} />
+                  <span>{new Date(startDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                </div>
+                <ChevronRight size={14} className="text-slate-300" />
+                <div className="flex items-center gap-3">
+                  <span>{new Date(endDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                </div>
               </button>
             </div>
             <div className="relative">
@@ -821,45 +853,45 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </motion.div>
 
         {/* Recebido e Pendente */}
-        <motion.div variants={itemVariants} className="bg-slate-800 p-6 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-between relative overflow-hidden group">
+        <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-between relative overflow-hidden group">
           <div className="relative z-10 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center">
-                <CreditCard size={20} className="text-amber-400" />
+              <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center">
+                <CreditCard size={20} className="text-indigo-600 dark:text-indigo-400" />
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">Status de Pagamento</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Status de Pagamento</span>
             </div>
             
             <div className="space-y-3">
               <div>
-                <span className="text-[9px] font-bold uppercase tracking-widest opacity-50 block mb-0.5">Recebido</span>
-                <div className="text-xl font-black font-mono-num text-emerald-400">{formatCurrency(reportData.totalReceived)}</div>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Recebido</span>
+                <div className="text-xl font-black font-mono-num text-emerald-600 dark:text-emerald-400">{formatCurrency(reportData.totalReceived)}</div>
               </div>
-              <div className="h-px bg-white/10 w-full"></div>
+              <div className="h-px bg-slate-100 dark:bg-slate-800 w-full"></div>
               <div>
-                <span className="text-[9px] font-bold uppercase tracking-widest opacity-50 block mb-0.5">Pendente</span>
-                <div className="text-xl font-black font-mono-num text-amber-400">{formatCurrency(reportData.totalPending)}</div>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 block mb-0.5">Pendente</span>
+                <div className="text-xl font-black font-mono-num text-rose-600 dark:text-rose-400">{formatCurrency(reportData.totalPending)}</div>
               </div>
             </div>
           </div>
-          <CreditCard size={100} className="absolute -right-6 -bottom-6 text-white/5 group-hover:scale-110 transition-transform" />
+          <CreditCard size={100} className="absolute -right-6 -bottom-6 text-slate-100 dark:text-slate-800 transition-transform group-hover:scale-110" />
         </motion.div>
 
         {/* Porcentagens */}
         <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col justify-center gap-4">
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Margem de Lucro</span>
-            <span className="text-sm font-black text-emerald-500">{reportData.profitPercentage.toFixed(1)}%</span>
+            <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{reportData.profitPercentage.toFixed(1)}%</span>
           </div>
           <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div className="bg-emerald-500 h-full rounded-full shadow-[0_0_8px_rgba(16,185,129,0.3)]" style={{ width: `${Math.min(reportData.profitPercentage, 100)}%` }}></div>
+            <div className="bg-emerald-600 dark:bg-emerald-400 h-full rounded-full shadow-[0_0_8px_rgba(16,185,129,0.3)]" style={{ width: `${Math.min(reportData.profitPercentage, 100)}%` }}></div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Peso Gastos</span>
-            <span className="text-sm font-black text-rose-500">{reportData.expensePercentage.toFixed(1)}%</span>
+            <span className="text-sm font-black text-rose-600 dark:text-rose-400">{reportData.expensePercentage.toFixed(1)}%</span>
           </div>
           <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div className="bg-rose-500 h-full rounded-full shadow-[0_0_8px_rgba(244,63,94,0.3)]" style={{ width: `${Math.min(reportData.expensePercentage, 100)}%` }}></div>
+            <div className="bg-rose-600 dark:bg-rose-400 h-full rounded-full shadow-[0_0_8px_rgba(244,63,94,0.3)]" style={{ width: `${Math.min(reportData.expensePercentage, 100)}%` }}></div>
           </div>
         </motion.div>
       </div>
@@ -1374,79 +1406,64 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
         </div>
       </motion.div>
 
-      {/* Distribuição por Faturamento do Período */}
+      {/* Distribuição do Faturamento Simplificada */}
       <motion.div 
         variants={itemVariants}
-        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-center gap-8"
+        whileHover={{ y: -2, transition: { duration: 0.2 } }}
+        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
       >
-        <div className="flex-1 w-full">
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-1.5 h-5 bg-indigo-500 rounded-full"></div>
-              <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Distribuição do Período</h3>
-            </div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight ml-4">Onde seu dinheiro foi parar no período selecionado</p>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-5 bg-indigo-500 rounded-full"></div>
+            <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Distribuição do Período</h3>
           </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-             {[
-               { name: `Combustível`, value: reportData.totalFuelSpent, color: '#f43f5e' },
-               { name: `Alimentação`, value: reportData.totalFoodSpent, color: '#f59e0b' },
-               { name: `Manutenção`, value: reportData.totalMaintenanceSpent, color: '#3b82f6' },
-               { name: `Outros`, value: reportData.totalOthersSpent, color: '#64748b' },
-               { name: `Lucro Líquido`, value: reportData.summary.totalNet, color: '#10b981' },
-             ].map(item => (
-               <div key={item.name} className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100/50 dark:border-slate-800 group hover:bg-white dark:hover:bg-slate-800 hover:shadow-sm transition-all">
-                 <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }}></div>
-                 <div className="text-left">
-                    <span className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">{item.name}</span>
-                    <span className="block text-sm font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(item.value)}</span>
-                 </div>
-               </div>
-             ))}
+          <div className="text-right">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Total Bruto</span>
+            <span className="text-lg font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.summary.totalGross)}</span>
           </div>
         </div>
-        
-        <div className="w-full md:w-64 h-64 relative flex items-center justify-center">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie 
-                data={[
-                  { name: `Combustível`, value: reportData.totalFuelSpent, color: '#f43f5e' },
-                  { name: `Alimentação`, value: reportData.totalFoodSpent, color: '#f59e0b' },
-                  { name: `Manutenção`, value: reportData.totalMaintenanceSpent, color: '#3b82f6' },
-                  { name: `Outros`, value: reportData.totalOthersSpent, color: '#64748b' },
-                  { name: `Lucro Líquido`, value: reportData.summary.totalNet, color: '#10b981' },
-                ]} 
-                cx="50%" 
-                cy="50%" 
-                innerRadius={75} 
-                outerRadius={95} 
-                paddingAngle={8} 
-                dataKey="value"
-                stroke="none"
-                animationBegin={200}
-                animationDuration={1000}
-              >
-                {[
-                  { color: '#f43f5e' },
-                  { color: '#f59e0b' },
-                  { color: '#3b82f6' },
-                  { color: '#64748b' },
-                  { color: '#10b981' },
-                ].map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-              </Pie>
-              <Tooltip 
-                 contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px', backgroundColor: '#1e293b', color: '#fff' }}
-                 itemStyle={{ fontWeight: '700', fontSize: '12px', color: '#fff' }}
-                 formatter={(value: number) => formatCurrency(value)} 
-              />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total Período</span>
-            <span className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.summary.totalGross).replace('R$', '')}</span>
-          </div>
+
+        {/* Barra de Distribuição Horizontal */}
+        <div className="h-4 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex mb-8">
+          {[
+            { value: reportData.totalFuelSpent, color: '#f43f5e' },
+            { value: reportData.totalFoodSpent, color: '#f59e0b' },
+            { value: reportData.totalMaintenanceSpent, color: '#3b82f6' },
+            { value: reportData.totalOthersSpent, color: '#64748b' },
+            { value: reportData.summary.totalNet, color: '#10b981' },
+          ].map((item, index) => (
+            <motion.div
+              key={index}
+              initial={{ width: 0 }}
+              animate={{ width: reportData.summary.totalGross > 0 ? `${(item.value / reportData.summary.totalGross) * 100}%` : '0%' }}
+              transition={{ duration: 1, delay: index * 0.1 }}
+              style={{ backgroundColor: item.color }}
+              className="h-full first:rounded-l-full last:rounded-r-full"
+            />
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+          {[
+            { name: `Combustível`, value: reportData.totalFuelSpent, color: '#f43f5e' },
+            { name: `Alimentação`, value: reportData.totalFoodSpent, color: '#f59e0b' },
+            { name: `Manutenção`, value: reportData.totalMaintenanceSpent, color: '#3b82f6' },
+            { name: `Outros`, value: reportData.totalOthersSpent, color: '#64748b' },
+            { name: `Lucro Líquido`, value: reportData.summary.totalNet, color: '#10b981' },
+          ].map((item) => (
+            <div key={item.name} className="flex flex-col">
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tight">{item.name}</span>
+              </div>
+              <span className="text-sm font-black text-slate-800 dark:text-white font-mono-num">
+                {formatCurrency(item.value)}
+              </span>
+              <span className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase">
+                {reportData.summary.totalGross > 0 ? ((item.value / reportData.summary.totalGross) * 100).toFixed(1) : 0}%
+              </span>
+            </div>
+          ))}
         </div>
       </motion.div>
       
@@ -1564,18 +1581,15 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       </div>
 
       <AnimatePresence>
-        {showStartDatePicker && (
-          <CustomDatePicker 
-            value={startDate} 
-            onChange={setStartDate} 
-            onClose={() => setShowStartDatePicker(false)} 
-          />
-        )}
-        {showEndDatePicker && (
-          <CustomDatePicker 
-            value={endDate} 
-            onChange={setEndDate} 
-            onClose={() => setShowEndDatePicker(false)} 
+        {showRangePicker && (
+          <CustomDateRangePicker 
+            startDate={startDate} 
+            endDate={endDate} 
+            onChange={(start, end) => {
+              setStartDate(start);
+              setEndDate(end);
+            }} 
+            onClose={() => setShowRangePicker(false)} 
           />
         )}
       </AnimatePresence>
