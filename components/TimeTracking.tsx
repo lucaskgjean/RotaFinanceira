@@ -50,6 +50,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
   const [filterStartDate, setFilterStartDate] = useState(today);
   const [filterEndDate, setFilterEndDate] = useState(today);
   const [showRangePicker, setShowRangePicker] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(3);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -481,7 +482,7 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
                <p className="text-slate-400 dark:text-slate-500 text-xs font-black uppercase tracking-widest">Nenhum registro encontrado</p>
             </div>
           ) : (
-            sortedDates.map(date => (
+            sortedDates.slice(0, visibleCount).map(date => (
               <div key={date} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm group hover:border-emerald-100 dark:hover:border-emerald-500 transition-colors">
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-3">
@@ -546,6 +547,28 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
             ))
           )}
         </div>
+
+        {sortedDates.length > visibleCount && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => setVisibleCount(prev => prev + 40)}
+            className="w-full mt-4 py-4 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 hover:text-emerald-500 dark:hover:text-emerald-400 transition-all flex items-center justify-center gap-2"
+          >
+            Ver Mais <ChevronRight size={14} />
+          </motion.button>
+        )}
+
+        {visibleCount > 3 && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => setVisibleCount(3)}
+            className="w-full mt-2 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 hover:text-rose-500 transition-all flex items-center justify-center gap-2"
+          >
+            Recolher <X size={12} />
+          </motion.button>
+        )}
       </motion.div>
 
       <AnimatePresence>

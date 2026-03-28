@@ -47,6 +47,7 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
   const [historyFilterCategory, setHistoryFilterCategory] = React.useState<string>('');
   const [showRangePicker, setShowRangePicker] = React.useState(false);
   const [showCategorySelect, setShowCategorySelect] = React.useState(false);
+  const [visibleCount, setVisibleCount] = React.useState(3);
   
   const getStartOfWeek = (d: Date) => {
     const day = d.getDay();
@@ -403,23 +404,24 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
           variants={itemVariants}
           className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm"
         >
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
-              <PieChartIcon size={20} strokeWidth={2.5} />
-            </div>
-            <div className="flex flex-col gap-1 w-full">
-              <div className="flex items-center justify-between w-full">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <PieChartIcon size={20} strokeWidth={2.5} />
+              </div>
+              <div>
                 <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Gasto do Período</h3>
-                <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-3 py-1.5 rounded-full uppercase tracking-widest border border-rose-100 dark:border-rose-500/20">
-                  Total: {formatCurrency(totalFilteredExpenses)}
-                </span>
+                <p className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest mt-0.5">Resumo por Categoria</p>
               </div>
-              <div className="flex items-center justify-between w-full">
-                <p className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest">Resumo por Categoria</p>
-                <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full uppercase tracking-widest border border-slate-200 dark:border-slate-700">
-                  {filteredManualExpenses.length} Itens
-                </span>
-              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-3 py-1.5 rounded-full uppercase tracking-widest border border-rose-100 dark:border-rose-500/20">
+                Total: {formatCurrency(totalFilteredExpenses)}
+              </span>
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full uppercase tracking-widest border border-slate-200 dark:border-slate-700">
+                {filteredManualExpenses.length} Itens
+              </span>
             </div>
           </div>
 
@@ -479,7 +481,7 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
                </button>
             </div>
           ) : (
-            filteredManualExpenses.map((entry) => {
+            filteredManualExpenses.slice(0, visibleCount).map((entry) => {
               const getCategoryInfo = (cat?: string) => {
                 switch(cat) {
                   case 'fuel': return { icon: <Fuel size={24} />, label: 'Combustível', color: 'rose' };
@@ -555,6 +557,28 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
             })
           )}
         </div>
+
+        {filteredManualExpenses.length > visibleCount && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => setVisibleCount(prev => prev + 40)}
+            className="w-full mt-4 py-4 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition-all flex items-center justify-center gap-2"
+          >
+            Ver Mais <ChevronRight size={14} />
+          </motion.button>
+        )}
+
+        {visibleCount > 3 && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => setVisibleCount(3)}
+            className="w-full mt-2 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 hover:text-rose-500 transition-all flex items-center justify-center gap-2"
+          >
+            Recolher <X size={12} />
+          </motion.button>
+        )}
       </motion.div>
 
       <AnimatePresence>

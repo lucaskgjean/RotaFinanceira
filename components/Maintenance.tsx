@@ -32,6 +32,8 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
   const [filterStartDate, setFilterStartDate] = useState<string>(todayStr);
   const [filterEndDate, setFilterEndDate] = useState<string>(todayStr);
   const [showRangePicker, setShowRangePicker] = useState(false);
+  const [visibleCountKm, setVisibleCountKm] = useState(3);
+  const [visibleCountMaintenance, setVisibleCountMaintenance] = useState(3);
 
   const currentMonthStr = todayStr.substring(0, 7);
 
@@ -400,6 +402,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
           ) : (
             kmHistoryEntries
               .sort((a, b) => b.date.localeCompare(a.date))
+              .slice(0, visibleCountKm)
               .map(entry => (
                 <div key={entry.id} className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center group hover:border-blue-100 dark:hover:border-blue-500 transition-all">
                   <div className="flex gap-4 items-center">
@@ -440,6 +443,28 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
               ))
           )}
         </div>
+
+        {kmHistoryEntries.length > visibleCountKm && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => setVisibleCountKm(prev => prev + 40)}
+            className="w-full mt-4 py-4 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 transition-all flex items-center justify-center gap-2"
+          >
+            Ver Mais <ChevronRight size={14} />
+          </motion.button>
+        )}
+
+        {visibleCountKm > 3 && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => setVisibleCountKm(3)}
+            className="w-full mt-2 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 hover:text-rose-500 transition-all flex items-center justify-center gap-2"
+          >
+            Recolher <X size={12} />
+          </motion.button>
+        )}
       </motion.div>
 
       {/* Histórico de Manutenção */}
@@ -454,7 +479,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
               <p className="text-slate-400 dark:text-slate-500 text-xs font-black uppercase tracking-widest">Nenhuma manutenção no período</p>
             </div>
           ) : (
-            maintenanceEntries.sort((a, b) => b.date.localeCompare(a.date)).map(entry => (
+            maintenanceEntries.sort((a, b) => b.date.localeCompare(a.date)).slice(0, visibleCountMaintenance).map(entry => (
               <div key={entry.id} className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center group hover:border-blue-100 dark:hover:border-blue-500 transition-all">
                 <div className="flex gap-4 items-center">
                   <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-500/10 transition-colors">
@@ -489,6 +514,28 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
             ))
           )}
         </div>
+
+        {maintenanceEntries.length > visibleCountMaintenance && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => setVisibleCountMaintenance(prev => prev + 40)}
+            className="w-full mt-4 py-4 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 transition-all flex items-center justify-center gap-2"
+          >
+            Ver Mais <ChevronRight size={14} />
+          </motion.button>
+        )}
+
+        {visibleCountMaintenance > 3 && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => setVisibleCountMaintenance(3)}
+            className="w-full mt-2 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 hover:text-rose-500 transition-all flex items-center justify-center gap-2"
+          >
+            Recolher <X size={12} />
+          </motion.button>
+        )}
       </motion.div>
       <AnimatePresence>
         {showRangePicker && (
