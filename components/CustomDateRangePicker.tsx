@@ -242,11 +242,6 @@ const CustomDateRangePicker: React.FC<CustomDateRangePickerProps> = ({ startDate
                       }
                     `}
                   >
-                    {/* Background connectors for range - "Pill" style */}
-                    {isInRange && <div className="absolute inset-x-0 top-1.5 bottom-1.5 bg-indigo-50 dark:bg-indigo-900/30 -z-10" />}
-                    {isStart && tempEnd && <div className="absolute right-0 top-1.5 bottom-1.5 w-1/2 bg-indigo-50 dark:bg-indigo-900/30 -z-10" />}
-                    {isEnd && tempStart && <div className="absolute left-0 top-1.5 bottom-1.5 w-1/2 bg-indigo-50 dark:bg-indigo-900/30 -z-10" />}
-                    
                     <span className="relative z-10">{day}</span>
                   </button>
                 );

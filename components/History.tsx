@@ -26,7 +26,9 @@ import {
   History as HistoryIcon,
   Layers,
   Banknote,
-  Activity
+  Activity,
+  BarChart3,
+  ArrowUpRight
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
 import PerformanceCalendar from './PerformanceCalendar';
@@ -260,24 +262,66 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
         </div>
       </motion.div>
 
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Bruto Total', value: formatCurrency(stats.totalGross), color: 'text-slate-800 dark:text-white', bg: 'bg-white dark:bg-slate-900' },
-          { label: 'Líquido Total', value: formatCurrency(stats.totalNet), color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-white dark:bg-slate-900' },
-          { label: 'Recebido', value: formatCurrency(stats.totalPaid), color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-          { label: 'Pendente', value: formatCurrency(stats.totalPending), color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10' },
-        ].map((stat, i) => (
-          <motion.div 
-            key={i}
-            variants={itemVariants}
-            className={`${stat.bg} p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm`}
-          >
-            <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase block mb-1 tracking-widest">{stat.label}</span>
-            <p className={`text-xl font-black font-mono-num ${stat.color}`}>{stat.value}</p>
-          </motion.div>
-        ))}
-      </div>
+      {/* Card Único de Resumo Financeiro (Período Selecionado) */}
+      <motion.div 
+        variants={itemVariants}
+        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm"
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+              <BarChart3 size={20} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Resumo Financeiro</h3>
+              <p className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest mt-0.5">Desempenho no Período</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1.5 rounded-full uppercase tracking-widest border border-indigo-100 dark:border-indigo-500/20">
+              Bruto: {formatCurrency(stats.totalGross)}
+            </span>
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full uppercase tracking-widest border border-slate-200 dark:border-slate-700">
+              {filteredEntries.length} Itens
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-slate-500">
+              <TrendingUp size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Total Bruto</span>
+            </div>
+            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(stats.totalGross)}</p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-emerald-500">
+              <ArrowUpRight size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Total Líquido</span>
+            </div>
+            <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num">{formatCurrency(stats.totalNet)}</p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-emerald-500">
+              <CheckCircle2 size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Recebido</span>
+            </div>
+            <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num">{formatCurrency(stats.totalPaid)}</p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-rose-500">
+              <AlertCircle size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Pendente</span>
+            </div>
+            <p className="text-xl font-black text-rose-600 dark:text-rose-400 font-mono-num">{formatCurrency(stats.totalPending)}</p>
+          </div>
+        </div>
+      </motion.div>
 
       {/* Lista de Movimentações */}
       <div className="space-y-4">
@@ -286,9 +330,6 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
             <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
             Histórico Completo
           </h3>
-          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">
-            {filteredEntries.length} Itens
-          </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

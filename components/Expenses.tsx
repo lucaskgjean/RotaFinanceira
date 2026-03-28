@@ -82,6 +82,16 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
     acc + (curr.fuel + curr.food + curr.maintenance + (curr.others || 0)), 0
   );
 
+  const filteredSummary = React.useMemo(() => {
+    return filteredManualExpenses.reduce((acc, curr) => {
+      acc.fuel += curr.fuel;
+      acc.food += curr.food;
+      acc.maintenance += curr.maintenance;
+      acc.others += (curr.others || 0);
+      return acc;
+    }, { fuel: 0, food: 0, maintenance: 0, others: 0 });
+  }, [filteredManualExpenses]);
+
   const weeklyExpenseGroups = getWeeklyGroupedSummaries(entries);
   const filteredWeeklyGroups = showFullWeeklyHistory ? weeklyExpenseGroups : weeklyExpenseGroups.slice(0, 1);
 
@@ -221,56 +231,6 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
         </div>
       </motion.div>
 
-      {/* Card Único de Gastos por Categoria (Semana Atual) */}
-      <motion.div 
-        variants={itemVariants}
-        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm"
-      >
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-            <PieChartIcon size={20} strokeWidth={2.5} />
-          </div>
-          <div>
-            <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Gastos da Semana</h3>
-            <p className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest mt-0.5">Por Categoria</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-rose-500">
-              <Fuel size={14} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Combustível</span>
-            </div>
-            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(weekSummary.totalSpentFuel)}</p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-amber-500">
-              <Utensils size={14} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Alimentação</span>
-            </div>
-            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(weekSummary.totalSpentFood)}</p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-blue-500">
-              <Wrench size={14} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Manutenção</span>
-            </div>
-            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(weekSummary.totalSpentMaintenance)}</p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-slate-500">
-              <MoreHorizontal size={14} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Outros</span>
-            </div>
-            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(weekSummary.totalSpentOthers)}</p>
-          </div>
-        </div>
-      </motion.div>
-
       {/* Fechamento Semanal */}
       <motion.div variants={itemVariants} className="space-y-6 pt-4">
         <div className="flex items-center justify-between px-2">
@@ -340,22 +300,6 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
 
       {/* Histórico de Lançamentos de Gastos */}
       <motion.div variants={itemVariants} className="space-y-6 pt-8">
-        <div className="flex flex-col gap-4 px-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-3 uppercase tracking-widest">
-              <div className="w-1.5 h-5 bg-rose-500 rounded-full"></div>
-              Histórico de Gastos
-            </h3>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-3 py-1 rounded-full uppercase tracking-widest">
-                Total: {formatCurrency(totalFilteredExpenses)}
-              </span>
-              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full uppercase tracking-widest">
-                {filteredManualExpenses.length} Itens
-              </span>
-            </div>
-          </div>
-
         {/* Filtros do Histórico */}
         <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3 mb-6">
@@ -453,6 +397,74 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
             </button>
           </div>
         </motion.div>
+
+        {/* Card Único de Gastos por Categoria (Período Selecionado) */}
+        <motion.div 
+          variants={itemVariants}
+          className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm"
+        >
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+              <PieChartIcon size={20} strokeWidth={2.5} />
+            </div>
+            <div className="flex flex-col gap-1 w-full">
+              <div className="flex items-center justify-between w-full">
+                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Gasto do Período</h3>
+                <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-3 py-1.5 rounded-full uppercase tracking-widest border border-rose-100 dark:border-rose-500/20">
+                  Total: {formatCurrency(totalFilteredExpenses)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between w-full">
+                <p className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest">Resumo por Categoria</p>
+                <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full uppercase tracking-widest border border-slate-200 dark:border-slate-700">
+                  {filteredManualExpenses.length} Itens
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-rose-500">
+                <Fuel size={14} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Combustível</span>
+              </div>
+              <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(filteredSummary.fuel)}</p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-amber-500">
+                <Utensils size={14} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Alimentação</span>
+              </div>
+              <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(filteredSummary.food)}</p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-blue-500">
+                <Wrench size={14} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Manutenção</span>
+              </div>
+              <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(filteredSummary.maintenance)}</p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-slate-500">
+                <MoreHorizontal size={14} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Outros</span>
+              </div>
+              <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(filteredSummary.others)}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <div className="flex flex-col gap-4 px-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-3 uppercase tracking-widest">
+              <div className="w-1.5 h-5 bg-rose-500 rounded-full"></div>
+              Histórico de Gastos
+            </h3>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -153,6 +153,15 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
 
   const sortedDates = Object.keys(dailyTotals).sort((a, b) => b.localeCompare(a));
 
+  const filteredSummary = useMemo(() => {
+    const totalSeconds = Object.values(dailyTotals).reduce((acc, curr) => acc + curr, 0);
+    const daysCount = sortedDates.length;
+    return {
+      totalHours: formatDuration(totalSeconds),
+      daysCount
+    };
+  }, [dailyTotals, sortedDates]);
+
   const timeSummary = useMemo(() => {
     const todaySeconds = (dailyTotals[today] || 0) + activeDuration;
     
@@ -414,6 +423,55 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
             >
               <X size={14} /> Limpar Filtro
             </button>
+          </div>
+        </motion.div>
+        
+        {/* Card de Resumo do Período Filtrado */}
+        <motion.div 
+          variants={itemVariants}
+          className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm"
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                <Clock size={20} strokeWidth={2.5} />
+              </div>
+              <div>
+                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Resumo do Período</h3>
+                <p className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest mt-0.5">Produtividade Selecionada</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1.5 rounded-full uppercase tracking-widest border border-emerald-100 dark:border-emerald-500/20">
+                Total: {filteredSummary.totalHours}
+              </span>
+              <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full uppercase tracking-widest border border-slate-200 dark:border-slate-700">
+                {filteredSummary.daysCount} Dias
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-emerald-500">
+                <Clock size={14} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Total de Horas</span>
+              </div>
+              <p className="text-3xl font-black text-slate-800 dark:text-white font-mono-num">
+                {filteredSummary.totalHours}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-indigo-500">
+                <Calendar size={14} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Dias Registrados</span>
+              </div>
+              <p className="text-3xl font-black text-slate-800 dark:text-white font-mono-num">
+                {filteredSummary.daysCount} <span className="text-xs ml-1 opacity-50 uppercase">Dias</span>
+              </p>
+            </div>
           </div>
         </motion.div>
         

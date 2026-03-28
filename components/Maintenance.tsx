@@ -325,6 +325,67 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
         </div>
       </motion.div>
 
+      {/* Card Único de Resumo do Período (Manutenção & KM) */}
+      <motion.div 
+        variants={itemVariants}
+        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm"
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-50 dark:bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <HistoryIcon size={20} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Gasto do Período</h3>
+              <p className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest mt-0.5">Resumo Técnico & Financeiro</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-3 py-1.5 rounded-full uppercase tracking-widest border border-blue-100 dark:border-blue-500/20">
+              Total: {formatCurrency(maintenanceEntries.reduce((acc, curr) => acc + curr.maintenance, 0))}
+            </span>
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full uppercase tracking-widest border border-slate-200 dark:border-slate-700">
+              {maintenanceEntries.length + kmHistoryEntries.length} Itens
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-blue-500">
+              <Wrench size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Gasto Manutenção</span>
+            </div>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">
+              {formatCurrency(maintenanceEntries.reduce((acc, curr) => acc + curr.maintenance, 0))}
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-indigo-500">
+              <Navigation size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest">KM Trabalhado</span>
+            </div>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">
+              {kmHistoryEntries.filter(e => e.kmType === 'work').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0).toFixed(1)}
+              <span className="text-xs ml-1 opacity-50 uppercase">KM</span>
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-emerald-500">
+              <ShieldCheck size={14} />
+              <span className="text-[10px] font-black uppercase tracking-widest">KM Total Rodado</span>
+            </div>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">
+              {kmHistoryEntries.reduce((acc, curr) => acc + (curr.kmDriven || 0), 0).toFixed(1)}
+              <span className="text-xs ml-1 opacity-50 uppercase">KM</span>
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Histórico de KM */}
       <motion.div variants={itemVariants} className="space-y-6 pt-4">
         <h3 className="text-sm font-black text-slate-800 dark:text-white px-2 flex items-center gap-3 uppercase tracking-widest">
