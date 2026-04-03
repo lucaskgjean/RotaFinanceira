@@ -134,9 +134,9 @@ export const getWeeklySummary = (entries: DailyEntry[]): WeeklySummary => {
   const incomeEntries = entries.filter(e => e.grossAmount > 0);
   const expenseEntries = entries.filter(e => e.grossAmount === 0);
   
-  // Filtra entradas que possuem registro de odômetro
+  // Filtra entradas que possuem registro de odômetro (exceto manutenções, que são informativas)
   const kmEntries = entries
-    .filter(e => (e.kmAtMaintenance || 0) > 0)
+    .filter(e => (e.kmAtMaintenance || 0) > 0 && e.category !== 'maintenance')
     .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
 
   const totalGross = incomeEntries.reduce((acc, curr) => acc + curr.grossAmount, 0);
@@ -164,8 +164,8 @@ export const getWeeklySummary = (entries: DailyEntry[]): WeeklySummary => {
     totalKm = entries.reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
   }
 
-  const workKm = entries.filter(e => !e.kmType || e.kmType === 'work').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
-  const personalKm = entries.filter(e => e.kmType === 'personal').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
+  const workKm = entries.filter(e => (!e.kmType || e.kmType === 'work') && e.category !== 'maintenance').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
+  const personalKm = entries.filter(e => e.kmType === 'personal' && e.category !== 'maintenance').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
   
   const totalLiters = expenseEntries.reduce((acc, curr) => acc + (curr.liters || 0), 0);
 
@@ -293,7 +293,7 @@ export const calculateFuelMetrics = (entries: DailyEntry[]) => {
  * Gera um arquivo CSV com todos os lançamentos
  */
 export const entriesToCSV = (entries: DailyEntry[]): string => {
-  const headers = ['Data', 'Hora', 'Estabelecimento', 'Valor Bruto', 'Reserva Combustível', 'Reserva Alimentação', 'Reserva Manutenção', 'Outros', 'Valor Líquido', 'KM Rodado', 'Preço Gasolina'];
+  const headers = ['Data', 'Hora', 'Estabelecimento', 'Valor Bruto', 'Reserva Combustível', 'Reserva Alimentação', 'Reserva Manutenção', 'Outros', 'Valor Líquido', 'KM Rodado', 'Odômetro', 'Preço Gasolina'];
   const rows = entries.map(e => [
     e.date,
     e.time,
@@ -305,6 +305,7 @@ export const entriesToCSV = (entries: DailyEntry[]): string => {
     (e.others || 0).toFixed(2),
     e.netAmount.toFixed(2),
     (e.kmDriven || 0).toString(),
+    (e.kmAtMaintenance || 0).toString(),
     (e.fuelPrice || 0).toString()
   ]);
   

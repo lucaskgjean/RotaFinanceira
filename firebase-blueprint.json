@@ -88,7 +88,8 @@
         "valor_liquido": { "type": "number" },
         "uid": { "type": "string" },
         "date": { "type": "string", "format": "date" },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "paymentMethod": { "type": "string", "enum": ["money", "pix", "debito", "caderno"] }
       },
       "required": ["netAmount", "uid", "date", "description"]
     },

@@ -104,10 +104,10 @@ const App: React.FC = () => {
       // Validação básica de origem
       if (!event.origin.endsWith('.run.app') && !event.origin.includes('localhost')) return;
 
-      if (event.data?.type === 'STRIPE_CHECKOUT_COMPLETED' || event.data?.type === 'MP_PAYMENT_COMPLETED') {
-        const { status, sessionId, userId: mpUserId } = event.data;
+      if (event.data?.type === 'STRIPE_CHECKOUT_COMPLETED' || event.data?.type === 'MP_PAYMENT_COMPLETED' || event.data?.type === 'INFINITE_PAY_COMPLETED') {
+        const { status, sessionId, userId: mpUserId, userId: ipUserId } = event.data;
 
-        if ((status === 'success' || status === 'approved') && (sessionId || mpUserId)) {
+        if ((status === 'success' || status === 'approved') && (sessionId || mpUserId || ipUserId)) {
           const verifyPayment = async () => {
             try {
               // Se for Stripe, verifica via API. Se for Mercado Pago, o Webhook já deve ter atualizado, 
@@ -275,33 +275,59 @@ const App: React.FC = () => {
     
     setIsSaving(true);
     try {
-      // Usando Mercado Pago como padrão para CPF/Pessoa Física
-      const response = await fetch('/api/mercadopago/create-preference', {
+      // Usando InfinitePay como solicitado
+      const response = await fetch('/api/infinitepay/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId: user.uid, 
-          planType,
-          email: user.email 
+          planType
         }),
       });
       
       const data = await response.json();
       
-      if (response.ok && data.init_point) {
-        // Abre o checkout do Mercado Pago em uma nova janela (Popup)
+      if (response.ok && data.checkout_url) {
+        // Abre o checkout do InfinitePay em uma nova janela (Popup)
         const width = 600;
         const height = 700;
         const left = (window.innerWidth - width) / 2;
         const top = (window.innerHeight - height) / 2;
         
         window.open(
-          data.init_point, 
-          'mercadopago_checkout', 
+          data.checkout_url, 
+          'infinitepay_checkout', 
           `width=${width},height=${height},top=${top},left=${left}`
         );
       } else {
-        showToast(data.error || "Erro ao iniciar pagamento.", "error");
+        // Fallback para Mercado Pago se InfinitePay falhar (ex: falta de config)
+        console.warn("InfinitePay falhou ou não configurado, tentando Mercado Pago...");
+        const mpResponse = await fetch('/api/mercadopago/create-preference', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            userId: user.uid, 
+            planType,
+            email: user.email 
+          }),
+        });
+        
+        const mpData = await mpResponse.json();
+        
+        if (mpResponse.ok && mpData.init_point) {
+          const width = 600;
+          const height = 700;
+          const left = (window.innerWidth - width) / 2;
+          const top = (window.innerHeight - height) / 2;
+          
+          window.open(
+            mpData.init_point, 
+            'mercadopago_checkout', 
+            `width=${width},height=${height},top=${top},left=${left}`
+          );
+        } else {
+          showToast(mpData.error || data.error || "Erro ao iniciar pagamento.", "error");
+        }
       }
     } catch (error) {
       console.error("Erro ao assinar:", error);
@@ -454,13 +480,14 @@ const App: React.FC = () => {
         // Libera a tela imediatamente após carregar o local
         setIsInitialLoading(false);
 
-        // 2. Sincronização em Segundo Plano (Nuvem)
-        setIsRefreshing(true);
-        const [cloudData, cloudTimeData, cloudConfig] = await Promise.all([
-          storageService.getEntries(user.uid),
-          storageService.getTimeEntries(user.uid),
-          storageService.getConfig(user.uid)
-        ]);
+        // 2. Sincronização em Segundo Plano (Nuvem) - APENAS PARA ADM
+        if (isUserAdmin(user.email)) {
+          setIsRefreshing(true);
+          const [cloudData, cloudTimeData, cloudConfig] = await Promise.all([
+            storageService.getEntries(user.uid),
+            storageService.getTimeEntries(user.uid),
+            storageService.getConfig(user.uid)
+          ]);
 
         const cloudEntries = cloudData.entries;
         const cloudUpdatedAt = cloudData.updatedAt;
@@ -509,6 +536,9 @@ const App: React.FC = () => {
             }
           }));
         }
+      } else {
+        console.log(`[App] Sincronização em segundo plano (nuvem) desativada para usuários padrão.`);
+      }
       } catch (e) {
         console.error("Erro na inicialização:", e);
       } finally {
@@ -597,42 +627,53 @@ const App: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [entries, timeEntries, isInitialLoading, user, config]);
 
-  // 2. Sincronização com a Nuvem (Debounced)
+  // 2. Sincronização com a Nuvem (DESATIVADA PARA LANÇAMENTO, EXCETO PARA ADM)
   useEffect(() => {
     if (isInitialLoading || isRefreshing || !user) return;
     
-    const timeout = setTimeout(async () => {
-      console.log(`[App] Iniciando sync na nuvem (debounced).`);
-      setIsSaving(true);
-      try {
-        await Promise.all([
-          storageService.saveEntries(entries, user.uid, config, true),
-          storageService.saveTimeEntries(timeEntries, user.uid, true)
-        ]);
-        console.log(`[App] Sync na nuvem concluído.`);
-      } catch (e) {
-        console.error("[App] Erro ao sincronizar com a nuvem", e);
-      } finally {
-        setTimeout(() => setIsSaving(false), 1000);
-      }
-    }, 2500); // 2.5 segundos para a nuvem para evitar excesso de escritas
-    
-    return () => clearTimeout(timeout);
+    if (isUserAdmin(user.email)) {
+      const timeout = setTimeout(async () => {
+        console.log(`[App] Iniciando sync na nuvem para ADM (debounced).`);
+        setIsSaving(true);
+        try {
+          await Promise.all([
+            storageService.saveEntries(entries, user.uid, config, true),
+            storageService.saveTimeEntries(timeEntries, user.uid, true)
+          ]);
+          console.log(`[App] Sync na nuvem concluído.`);
+        } catch (e) {
+          console.error("[App] Erro ao sincronizar com a nuvem", e);
+        } finally {
+          setTimeout(() => setIsSaving(false), 1000);
+        }
+      }, 2500);
+      return () => clearTimeout(timeout);
+    } else {
+      // Bloqueado temporariamente para lançamento ilimitado
+      console.log("[App] Sincronização com a nuvem desativada temporariamente.");
+    }
   }, [entries, timeEntries, isInitialLoading, isRefreshing, user, config]);
 
   useEffect(() => {
     if (isInitialLoading || isRefreshing || !user) return;
-    // Sincroniza config para a nuvem sempre que houver mudança, independente de ser PRO
-    // Isso garante que o perfil (nome, foto) seja persistido para todos os usuários logados
-    const timeout = setTimeout(() => {
-      storageService.saveConfig(config, user.uid, true).catch(console.error);
-    }, 1000);
     
-    return () => clearTimeout(timeout);
+    if (isUserAdmin(user.email)) {
+      const timeout = setTimeout(() => {
+        storageService.saveConfig(config, user.uid, true).catch(console.error);
+      }, 1000);
+      return () => clearTimeout(timeout);
+    } else {
+      // Sincroniza config apenas localmente por enquanto
+      console.log("[App] Sincronização de config com a nuvem desativada temporariamente.");
+    }
   }, [config, isInitialLoading, isRefreshing, user]);
 
   const handleForceSync = async () => {
     if (!user) return;
+    if (!isUserAdmin(user.email)) {
+      showToast("Backup em nuvem em breve! ☁️", "success");
+      return;
+    }
     setIsSaving(true);
     try {
       await Promise.all([
@@ -662,6 +703,14 @@ const App: React.FC = () => {
     return sorted.map(entry => {
       if (entry.kmAtMaintenance && entry.kmAtMaintenance > 0) {
         const currentKm = entry.kmAtMaintenance;
+        
+        // Se for manutenção, o KM é apenas informativo ("conhecimento")
+        // Não deve atualizar o lastKm para o próximo registro e o kmDriven deve ser 0
+        // para não duplicar a quilometragem nos relatórios de soma.
+        if (entry.category === 'maintenance') {
+          return { ...entry, kmDriven: 0 };
+        }
+
         // O delta é a diferença para o último odômetro conhecido
         // Se for o primeiro registro, o delta é 0
         const delta = lastKm > 0 ? currentKm - lastKm : 0;
@@ -676,13 +725,6 @@ const App: React.FC = () => {
   const addEntry = (entry: DailyEntry) => {
     const isPro = config.profile?.isPro;
     const monthlyCount = getMonthlyEntriesCount();
-
-    // Trava de 30 lançamentos para usuários grátis
-    if (!isPro && monthlyCount >= 30) {
-      setIsSubModalOpen(true);
-      showToast("Limite de 30 lançamentos mensais atingido. Seja PRO!", "error");
-      return;
-    }
 
     const todayStr = getLocalDateStr();
     
@@ -718,12 +760,7 @@ const App: React.FC = () => {
           }
         }
       } else {
-        // Aviso de limite próximo (faltando 5)
-        if (!isPro && monthlyCount >= 25) {
-          showToast(`Atenção: Você tem apenas ${30 - (monthlyCount + 1)} lançamentos restantes este mês! 💎`, "error");
-        } else {
-          showToast("Lançamento salvo com sucesso!");
-        }
+        showToast("Lançamento salvo com sucesso!");
       }
 
       return updatedEntries;
@@ -733,8 +770,8 @@ const App: React.FC = () => {
       setConfig(prev => ({ ...prev, lastFuelPrice: entry.fuelPrice }));
     }
 
-    // Atualiza o último KM global baseado no maior valor encontrado
-    if (entry.kmAtMaintenance) {
+    // Atualiza o último KM global baseado no maior valor encontrado (exceto manutenções)
+    if (entry.kmAtMaintenance && entry.category !== 'maintenance') {
       setConfig(prev => ({ 
         ...prev, 
         lastTotalKm: Math.max(prev.lastTotalKm || 0, entry.kmAtMaintenance || 0) 
@@ -748,7 +785,7 @@ const App: React.FC = () => {
       const recalculated = recalculateKmDeltas(mapped);
       
       const kmEntries = recalculated
-        .filter(e => (e.kmAtMaintenance || 0) > 0)
+        .filter(e => (e.kmAtMaintenance || 0) > 0 && e.category !== 'maintenance')
         .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
       
       const newLastKm = kmEntries.length > 0 ? kmEntries[0].kmAtMaintenance : 0;
@@ -789,7 +826,7 @@ const App: React.FC = () => {
           const recalculated = recalculateKmDeltas(filtered);
           
           const kmEntries = recalculated
-            .filter(e => (e.kmAtMaintenance || 0) > 0)
+            .filter(e => (e.kmAtMaintenance || 0) > 0 && e.category !== 'maintenance')
             .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
           
           const newLastKm = kmEntries.length > 0 ? kmEntries[0].kmAtMaintenance : 0;
@@ -1142,34 +1179,22 @@ const App: React.FC = () => {
         </nav>
       )}
 
-      {/* Floating AI Button */}
-      {activeTab !== 'settings' && !isKeyboardOpen && (
+      {/* Floating AI Button (APENAS PARA ADM) */}
+      {activeTab !== 'settings' && !isKeyboardOpen && isUserAdmin(user?.email) && (
         <div className="fixed bottom-24 right-6 z-40">
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => {
-              if (config.profile?.isPro) {
-                setIsAIChatOpen(true);
-              } else {
-                setIsSubModalOpen(true);
-                showToast("IA Analista é exclusiva para membros PRO! 💎", "error");
-              }
+              setIsAIChatOpen(true);
             }}
             className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-200 dark:shadow-none relative group"
           >
             <div className="absolute -top-12 right-0 bg-slate-900 text-white text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap uppercase tracking-widest pointer-events-none">
-              {config.profile?.isPro ? 'Falar com IA' : 'IA (Apenas PRO)'}
+              Mestre das Rotas
             </div>
             <Sparkles size={24} fill="currentColor" />
-            {!config.profile?.isPro && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full border-2 border-white dark:border-slate-950 flex items-center justify-center">
-                <Lock size={10} className="text-amber-950" />
-              </div>
-            )}
-            {config.profile?.isPro && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-950 animate-pulse"></div>
-            )}
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-950 animate-pulse"></div>
           </motion.button>
         </div>
       )}
@@ -1185,6 +1210,7 @@ const App: React.FC = () => {
             entries={entries}
             timeEntries={timeEntries}
             config={config}
+            isAdmin={isUserAdmin(user?.email)}
             reportData={{
               startDate: 'Últimos 30 dias',
               endDate: getLocalDateStr(),

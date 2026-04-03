@@ -22,6 +22,7 @@ service cloud.firestore {
     //   - valor_liquido: number
     //   - date: string (required, YYYY-MM-DD)
     //   - description: string (required)
+    //   - paymentMethod: string (optional, enum)
     //
     // Collection: balances/{userId}
     // Document ID: userId
@@ -93,7 +94,8 @@ service cloud.firestore {
              data.uid is string &&
              isValidDateTimeString(data.date) &&
              data.description is string &&
-             data.description.size() < 200;
+             data.description.size() < 200 &&
+             (!('paymentMethod' in data) || data.paymentMethod in ["money", "pix", "debito", "caderno"]);
     }
 
     function isValidMonthlyBalance(data) {

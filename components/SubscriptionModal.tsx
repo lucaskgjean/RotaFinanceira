@@ -168,7 +168,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
               </button>
               
               <p className="text-center mt-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1">
-                <Lock size={10} /> Pagamento seguro via Mercado Pago
+                <Lock size={10} /> Pagamento seguro via InfinitePay
               </p>
             </div>
           </div>

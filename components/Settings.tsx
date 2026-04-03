@@ -151,10 +151,6 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
   };
 
   const handleExportCSV = () => {
-    if (!config.profile?.isPro) {
-      onOpenSubscription();
-      return;
-    }
     if (entries.length === 0) {
       setDialog({
         isOpen: true,
@@ -175,10 +171,6 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
   };
 
   const handleFullBackup = () => {
-    if (!config.profile?.isPro) {
-      onOpenSubscription();
-      return;
-    }
     // Backup completo: Dados + Configurações + Ponto
     const snapshot = {
       entries,
@@ -428,10 +420,6 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
   };
 
   const addMaintenanceAlert = () => {
-    if (!config.profile?.isPro) {
-      onOpenSubscription();
-      return;
-    }
     const newAlert = {
       id: Math.random().toString(36).substr(2, 9),
       description: 'Novo Alerta',
@@ -792,16 +780,16 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
                     <p>No histórico, identifique dívidas rapidamente pela <b>barra lateral vermelha</b> (Pendente) ou <b>verde</b> (Pago). Clique no botão de status para alternar sem precisar editar.</p>
                   </div>
                   <div className="space-y-2">
-                    <p className="font-black text-indigo-300 uppercase tracking-wider">3. Relatórios e IA</p>
-                    <p>Na aba de Relatórios, motoristas <b>PRO</b> têm acesso a análises profundas de lucro. No botão flutuante, converse com o <b>Mestre das Rotas</b> para obter insights sobre seu desempenho.</p>
+                    <p className="font-black text-indigo-300 uppercase tracking-wider">3. Relatórios e IA (Em Breve)</p>
+                    <p>Na aba de Relatórios, motoristas <b>PRO</b> têm acesso a análises profundas de lucro. No botão flutuante, converse com o <b>Mestre das Rotas</b> para obter insights sobre seu desempenho (Disponível em breve para todos).</p>
                   </div>
                   <div className="space-y-2">
                     <p className="font-black text-indigo-300 uppercase tracking-wider">4. Manutenção e Alertas</p>
                     <p>Configure seus alertas de KM aqui nas configurações. Acompanhe o progresso na aba "Manutenção" para saber exatamente quando revisar seu veículo.</p>
                   </div>
                   <div className="space-y-2">
-                    <p className="font-black text-indigo-300 uppercase tracking-wider">5. Backup e Segurança</p>
-                    <p>Seus dados ficam no seu celular. Use o <b>"Criar Backup"</b> regularmente para salvar um arquivo com tudo (lançamentos, ponto e configurações) e garantir que nunca perca nada.</p>
+                    <p className="font-black text-indigo-300 uppercase tracking-wider">5. Backup e Segurança (Em Breve na Nuvem)</p>
+                    <p>Seus dados ficam no seu celular. Use o <b>"Criar Backup"</b> regularmente para salvar um arquivo com tudo. O backup automático na nuvem estará disponível em breve!</p>
                   </div>
                   <button onClick={() => setShowTutorial(false)} className="w-full pt-2 font-black text-indigo-300 uppercase tracking-widest hover:text-white transition-colors">Entendi, fechar tutorial</button>
                 </div>
@@ -849,7 +837,6 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-black text-slate-800 dark:text-white">Alertas de manutenção</h3>
               <button onClick={addMaintenanceAlert} className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1.5 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5">
-                {!config.profile?.isPro && <Lock size={10} className="text-amber-500" />}
                 + Adicionar
               </button>
             </div>
@@ -909,31 +896,28 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
               </button>
 
               <button onClick={handleExportCSV} className="w-full flex items-center justify-between p-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase transition-all active:scale-95 shadow-lg relative overflow-hidden group">
-                {!config.profile?.isPro && (
-                  <div className="absolute inset-0 bg-slate-900/10 flex items-center justify-center">
-                    <div className="bg-amber-400 text-amber-950 px-2 py-1 rounded-lg text-[8px] font-black flex items-center gap-1">
-                      <Lock size={10} /> APENAS PRO
-                    </div>
-                  </div>
-                )}
                 <span>Exportar Excel (CSV)</span>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               </button>
 
               <div className="grid grid-cols-2 gap-3">
                 <button 
-                  onClick={onForceSync}
+                  onClick={() => {
+                    if (isUserAdmin(authService.auth?.currentUser?.email)) {
+                      onForceSync();
+                    } else {
+                      showToast("Backup em nuvem em breve! ☁️", "success");
+                    }
+                  }}
                   className="flex flex-col items-center justify-center p-5 bg-amber-600/30 rounded-2xl border border-white/10 hover:bg-amber-600/50 transition-all"
                 >
                   <RefreshCw size={24} className="mb-2 text-amber-400" />
                   <span className="text-[10px] font-black uppercase">Sincronizar Agora</span>
+                  {!isUserAdmin(authService.auth?.currentUser?.email) && (
+                    <span className="text-[8px] font-black text-amber-400 uppercase tracking-widest mt-1">Em Breve</span>
+                  )}
                 </button>
                 <button onClick={handleFullBackup} className="flex flex-col items-center justify-center p-5 bg-indigo-600/30 rounded-2xl border border-white/10 hover:bg-indigo-600/50 transition-all relative overflow-hidden">
-                  {!config.profile?.isPro && (
-                    <div className="absolute inset-0 bg-slate-900/20 flex items-center justify-center">
-                      <Lock size={14} className="text-amber-400" />
-                    </div>
-                  )}
                   <svg className="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                   <span className="text-[10px] font-black uppercase">Criar Backup</span>
                 </button>

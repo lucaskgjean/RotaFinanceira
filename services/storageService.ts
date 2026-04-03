@@ -179,7 +179,8 @@ export const storageService = {
           netAmount: e.netAmount || 0,
           valor_liquido: e.netAmount || 0,
           date: e.date,
-          description: e.storeName || `Faturamento - ${e.date}`
+          description: e.storeName || `Faturamento - ${e.date}`,
+          paymentMethod: e.paymentMethod
         };
         lastSyncedIncomeMap.set(e.id, CryptoJS.MD5(JSON.stringify(entryData)).toString());
       });
@@ -267,7 +268,8 @@ export const storageService = {
                 netAmount: e.netAmount || 0,
                 valor_liquido: e.netAmount || 0,
                 date: e.date,
-                description: e.storeName || `Faturamento - ${e.date}`
+                description: e.storeName || `Faturamento - ${e.date}`,
+                paymentMethod: e.paymentMethod
               };
               lastSyncedIncomeMap.set(e.id, CryptoJS.MD5(JSON.stringify(entryData)).toString());
             });
@@ -403,7 +405,8 @@ export const storageService = {
               netAmount: netAmount,
               valor_liquido: netAmount,
               date: isoDate,
-              description: entry.storeName || `Faturamento - ${entry.date}`
+              description: entry.storeName || `Faturamento - ${entry.date}`,
+              paymentMethod: entry.paymentMethod
             };
             
             const entryHash = CryptoJS.MD5(JSON.stringify(entryData)).toString();

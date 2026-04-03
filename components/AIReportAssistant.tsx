@@ -15,6 +15,7 @@ interface AIReportAssistantProps {
   onDeleteEntry: (id: string) => void;
   config: any;
   onClose: () => void;
+  isAdmin?: boolean;
 }
 
 const AIReportAssistant: React.FC<AIReportAssistantProps> = ({ 
@@ -25,23 +26,30 @@ const AIReportAssistant: React.FC<AIReportAssistantProps> = ({
   onUpdateEntry,
   onDeleteEntry,
   config, 
-  onClose 
+  onClose,
+  isAdmin
 }) => {
-  if (!config.profile?.isPro) {
+  // Bloqueio temporário para lançamento (EXCETO PARA ADM)
+  const isBlockedForLaunch = !isAdmin;
+
+  if (isBlockedForLaunch) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-      <div className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm" onClick={onClose} />
+        <div className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm" onClick={onClose} />
         <div className="relative bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 text-center max-w-sm">
           <div className="w-16 h-16 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-500 mx-auto mb-6">
-            <Sparkles size={32} />
+            <Sparkles size={32} className="animate-pulse" />
           </div>
-          <h3 className="text-lg font-black uppercase tracking-widest text-slate-800 dark:text-white mb-2">IA Exclusiva PRO 💎</h3>
+          <h3 className="text-lg font-black uppercase tracking-widest text-slate-800 dark:text-white mb-2">Mestre das Rotas</h3>
+          <div className="inline-block px-3 py-1 bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
+            Em Breve
+          </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-tight mb-6">
-            A análise inteligente de relatórios e o Mestre das Rotas são recursos exclusivos para membros PRO.
+            Estamos finalizando os últimos ajustes no nosso Mestre das Rotas. Em breve você terá uma IA poderosa para analisar seus ganhos e otimizar seu tempo!
           </p>
           <button 
             onClick={onClose}
-            className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs"
+            className="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-colors"
           >
             Entendido
           </button>

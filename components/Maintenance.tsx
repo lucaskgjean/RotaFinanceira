@@ -73,7 +73,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
   
   const lastKmEntry = Math.max(
     config.lastTotalKm || 0,
-    ...entries.map(e => e.kmAtMaintenance || 0)
+    ...entries.filter(e => e.category !== 'maintenance').map(e => e.kmAtMaintenance || 0)
   );
 
   const alerts = config.maintenanceAlerts || [];

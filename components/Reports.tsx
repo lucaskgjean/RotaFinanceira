@@ -53,88 +53,6 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
   const today = getLocalDateStr();
   const [now, setNow] = useState(new Date());
 
-  if (!config.profile?.isPro) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-2xl mx-auto pt-10 pb-32"
-      >
-        <div className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-          {/* Header com Gradiente */}
-          <div className="bg-gradient-to-br from-indigo-600 to-violet-700 p-10 text-white relative overflow-hidden">
-            <div className="relative z-10">
-              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
-                <BarChart3 size={32} className="text-amber-300" />
-              </div>
-              <h2 className="text-3xl font-black uppercase tracking-tight mb-4">Relatórios <span className="text-amber-300">Avançados</span></h2>
-              <p className="text-indigo-100 font-medium leading-relaxed text-lg">
-                Tome decisões baseadas em dados reais e maximize seu lucro mensal.
-              </p>
-            </div>
-            <div className="absolute -bottom-12 -right-12 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-          </div>
-
-          <div className="p-10 space-y-8">
-            <div className="space-y-6">
-              <div className="flex gap-5">
-                <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0">
-                  <TrendingUp size={24} />
-                </div>
-                <div>
-                  <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm mb-1">Análise de Lucro Real</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Visualize seu lucro líquido descontando automaticamente combustível, comida e manutenção em tempo real.</p>
-                </div>
-              </div>
-
-              <div className="flex gap-5">
-                <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-600 shrink-0">
-                  <Filter size={24} />
-                </div>
-                <div>
-                  <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm mb-1">Filtros por Período e Loja</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Saiba exatamente quanto você ganhou em cada restaurante ou aplicativo em qualquer data específica.</p>
-                </div>
-              </div>
-
-              <div className="flex gap-5">
-                <div className="w-12 h-12 bg-amber-50 dark:bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-600 shrink-0">
-                  <Clock size={24} />
-                </div>
-                <div>
-                  <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm mb-1">Métricas de Performance</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Descubra seu Ticket Médio, Ganho por Hora e KM Médio por entrega para otimizar suas rotas.</p>
-                </div>
-              </div>
-
-              <div className="flex gap-5">
-                <div className="w-12 h-12 bg-rose-50 dark:bg-rose-500/10 rounded-2xl flex items-center justify-center text-rose-600 shrink-0">
-                  <Download size={24} />
-                </div>
-                <div>
-                  <h4 className="font-black text-slate-800 dark:text-white uppercase tracking-widest text-sm mb-1">Exportação Completa</h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">Gere planilhas em Excel (CSV) de todos os seus dados para contabilidade ou controle pessoal externo.</p>
-                </div>
-              </div>
-            </div>
-
-            <button 
-              onClick={onOpenSubscription}
-              className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[2rem] font-black text-sm uppercase tracking-widest transition-all shadow-xl shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-3 group"
-            >
-              <Sparkles size={20} className="text-amber-300 group-hover:rotate-12 transition-transform" fill="currentColor" />
-              Desbloquear Relatórios PRO
-            </button>
-            
-            <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              Junte-se a centenas de motoristas que já são <span className="text-indigo-600">PRO</span>
-            </p>
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
-
   useEffect(() => {
     const interval = setInterval(() => {
       setNow(new Date());
@@ -338,8 +256,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       }, {} as Record<string, number>)
     )
       .map(([name, value]) => ({ name, value: value as number }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
+      .sort((a, b) => b.value - a.value);
 
     // 2. Score de Eficiência (0-100)
     const efficiencyScore = (() => {
@@ -369,8 +286,8 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
     const projectedOthers = summary.totalGross * (config.percOthers || 0);
     const projectedTotal = projectedFuel + projectedFood + projectedMaintenance + projectedOthers;
 
-    const totalReceived = summary.totalGross - paymentMethodsMap['caderno'];
-    const totalPending = paymentMethodsMap['caderno'];
+    const totalReceived = summary.totalPaid;
+    const totalPending = summary.totalPending;
 
     return {
       summary,
@@ -1177,7 +1094,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
           <div className="w-1.5 h-5 bg-indigo-500 rounded-full"></div>
           <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest">Ranking de Categorias</h3>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2 custom-scrollbar">
           {reportData.storeRanking.length > 0 ? (
             reportData.storeRanking.map((store, idx) => (
               <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700">
@@ -1316,7 +1233,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
             <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Nenhuma manutenção registrada</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-2 custom-scrollbar">
             {reportData.maintenanceEntries.map(entry => (
               <div key={entry.id} className="flex justify-between items-center p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl border border-slate-100/50 dark:border-slate-800 group hover:bg-white dark:hover:bg-slate-800 hover:shadow-md transition-all">
                 <div className="flex items-center gap-4">

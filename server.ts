@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import Stripe from "stripe";
 import admin from "firebase-admin";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
+import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -424,6 +425,139 @@ app.post("/api/mercadopago/webhook", async (req, res) => {
         }
       } catch (e) {
         console.error("❌ Erro ao processar Webhook do Mercado Pago:", e);
+      }
+    }
+  }
+
+  res.status(200).send("OK");
+});
+
+// --- INFINITE PAY (CLOUDWALK) ROUTES ---
+
+let infinitePayToken: { token: string; expiresAt: number } | null = null;
+
+async function getInfinitePayToken() {
+  if (infinitePayToken && infinitePayToken.expiresAt > Date.now()) {
+    return infinitePayToken.token;
+  }
+
+  const clientId = process.env.INFINITE_PAY_CLIENT_ID;
+  const clientSecret = process.env.INFINITE_PAY_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    console.warn("⚠️ INFINITE_PAY_CLIENT_ID ou SECRET não configurados.");
+    return null;
+  }
+
+  try {
+    const response = await axios.post('https://api.cloudwalk.io/v1/oauth/token', {
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: 'client_credentials',
+      scope: 'checkout:write'
+    });
+
+    infinitePayToken = {
+      token: response.data.access_token,
+      expiresAt: Date.now() + (response.data.expires_in * 1000) - 60000 // 1 min buffer
+    };
+
+    return infinitePayToken.token;
+  } catch (error: any) {
+    console.error("❌ Erro ao obter token do InfinitePay:", error.response?.data || error.message);
+    return null;
+  }
+}
+
+app.post("/api/infinitepay/create-checkout", async (req, res) => {
+  const token = await getInfinitePayToken();
+  if (!token) {
+    return res.status(500).json({ error: "InfinitePay não configurado no servidor." });
+  }
+
+  const { userId, planType } = req.body;
+  const appUrl = process.env.APP_URL || `https://${req.get('host')}`;
+
+  const isYearly = planType === 'yearly';
+  const amount = isYearly ? 11990 : 1990; // Em centavos
+  const title = `RotaFinanceira PRO - ${isYearly ? 'Anual' : 'Mensal'}`;
+
+  try {
+    const response = await axios.post('https://api.cloudwalk.io/v1/checkout', {
+      amount: amount,
+      description: title,
+      callback_url: `${appUrl}/api/infinitepay/callback?status=success&userId=${userId}`,
+      metadata: {
+        userId: userId,
+        planType: planType
+      }
+    }, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    res.json({ checkout_url: response.data.checkout_url, id: response.data.id });
+  } catch (error: any) {
+    console.error("❌ Erro ao criar checkout no InfinitePay:", error.response?.data || error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/infinitepay/callback", (req, res) => {
+  const { status, userId } = req.query;
+  
+  res.send(`
+    <html>
+      <body style="background: #0f172a; color: white; font-family: sans-serif; display: flex; items-center; justify-content: center; height: 100vh; margin: 0;">
+        <div style="text-align: center;">
+          <h2 style="margin-bottom: 10px;">${status === 'success' ? 'Pagamento Processado! 🎉' : 'Processando Pagamento...'}</h2>
+          <p style="color: #94a3b8; font-size: 14px;">Estamos atualizando seu acesso. Esta janela fechará automaticamente...</p>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({ 
+                type: 'INFINITE_PAY_COMPLETED', 
+                status: '${status}',
+                userId: '${userId || ''}'
+              }, '*');
+              setTimeout(() => window.close(), 3000);
+            } else {
+              window.location.href = '/';
+            }
+          </script>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
+app.post("/api/infinitepay/webhook", async (req, res) => {
+  const { event, data } = req.body;
+  
+  if (event === "payment.succeeded") {
+    const userId = data.metadata?.userId;
+    console.log(`💰 [InfinitePay] Pagamento aprovado para o usuário: ${userId}`);
+
+    const firebaseAdmin = (admin as any).default || admin;
+    if (userId && firebaseAdmin.apps.length > 0) {
+      try {
+        const db = firebaseAdmin.firestore();
+        const userRef = db.collection('users').doc(userId);
+        
+        await userRef.set({
+          config: {
+            profile: {
+              isPro: true,
+              subscriptionStatus: 'active',
+              updatedAt: new Date().toISOString()
+            }
+          }
+        }, { merge: true });
+        
+        console.log(`✅ [InfinitePay] Status PRO ativado para ${userId}`);
+      } catch (e) {
+        console.error("❌ Erro ao atualizar Firestore via Webhook InfinitePay:", e);
       }
     }
   }
