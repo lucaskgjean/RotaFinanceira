@@ -128,47 +128,24 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, onSubscr
             </div>
 
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                    {selectedPlan === 'monthly' ? 'Plano Mensal' : 'Plano Anual'}
-                  </p>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-slate-800 dark:text-white">
-                      {selectedPlan === 'monthly' ? formatCurrency(19.90) : formatCurrency(119.90)}
-                    </span>
-                    <span className="text-sm font-bold text-slate-400">
-                      {selectedPlan === 'monthly' ? '/mês' : '/ano'}
-                    </span>
-                  </div>
-                  {selectedPlan === 'yearly' && (
-                    <p className="text-[9px] text-emerald-500 font-bold uppercase mt-1">Apenas R$ 9,99 por mês</p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <span className="inline-block px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black rounded-full uppercase tracking-widest border border-emerald-500/20">
-                    7 dias grátis
-                  </span>
-                </div>
+              <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl p-6 text-center mb-6">
+                <Sparkles size={32} className="text-amber-500 mx-auto mb-3 animate-pulse" fill="currentColor" />
+                <h3 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tighter mb-1">Assinaturas em Breve!</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                  Estamos finalizando os últimos detalhes para oferecer a melhor experiência PRO. Fique atento!
+                </p>
               </div>
 
               <button 
-                onClick={handleSubscribe}
-                disabled={loading}
-                className="w-full group bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-200 dark:shadow-none transition-all active:scale-[0.98] flex items-center justify-center gap-3 uppercase text-xs tracking-widest"
+                disabled={true}
+                className="w-full bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 uppercase text-xs tracking-widest cursor-not-allowed"
               >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <>
-                    Assinar Agora
-                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
+                <Lock size={18} />
+                Indisponível no Momento
               </button>
               
               <p className="text-center mt-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1">
-                <Lock size={10} /> Pagamento seguro via InfinitePay
+                <Sparkles size={10} className="text-amber-500" fill="currentColor" /> Em breve: Backup na Nuvem e IA
               </p>
             </div>
           </div>
