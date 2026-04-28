@@ -28,7 +28,9 @@ import {
   Banknote,
   Activity,
   BarChart3,
-  ArrowUpRight
+  ArrowUpRight,
+  Smartphone,
+  BookOpen
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
 import PerformanceCalendar from './PerformanceCalendar';
@@ -91,6 +93,25 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
   const stats = useMemo(() => getWeeklySummary(filteredEntries), [filteredEntries]);
   const dailyBreakdown = useMemo(() => getDailyStats(entries, timeEntries, config), [entries, timeEntries, config]);
 
+  const getPaymentIcon = (method?: string) => {
+    switch (method) {
+      case 'pix': return <Smartphone size={24} />;
+      case 'money': return <Banknote size={24} />;
+      case 'debito': return <CreditCard size={24} />;
+      case 'caderno': return <BookOpen size={24} />;
+      default: return <Wallet size={24} />;
+    }
+  };
+
+  const getStatusStyles = (isPaid: boolean) => {
+    // Fundo cinza claro igual aos botões de ação
+    const base = 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700/50 transition-all';
+    if (isPaid) {
+      return `${base} text-emerald-500 dark:text-emerald-400`;
+    }
+    return `${base} text-rose-500 dark:text-rose-400`;
+  };
+
   const clearFilters = () => {
     setFilterStartDate(todayStr);
     setFilterEndDate(todayStr);
@@ -114,6 +135,15 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
     show: { opacity: 1, y: 0 }
   };
 
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (filterStartDate !== todayStr || filterEndDate !== todayStr) count++;
+    if (filterPayment) count++;
+    if (filterStatus) count++;
+    if (filterStore) count++;
+    return count;
+  }, [filterStartDate, filterEndDate, filterPayment, filterStatus, filterStore, todayStr]);
+
   return (
     <motion.div 
       variants={containerVariants}
@@ -123,11 +153,23 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
     >
       {/* Filtros Inteligentes */}
       <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-8 h-8 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500">
-            <Filter size={16} />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 relative">
+              <Filter size={16} />
+              {activeFiltersCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-indigo-500 border-2 border-white dark:border-slate-900 rounded-full" />
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Filtros de Busca</h3>
+              {activeFiltersCount > 0 && (
+                <span className="text-[8px] font-black bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                  {activeFiltersCount} ativo{activeFiltersCount > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
           </div>
-          <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Filtros de Busca</h3>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
@@ -336,14 +378,37 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
           <AnimatePresence mode="popLayout">
             {filteredEntries.length === 0 ? (
               <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-100 dark:border-slate-800"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-100 dark:border-slate-800 flex flex-col items-center"
               >
-                <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-200 dark:text-slate-700">
-                  <Search size={32} />
+                <div className="relative mb-6">
+                  <div className="w-24 h-24 bg-indigo-50 dark:bg-indigo-500/5 rounded-full flex items-center justify-center text-indigo-200 dark:text-indigo-900/30">
+                    <HistoryIcon size={48} strokeWidth={1} />
+                  </div>
+                  <motion.div 
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      rotate: [0, 10, -10, 0]
+                    }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                    className="absolute -top-1 -right-1 w-10 h-10 bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-50 dark:border-slate-700 flex items-center justify-center text-slate-300 dark:text-slate-600"
+                  >
+                    <Search size={20} />
+                  </motion.div>
                 </div>
-                <p className="text-xs text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest">Nenhum registro encontrado</p>
+                <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest mb-2">Nada por aqui ainda</h4>
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest max-w-[200px] mx-auto leading-relaxed">
+                  Tente ajustar os filtros ou realize um novo lançamento para ver os dados.
+                </p>
+                {activeFiltersCount > 0 && (
+                  <button 
+                    onClick={clearFilters}
+                    className="mt-6 text-[9px] font-black text-indigo-500 uppercase tracking-widest hover:underline"
+                  >
+                    Limpar todos os filtros
+                  </button>
+                )}
               </motion.div>
             ) : (
               filteredEntries.slice(0, visibleCount).map((entry) => (
@@ -354,49 +419,42 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   whileHover={{ y: -2, transition: { duration: 0.2 } }}
-                  className={`bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border-2 transition-all group relative overflow-hidden ${
-                    entry.paymentMethod === 'money' 
-                      ? 'border-slate-100 dark:border-slate-800' 
-                      : entry.isPaid 
-                        ? 'border-emerald-500 dark:border-emerald-400' 
-                        : 'border-rose-500 dark:border-rose-400'
+                  className={`bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border transition-all group relative overflow-hidden ${
+                    entry.isPaid 
+                      ? 'border-emerald-400/50 dark:border-emerald-500/30' 
+                      : 'border-rose-400/50 dark:border-rose-500/30'
                   } hover:shadow-md`}
                 >
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="flex gap-4 items-center">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${entry.grossAmount > 0 ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400'}`}>
-                        {entry.grossAmount > 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+                  <div className="flex justify-between items-center mb-6">
+                    <div className="flex gap-4 items-center min-w-0 flex-1">
+                      <div className={`shrink-0 w-14 h-14 rounded-[1.25rem] border flex items-center justify-center transition-all ${getStatusStyles(entry.isPaid)}`}>
+                        {getPaymentIcon(entry.paymentMethod)}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-slate-800 dark:text-white leading-tight text-lg">{entry.storeName.replace('[GASTO]', '').trim()}</h4>
-                          {entry.paymentMethod !== 'money' && (
-                            <span className={`text-[8px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-widest border ${entry.isPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20' : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'}`}>
-                              {entry.isPaid ? 'Pago' : 'Pendente'}
-                            </span>
-                          )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-slate-800 dark:text-white leading-tight text-lg truncate">{entry.storeName.replace('[GASTO]', '').trim()}</h4>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight flex items-center gap-1">
-                            <Calendar size={10} /> {new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                        <div className="flex items-center flex-nowrap gap-x-3 mt-1.5 whitespace-nowrap overflow-hidden">
+                          <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight flex items-center gap-1.5">
+                            <Calendar size={11} /> {new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR').split('/')[0] + '/' + new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR').split('/')[1]}
                           </span>
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight flex items-center gap-1">
-                            <Clock size={10} /> {entry.time}
+                          <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight flex items-center gap-1.5 border-l border-slate-100 dark:border-slate-800 pl-3">
+                            <Clock size={11} /> {entry.time}
                           </span>
                           {entry.paymentMethod && (
-                            <span className="text-[10px] text-indigo-400 dark:text-indigo-500 font-semibold uppercase tracking-tight flex items-center gap-1">
-                              <CreditCard size={10} /> {config.paymentMethodLabels?.[entry.paymentMethod as keyof typeof config.paymentMethodLabels] || entry.paymentMethod}
+                            <span className={`shrink-0 text-[11px] font-black uppercase tracking-tight flex items-center gap-1.5 border-l border-slate-100 dark:border-slate-800 pl-3 ${entry.isPaid ? 'text-emerald-500/80' : 'text-rose-500/80'}`}>
+                              <CreditCard size={11} /> {config.paymentMethodLabels?.[entry.paymentMethod as keyof typeof config.paymentMethodLabels] || entry.paymentMethod}
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className={`text-xl font-bold font-mono-num ${entry.grossAmount > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                        {entry.grossAmount > 0 ? `+${formatCurrency(entry.grossAmount).replace('R$', '')}` : `-${formatCurrency(entry.fuel + entry.food + entry.maintenance).replace('R$', '')}`}
+                    <div className="text-right shrink-0 ml-4">
+                      <div className={`text-xl font-black ${entry.isPaid ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
+                        {entry.grossAmount > 0 ? formatCurrency(entry.grossAmount).replace('R$', '') : formatCurrency(entry.fuel + entry.food + entry.maintenance).replace('R$', '')}
                       </div>
-                      <span className="text-[9px] font-semibold text-slate-300 dark:text-slate-600 uppercase tracking-widest">
-                        {entry.grossAmount > 0 ? 'Lucro' : 'Gasto'}
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight flex items-center justify-end gap-1">
+                        <Banknote size={10} /> VALOR
                       </span>
                     </div>
                   </div>
@@ -406,33 +464,29 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
                   <div className="flex gap-2">
                     <button 
                       onClick={() => onDelete(entry.id)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl transition-all active:scale-95"
+                      className="flex-1 flex items-center justify-center gap-2 py-3 pr-4 pl-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all active:scale-95 group/btn"
                     >
-                      <Trash2 size={14} />
-                      <span className="text-[10px] font-semibold uppercase tracking-widest">Excluir</span>
+                      <Trash2 size={16} className="text-rose-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Excluir</span>
                     </button>
                     <button 
                       onClick={() => onEdit(entry)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl transition-all active:scale-95"
+                      className="flex-1 flex items-center justify-center gap-2 py-3 pr-4 pl-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all active:scale-95 group/btn"
                     >
-                      <Edit3 size={14} />
-                      <span className="text-[10px] font-semibold uppercase tracking-widest">Editar</span>
+                      <Edit3 size={16} className="text-indigo-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Editar</span>
                     </button>
-                    {entry.paymentMethod !== 'money' && (
-                      <button 
-                        onClick={() => onUpdate({ ...entry, isPaid: !entry.isPaid })}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl transition-all active:scale-95 border-2 ${
-                          entry.isPaid 
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-600 dark:bg-emerald-400/10 dark:border-emerald-400/40 dark:text-emerald-400' 
-                            : 'bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-400/10 dark:border-rose-400/40 dark:text-rose-400'
-                        }`}
-                      >
-                        {entry.isPaid ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-                        <span className="text-[10px] font-semibold uppercase tracking-widest">
-                          {entry.isPaid ? 'Pago' : 'Pendente'}
-                        </span>
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => onUpdate({ ...entry, isPaid: !entry.isPaid })}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 pr-4 pl-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all active:scale-95 group/btn"
+                    >
+                      <div className={entry.isPaid ? 'text-emerald-500' : 'text-rose-500'}>
+                        {entry.isPaid ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                        {entry.isPaid ? 'Pago' : 'Pendente'}
+                      </span>
+                    </button>
                   </div>
                 </motion.div>
               ))

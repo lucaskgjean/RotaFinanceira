@@ -25,9 +25,7 @@ Ao utilizar o RotaFinanceira, você concorda com os seguintes termos:
 
 3. ISENÇÃO DE RESPONSABILIDADE: O aplicativo fornece cálculos baseados nos dados inseridos por você. Não nos responsabilizamos por decisões financeiras, perdas ou erros de cálculo decorrentes do uso da ferramenta.
 
-4. ASSINATURA PRO: Recursos avançados e backup em nuvem podem exigir uma assinatura ativa. O cancelamento pode ser feito a qualquer momento através das configurações.
-
-5. ALTERAÇÕES: Reservamo-nos o direito de atualizar estes termos e as funcionalidades do aplicativo para melhor atender aos usuários.
+4. ALTERAÇÕES: Reservamo-nos o direito de atualizar estes termos e as funcionalidades do aplicativo para melhor atender aos usuários.
 
 Ao criar sua conta, você confirma que leu e aceita estes termos.
 `;

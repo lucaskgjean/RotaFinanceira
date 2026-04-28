@@ -44,12 +44,11 @@ interface ReportsProps {
   timeEntries: TimeEntry[];
   config: AppConfig;
   onAddEntry: (entry: DailyEntry) => void;
-  onOpenSubscription: () => void;
   selectedStore: string;
   onStoreChange: (store: string) => void;
 }
 
-const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEntry, onOpenSubscription, selectedStore, onStoreChange }) => {
+const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEntry, selectedStore, onStoreChange }) => {
   const today = getLocalDateStr();
   const [now, setNow] = useState(new Date());
 
@@ -354,19 +353,6 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
   }, [entries, timeEntries, startDate, endDate, selectedStore, currentTime, config.dailyGoal]);
 
   const exportToCSV = () => {
-    if (!config.profile?.isPro) {
-      setDialog({
-        isOpen: true,
-        title: 'Recurso PRO',
-        message: 'A exportação de relatórios é exclusiva para membros PRO! 💎',
-        type: 'info',
-        onConfirm: () => {
-          setDialog(prev => ({ ...prev, isOpen: false }));
-          onOpenSubscription();
-        }
-      });
-      return;
-    }
     const headers = ['Data', 'Hora', 'Loja/Descrição', 'Bruto', 'Combustível', 'Alimentação', 'Manutenção', 'Outros', 'Líquido', 'KM Rodados', 'Tipo KM', 'Pagamento'];
     const rows = reportData.filteredEntries.map(e => [
       e.date,
@@ -475,15 +461,8 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
             </div>
             <button 
               onClick={exportToCSV}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg relative overflow-hidden ${
-                config.profile?.isPro 
-                  ? 'bg-slate-900 dark:bg-indigo-600 text-white hover:bg-black dark:hover:bg-indigo-700 shadow-slate-200 dark:shadow-none' 
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none'
-              }`}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg relative overflow-hidden bg-slate-900 dark:bg-indigo-600 text-white hover:bg-black dark:hover:bg-indigo-700 shadow-slate-200 dark:shadow-none"
             >
-              {!config.profile?.isPro && (
-                <Lock size={12} className="text-slate-400" />
-              )}
               <Download size={14} /> Exportar CSV
             </button>
           </div>
@@ -922,7 +901,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
               <Navigation size={12} className="text-amber-500" /> Ganhos por KM
             </span>
-            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.avgGrossPerKm)}</p>
+            <p className="text-2xl font-black text-amber-600 dark:text-amber-400 font-mono-num">{formatCurrency(reportData.avgGrossPerKm)}</p>
           </div>
         </div>
       </motion.div>
@@ -960,7 +939,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
               <Navigation size={12} className="text-rose-500" /> Gasto por KM
             </span>
-            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{formatCurrency(reportData.avgExpensePerKm)}</p>
+            <p className="text-2xl font-black text-rose-600 dark:text-rose-400 font-mono-num">{formatCurrency(reportData.avgExpensePerKm)}</p>
           </div>
         </div>
       </motion.div>
@@ -998,7 +977,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
               <Fuel size={12} className="text-blue-500" /> KM por Litro
             </span>
-            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerLiter.toFixed(2)} <small className="text-xs opacity-40">km/L</small></p>
+            <p className="text-2xl font-black text-blue-600 dark:text-blue-400 font-mono-num">{reportData.avgKmPerLiter.toFixed(2)} <small className="text-xs opacity-40">km/L</small></p>
           </div>
         </div>
       </motion.div>

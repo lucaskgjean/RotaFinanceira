@@ -44,15 +44,14 @@ const QuickExpense: React.FC<QuickExpenseProps> = ({ onAdd }) => {
 
   const suggestionAmounts = [20, 50, 100, 150];
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = (paid: boolean) => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) return;
 
     const numKm = kmAtMaintenance ? parseFloat(kmAtMaintenance) : undefined;
     const numLiters = liters ? parseFloat(liters) : undefined;
 
-    const newEntry = calculateManualExpense(numAmount, category, date, time, description, numKm, paymentMethod, numLiters);
+    const newEntry = calculateManualExpense(numAmount, category, date, time, description, numKm, paymentMethod, numLiters, paid);
     onAdd(newEntry);
     
     // Fecha o teclado removendo o foco do elemento ativo
@@ -65,6 +64,11 @@ const QuickExpense: React.FC<QuickExpenseProps> = ({ onAdd }) => {
     setDescription('');
     setKmAtMaintenance('');
     setTime(getCurrentTime());
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSave(true); // Default to paid on Enter
   };
 
   const categoryConfig = {
@@ -160,7 +164,7 @@ const QuickExpense: React.FC<QuickExpenseProps> = ({ onAdd }) => {
                 className="space-y-3"
               >
                 <label className="flex items-center gap-2 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                  <Fuel size={10} /> Litros Abastecidos
+                  <Fuel size={10} /> Litros Abastecidos <span className="text-[7px] opacity-70 ml-1">(Opcional)</span>
                 </label>
                 <input
                   type="number"
@@ -169,7 +173,6 @@ const QuickExpense: React.FC<QuickExpenseProps> = ({ onAdd }) => {
                   onChange={(e) => setLiters(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-rose-500 transition font-black text-slate-800 dark:text-white text-base font-mono-num"
                   placeholder="Ex: 10.5"
-                  required
                 />
               </motion.div>
             )}
@@ -183,7 +186,7 @@ const QuickExpense: React.FC<QuickExpenseProps> = ({ onAdd }) => {
                 className="space-y-3"
               >
                 <label className="flex items-center gap-2 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-                  <Navigation size={10} /> KM Atual
+                  <Navigation size={10} /> KM Atual <span className="text-[7px] opacity-70 ml-1">(Opcional)</span>
                 </label>
                 <input
                   type="number"
@@ -191,7 +194,6 @@ const QuickExpense: React.FC<QuickExpenseProps> = ({ onAdd }) => {
                   onChange={(e) => setKmAtMaintenance(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition font-black text-slate-800 dark:text-white text-base font-mono-num"
                   placeholder="Ex: 45000"
-                  required
                 />
               </motion.div>
             )}
@@ -199,9 +201,11 @@ const QuickExpense: React.FC<QuickExpenseProps> = ({ onAdd }) => {
 
           {/* Forma de Pagamento */}
           <div className="space-y-3">
-            <label className="flex items-center gap-2 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-              <CreditCard size={10} /> Pagamento
-            </label>
+            <div className="flex justify-between items-center ml-1">
+              <label className="flex items-center gap-2 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                <CreditCard size={10} /> Pagamento
+              </label>
+            </div>
             <div className="grid grid-cols-3 gap-1.5">
                 {[
                   { id: 'money', label: 'Dinheiro' },
@@ -290,18 +294,15 @@ const QuickExpense: React.FC<QuickExpenseProps> = ({ onAdd }) => {
           )}
         </AnimatePresence>
 
-        <motion.button
-          whileTap={{ scale: 0.98 }}
-          onMouseDown={(e) => {
-            // Previne o blur do input antes do clique ser registrado, 
-            // evitando que o teclado bloqueie a ação no primeiro toque.
-            e.preventDefault();
-          }}
-          type="submit"
-          className="w-full bg-slate-900 dark:bg-slate-800 text-white font-black py-4 rounded-[1.5rem] hover:bg-black dark:hover:bg-slate-700 transition-all shadow-xl shadow-slate-200 dark:shadow-none uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2"
-        >
-          <Save size={16} /> Salvar Gasto
-        </motion.button>
+        <div className="pt-2">
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            type="submit"
+            className="w-full bg-rose-500 hover:bg-rose-600 text-white font-black py-4 rounded-[1.25rem] transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-rose-400/50 shadow-lg shadow-rose-500/20"
+          >
+            <PlusCircle size={16} /> Lançar Gasto
+          </motion.button>
+        </div>
       </form>
     </motion.div>
   );

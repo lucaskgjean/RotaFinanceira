@@ -47,8 +47,7 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
 
   const suggestionAmounts = [6, 7, 8, 10, 12, 17, 18, 22, 25, 30, 40];
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = (paid: boolean) => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) return;
 
@@ -60,7 +59,7 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
       finalStoreName = existingMatch;
     }
 
-    const newEntry = calculateDailyEntry(numAmount, date, time, finalStoreName, config, undefined, undefined, paymentMethod);
+    const newEntry = calculateDailyEntry(numAmount, date, time, finalStoreName, config, undefined, undefined, paymentMethod, paid);
     onAdd(newEntry);
     
     // Fecha o teclado removendo o foco do elemento ativo
@@ -72,6 +71,11 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
     setStoreName('');
     setTime(getCurrentTime());
     setShowAdvanced(false);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSave(true); // Default to paid on Enter
   };
 
   const getPaymentLabel = (id: string, defaultLabel: string) => {
@@ -170,9 +174,11 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
 
           {/* Pagamento */}
           <div className="space-y-3">
-            <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
-              <CreditCard size={12} className="text-indigo-500 dark:text-indigo-400" /> Pagamento
-            </label>
+            <div className="flex justify-between items-center ml-1">
+              <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                <CreditCard size={12} className="text-indigo-500 dark:text-indigo-400" /> Pagamento
+              </label>
+            </div>
             <div className="grid grid-cols-3 gap-2">
                 {[
                   { id: 'pix', label: getPaymentLabel('pix', 'PIX') },
@@ -248,18 +254,25 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
           )}
         </AnimatePresence>
 
-        <motion.button 
-          whileTap={{ scale: 0.98 }}
-          onMouseDown={(e) => {
-            // Previne o blur do input antes do clique ser registrado, 
-            // evitando que o teclado bloqueie a ação no primeiro toque.
-            e.preventDefault();
-          }}
-          type="submit" 
-          className="w-full bg-indigo-600 dark:bg-indigo-500 text-white font-black py-5 rounded-[2rem] hover:bg-indigo-700 dark:hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-100 dark:shadow-none uppercase text-xs tracking-[0.3em] flex items-center justify-center gap-3"
-        >
-          <Plus size={18} strokeWidth={3} /> Salvar Lançamento
-        </motion.button>
+        <div className="grid grid-cols-2 gap-4">
+          <motion.button 
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleSave(true)}
+            type="button" 
+            className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-black py-5 rounded-[1.25rem] transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-emerald-400/50"
+          >
+            <Plus size={16} strokeWidth={3} /> Salvar Pago
+          </motion.button>
+          
+          <motion.button 
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleSave(false)}
+            type="button" 
+            className="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-black py-5 rounded-[1.25rem] transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-rose-400/50"
+          >
+            <Plus size={16} strokeWidth={3} /> Pendente
+          </motion.button>
+        </div>
       </form>
     </motion.div>
   );

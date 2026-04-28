@@ -74,15 +74,14 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
       };
     } else if (isIncome) {
       updated = {
-        ...calculateDailyEntry(parseFloat(amount), date, time, description, config, numKm, numFuelPrice, paymentMethod),
-        id: entry.id,
-        isPaid: paymentMethod === 'money' ? true : isPaid
+        ...calculateDailyEntry(parseFloat(amount), date, time, description, config, numKm, numFuelPrice, paymentMethod, isPaid),
+        id: entry.id
       };
     } else {
       updated = {
         ...calculateManualExpense(parseFloat(amount), category, date, time, description, numKmAtMaintenance, paymentMethod, numLiters),
         id: entry.id,
-        isPaid: paymentMethod === 'money' ? true : isPaid
+        isPaid: isPaid
       };
     }
     
@@ -222,7 +221,7 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
                     </div>
                     {category === 'fuel' && (
                       <div>
-                        <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-2 tracking-widest">Litros Abastecidos</label>
+                        <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-2 tracking-widest">Litros Abastecidos <span className="text-[10px] opacity-70 ml-1">(Opcional)</span></label>
                         <input 
                           type="number" step="0.01"
                           value={liters} onChange={(e) => setLiters(e.target.value)}
@@ -232,7 +231,7 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
                     )}
                     {category === 'maintenance' && (
                       <div>
-                        <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-2 tracking-widest">KM no Momento do Serviço</label>
+                        <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-2 tracking-widest">KM no Momento do Serviço <span className="text-[10px] opacity-70 ml-1">(Opcional)</span></label>
                         <input 
                           type="number"
                           value={kmAtMaintenance} onChange={(e) => setKmAtMaintenance(e.target.value)}
@@ -268,23 +267,21 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
                 </div>
 
                 {/* Status de Recebimento */}
-                {paymentMethod !== 'money' && (
-                  <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <div>
-                      <span className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Status</span>
-                      <span className={`text-sm font-bold ${isPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
-                        {isPaid ? 'Recebido / Pago' : 'Pendente'}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsPaid(!isPaid)}
-                      className={`px-4 py-2 rounded-xl font-black text-[10px] uppercase transition-all ${isPaid ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-500/20 text-rose-500 dark:text-rose-400'}`}
-                    >
-                      {isPaid ? 'Pago' : 'Pendente'}
-                    </button>
+                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <div>
+                    <span className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Status</span>
+                    <span className={`text-sm font-bold ${isPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
+                      {isPaid ? 'Recebido / Pago' : 'Pendente'}
+                    </span>
                   </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setIsPaid(!isPaid)}
+                    className={`px-4 py-2 rounded-xl font-black text-[10px] uppercase transition-all ${isPaid ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-500/20 text-rose-500 dark:text-rose-400'}`}
+                  >
+                    {isPaid ? 'Pago' : 'Pendente'}
+                  </button>
+                </div>
               </>
             )}
 

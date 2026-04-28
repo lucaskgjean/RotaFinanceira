@@ -35,7 +35,8 @@ export const calculateDailyEntry = (
   config: AppConfig,
   kmDriven?: number,
   fuelPrice?: number,
-  paymentMethod?: 'money' | 'pix' | 'debito' | 'caderno'
+  paymentMethod?: 'money' | 'pix' | 'debito' | 'caderno',
+  isPaid?: boolean
 ): DailyEntry => {
   const fuel = gross * config.percFuel;
   const food = gross * config.percFood;
@@ -57,7 +58,7 @@ export const calculateDailyEntry = (
     kmDriven,
     fuelPrice,
     paymentMethod,
-    isPaid: paymentMethod === 'money',
+    isPaid: isPaid ?? (paymentMethod === 'money'),
     category: 'income'
   };
 };
@@ -73,7 +74,8 @@ export const calculateManualExpense = (
   description: string,
   kmAtMaintenance?: number,
   paymentMethod?: 'money' | 'pix' | 'debito' | 'caderno',
-  liters?: number
+  liters?: number,
+  isPaid?: boolean
 ): DailyEntry => {
   return {
     id: generateId(),
@@ -88,7 +90,7 @@ export const calculateManualExpense = (
     netAmount: -amount,
     kmAtMaintenance,
     paymentMethod,
-    isPaid: paymentMethod === 'money',
+    isPaid: isPaid ?? (paymentMethod === 'money'),
     category,
     liters: category === 'fuel' ? liters : undefined
   };

@@ -25,7 +25,9 @@ import {
   CreditCard,
   Filter,
   Layers,
-  X
+  X,
+  Banknote,
+  Search
 } from 'lucide-react';
 import QuickExpense from './QuickExpense';
 
@@ -48,6 +50,13 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
   const [showRangePicker, setShowRangePicker] = React.useState(false);
   const [showCategorySelect, setShowCategorySelect] = React.useState(false);
   const [visibleCount, setVisibleCount] = React.useState(3);
+
+  const activeFiltersCount = React.useMemo(() => {
+    let count = 0;
+    if (historyFilterStartDate !== todayStr || historyFilterEndDate !== todayStr) count++;
+    if (historyFilterCategory) count++;
+    return count;
+  }, [historyFilterStartDate, historyFilterEndDate, historyFilterCategory, todayStr]);
   
   const getStartOfWeek = (d: Date) => {
     const day = d.getDay();
@@ -303,11 +312,23 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
       <motion.div variants={itemVariants} className="space-y-6 pt-8">
         {/* Filtros do Histórico */}
         <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500">
-              <Filter size={16} />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-slate-50 dark:bg-slate-800 rounded-lg flex items-center justify-center text-slate-400 dark:text-slate-500 relative">
+                <Filter size={16} />
+                {activeFiltersCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 border-2 border-white dark:border-slate-900 rounded-full" />
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Filtro de Histórico</h3>
+                {activeFiltersCount > 0 && (
+                  <span className="text-[8px] font-black bg-rose-50 dark:bg-rose-500/10 text-rose-500 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                    {activeFiltersCount} ativo{activeFiltersCount > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
             </div>
-            <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Filtro de Histórico</h3>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -471,25 +492,53 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredManualExpenses.length === 0 ? (
-            <div className="col-span-full py-16 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-slate-800">
-               <p className="text-slate-400 dark:text-slate-500 text-xs font-black uppercase tracking-widest">Nenhum gasto encontrado para este filtro...</p>
-               <button 
-                onClick={() => { setHistoryFilterStartDate(''); setHistoryFilterEndDate(''); setHistoryFilterCategory(''); }}
-                className="mt-4 text-[10px] font-black text-indigo-500 uppercase tracking-widest hover:underline"
-               >
-                 Limpar Filtros
-               </button>
-            </div>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="col-span-full py-20 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-100 dark:border-slate-800 flex flex-col items-center"
+            >
+              <div className="relative mb-6">
+                <div className="w-24 h-24 bg-rose-50 dark:bg-rose-500/5 rounded-full flex items-center justify-center text-rose-200 dark:text-rose-900/30">
+                  <HistoryIcon size={48} strokeWidth={1} />
+                </div>
+                <motion.div 
+                  animate={{ 
+                    scale: [1, 1.2, 1],
+                    rotate: [0, 10, -10, 0]
+                  }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                  className="absolute -top-1 -right-1 w-10 h-10 bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-50 dark:border-slate-700 flex items-center justify-center text-slate-300 dark:text-slate-600"
+                >
+                  <Search size={20} />
+                </motion.div>
+              </div>
+              <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest mb-2">Sem gastos registrados</h4>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest max-w-[200px] mx-auto leading-relaxed">
+                Tente ajustar os filtros ou realize um novo lançamento de gasto.
+              </p>
+              {activeFiltersCount > 0 && (
+                <button 
+                  onClick={() => {
+                    setHistoryFilterStartDate(todayStr);
+                    setHistoryFilterEndDate(todayStr);
+                    setHistoryFilterCategory('');
+                  }}
+                  className="mt-6 text-[9px] font-black text-rose-500 uppercase tracking-widest hover:underline"
+                >
+                  Limpar todos os filtros
+                </button>
+              )}
+            </motion.div>
           ) : (
             filteredManualExpenses.slice(0, visibleCount).map((entry) => {
-              const getCategoryInfo = (cat?: string) => {
-                switch(cat) {
-                  case 'fuel': return { icon: <Fuel size={24} />, label: 'Combustível', color: 'rose' };
-                  case 'food': return { icon: <Utensils size={24} />, label: 'Alimentação', color: 'amber' };
-                  case 'maintenance': return { icon: <Wrench size={24} />, label: 'Manutenção', color: 'blue' };
-                  default: return { icon: <MoreHorizontal size={24} />, label: 'Outros', color: 'slate' };
-                }
-              };
+      const getCategoryInfo = (cat?: string) => {
+        switch(cat) {
+          case 'fuel': return { icon: <Fuel size={24} />, label: 'Combustível', color: 'rose' };
+          case 'food': return { icon: <Utensils size={24} />, label: 'Alimentação', color: 'amber' };
+          case 'maintenance': return { icon: <Wrench size={24} />, label: 'Manutenção', color: 'blue' };
+          default: return { icon: <MoreHorizontal size={24} />, label: 'Outros', color: 'slate' };
+        }
+      };
               const catInfo = getCategoryInfo(entry.category);
               const displayTitle = entry.storeName.replace('[GASTO]', '').trim() || catInfo.label;
 
@@ -499,57 +548,58 @@ const Expenses: React.FC<ExpensesProps> = ({ entries, config, onEdit, onAdd, onD
                   layout
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className={`bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border-2 transition-all group relative overflow-hidden ${
-                    catInfo.color === 'rose' ? 'border-rose-500/40 dark:border-rose-500/20' :
-                    catInfo.color === 'amber' ? 'border-amber-500/40 dark:border-amber-500/20' :
-                    catInfo.color === 'blue' ? 'border-blue-500/40 dark:border-blue-500/20' :
-                    'border-slate-100 dark:border-slate-800'
-                  } hover:border-rose-100 dark:hover:border-rose-500/20`}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                  className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border transition-all group relative overflow-hidden border-rose-400/50 dark:border-rose-500/30 hover:shadow-md"
                 >
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="flex gap-4 items-center">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${catInfo.color}-50 dark:bg-${catInfo.color}-500/10 text-${catInfo.color}-600 dark:text-${catInfo.color}-400`}>
+                  <div className="flex justify-between items-center mb-6">
+                    <div className="flex gap-4 items-center min-w-0 flex-1">
+                      <div className="shrink-0 w-14 h-14 rounded-[1.25rem] border flex items-center justify-center transition-all bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700/50 text-rose-500 dark:text-rose-400">
                         {catInfo.icon}
                       </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 dark:text-white leading-tight text-lg">{displayTitle}</h4>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight flex items-center gap-1">
-                            <Calendar size={10} /> {new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-black text-slate-800 dark:text-white leading-tight text-lg truncate">{displayTitle}</h4>
+                        </div>
+                        <div className="flex items-center flex-nowrap gap-x-3 mt-1.5 whitespace-nowrap overflow-hidden">
+                          <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight flex items-center gap-1.5">
+                            <Calendar size={11} /> {new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR').split('/')[0] + '/' + new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR').split('/')[1]}
                           </span>
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight flex items-center gap-1">
-                            <Clock size={10} /> {entry.time}
+                          <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight flex items-center gap-1.5 border-l border-slate-100 dark:border-slate-800 pl-3">
+                            <Clock size={11} /> {entry.time}
                           </span>
                           {entry.paymentMethod && (
-                            <span className="text-[10px] text-indigo-400 dark:text-indigo-500 font-semibold uppercase tracking-tight flex items-center gap-1">
-                              <CreditCard size={10} /> {entry.paymentMethod.toUpperCase()}
+                            <span className="shrink-0 text-[11px] text-rose-500/80 font-black uppercase tracking-tight flex items-center gap-1.5 border-l border-slate-100 dark:border-slate-800 pl-3">
+                              <CreditCard size={11} /> {config.paymentMethodLabels?.[entry.paymentMethod as keyof typeof config.paymentMethodLabels] || entry.paymentMethod}
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xl font-bold font-mono-num text-rose-600 dark:text-rose-400">
-                        -{formatCurrency(entry.fuel + entry.food + entry.maintenance + (entry.others || 0)).replace('R$', '')}
+                    <div className="text-right shrink-0 ml-4">
+                      <div className="text-xl font-black text-rose-500 dark:text-rose-400">
+                        {formatCurrency(entry.fuel + entry.food + entry.maintenance + (entry.others || 0)).replace('R$', '')}
                       </div>
-                      <span className="text-[9px] font-semibold text-slate-300 dark:text-slate-600 uppercase tracking-widest">{catInfo.label}</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight flex items-center justify-end gap-1">
+                        <Banknote size={10} /> VALOR
+                      </span>
                     </div>
                   </div>
 
                   <div className="flex gap-2">
                     <button 
-                      onClick={() => onEdit(entry)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl transition-all active:scale-95"
+                      onClick={() => onDelete(entry.id)}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 pr-4 pl-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all active:scale-95 group/btn"
                     >
-                      <Edit3 size={14} />
-                      <span className="text-[10px] font-semibold uppercase tracking-widest">Editar</span>
+                      <Trash2 size={16} className="text-rose-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Excluir</span>
                     </button>
                     <button 
-                      onClick={() => onDelete(entry.id)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl transition-all active:scale-95"
+                      onClick={() => onEdit(entry)}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 pr-4 pl-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all active:scale-95 group/btn"
                     >
-                      <Trash2 size={14} />
-                      <span className="text-[10px] font-semibold uppercase tracking-widest">Excluir</span>
+                      <Edit3 size={16} className="text-indigo-500" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Editar</span>
                     </button>
                   </div>
                 </motion.div>

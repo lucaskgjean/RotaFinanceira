@@ -12,7 +12,6 @@ import TimeTracking from './components/TimeTracking';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
 import EditModal from './components/EditModal';
-import SubscriptionModal from './components/SubscriptionModal';
 import { motion, AnimatePresence } from 'motion/react';
 import CustomDialog from './components/CustomDialog';
 import { 
@@ -32,13 +31,15 @@ import {
   Sun,
   RefreshCw,
   Sparkles,
-  Lock
+  Lock,
+  AlertTriangle,
+  Download,
+  X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatCurrency, generateId, getLocalDateStr, getWeeklySummary } from './utils/calculations';
 
 import { storageService } from './services/storageService';
-import AIReportAssistant from './components/AIReportAssistant';
 import { notificationService } from './services/notificationService';
 import { authService } from './services/authService';
 import Login from './components/Login';
@@ -61,8 +62,10 @@ const App: React.FC = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
-  const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [showBackupReminder, setShowBackupReminder] = useState(false);
+  const [lastBackupTime, setLastBackupTime] = useState<string | null>(null);
   const [globalStoreFilter, setGlobalStoreFilter] = useState<string>('all');
   const topRef = useRef<HTMLDivElement>(null);
   const [dialog, setDialog] = useState<{
@@ -97,57 +100,6 @@ const App: React.FC = () => {
     });
     return () => unsubscribe();
   }, []);
-
-  // Handle Stripe Success Callback (Message based for Popups)
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      // Validação básica de origem
-      if (!event.origin.endsWith('.run.app') && !event.origin.includes('localhost')) return;
-
-      if (event.data?.type === 'STRIPE_CHECKOUT_COMPLETED' || event.data?.type === 'MP_PAYMENT_COMPLETED' || event.data?.type === 'INFINITE_PAY_COMPLETED') {
-        const { status, sessionId, userId: mpUserId, userId: ipUserId } = event.data;
-
-        if ((status === 'success' || status === 'approved') && (sessionId || mpUserId || ipUserId)) {
-          const verifyPayment = async () => {
-            try {
-              // Se for Stripe, verifica via API. Se for Mercado Pago, o Webhook já deve ter atualizado, 
-              // mas forçamos uma atualização local para feedback imediato.
-              if (sessionId) {
-                const response = await fetch(`/api/verify-session?session_id=${sessionId}`);
-                const data = await response.json();
-                if (!data.success || data.userId !== user?.uid) return;
-              }
-
-              setConfig(prev => ({
-                ...prev,
-                profile: {
-                  ...prev.profile,
-                  isPro: true,
-                  subscriptionStatus: 'active'
-                }
-              }));
-              
-              confetti({
-                particleCount: 200,
-                spread: 100,
-                origin: { y: 0.6 }
-              });
-              showToast("Parabéns! Você agora é PRO! 💎");
-              setIsSubModalOpen(false);
-            } catch (error) {
-              console.error("Erro ao verificar pagamento:", error);
-            }
-          };
-          verifyPayment();
-        } else if (status === 'cancel' || status === 'failure') {
-          showToast("Pagamento não concluído.", "error");
-        }
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [user]);
 
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
 
@@ -270,73 +222,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSubscribe = async (planType: 'monthly' | 'yearly' = 'monthly') => {
-    if (!user) return;
-    
-    setIsSaving(true);
-    try {
-      // Usando InfinitePay como solicitado
-      const response = await fetch('/api/infinitepay/create-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: user.uid, 
-          planType
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok && data.checkout_url) {
-        // Abre o checkout do InfinitePay em uma nova janela (Popup)
-        const width = 600;
-        const height = 700;
-        const left = (window.innerWidth - width) / 2;
-        const top = (window.innerHeight - height) / 2;
-        
-        window.open(
-          data.checkout_url, 
-          'infinitepay_checkout', 
-          `width=${width},height=${height},top=${top},left=${left}`
-        );
-      } else {
-        // Fallback para Mercado Pago se InfinitePay falhar (ex: falta de config)
-        console.warn("InfinitePay falhou ou não configurado, tentando Mercado Pago...");
-        const mpResponse = await fetch('/api/mercadopago/create-preference', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            userId: user.uid, 
-            planType,
-            email: user.email 
-          }),
-        });
-        
-        const mpData = await mpResponse.json();
-        
-        if (mpResponse.ok && mpData.init_point) {
-          const width = 600;
-          const height = 700;
-          const left = (window.innerWidth - width) / 2;
-          const top = (window.innerHeight - height) / 2;
-          
-          window.open(
-            mpData.init_point, 
-            'mercadopago_checkout', 
-            `width=${width},height=${height},top=${top},left=${left}`
-          );
-        } else {
-          showToast(mpData.error || data.error || "Erro ao iniciar pagamento.", "error");
-        }
-      }
-    } catch (error) {
-      console.error("Erro ao assinar:", error);
-      showToast("Erro de conexão.", "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // 1. Notificações Personalizadas (Timer de 1 minuto)
   useEffect(() => {
     if (!config.notificationsEnabled || !config.customNotifications) return;
@@ -452,97 +337,53 @@ const App: React.FC = () => {
         await storageService.migrateFromLocalStorage(user.uid);
 
         // 1. Carregamento Ultra Rápido (Local - Criptografado e Isolado)
-        const [localData, localTimeData, localConfig] = await Promise.all([
+        const [localData, localTimeData, localConfig, lastBackup] = await Promise.all([
           storageService.getLocalEntriesWithMetadata(user.uid),
           storageService.getLocalTimeEntriesWithMetadata(user.uid),
-          storageService.getLocalConfig(user.uid)
+          storageService.getLocalConfig(user.uid),
+          storageService.getLastBackupTime(user.uid)
         ]);
 
         const localEntries = localData.entries;
         const localUpdatedAt = localData.updatedAt;
         const localTimeEntries = localTimeData.timeEntries;
-        const localTimeUpdatedAt = localTimeData.updatedAt;
 
         if (localEntries.length > 0) setEntries(recalculateKmDeltas(localEntries));
         if (localTimeEntries.length > 0) setTimeEntries(localTimeEntries);
+        if (localUpdatedAt) setLastSyncTime(localUpdatedAt);
+        
+        if (lastBackup) {
+          setLastBackupTime(lastBackup);
+          const diffHours = (new Date().getTime() - new Date(lastBackup).getTime()) / (1000 * 60 * 60);
+          if (diffHours > 24) setShowBackupReminder(true);
+        } else if (localEntries.length > 0) {
+          setShowBackupReminder(true);
+        }
+
         if (localConfig) {
           setConfig({ 
             ...DEFAULT_CONFIG, 
             ...localConfig,
             profile: {
               ...(localConfig.profile || {}),
-              isPro: isUserAdmin(user.email) ? true : (localConfig.profile?.isPro || false),
-              subscriptionStatus: isUserAdmin(user.email) ? 'active' : (localConfig.profile?.subscriptionStatus || 'none')
+              isPro: true, // Força Pro no modo local para melhor experiência
+              subscriptionStatus: 'active'
             }
           });
+        } else {
+          // Garante Pro para novos usuários locais
+          setConfig(prev => ({
+            ...prev,
+            profile: { ...prev.profile, isPro: true, subscriptionStatus: 'active' }
+          }));
         }
 
         // Libera a tela imediatamente após carregar o local
         setIsInitialLoading(false);
-
-        // 2. Sincronização em Segundo Plano (Nuvem) - APENAS PARA ADM
-        if (isUserAdmin(user.email)) {
-          setIsRefreshing(true);
-          const [cloudData, cloudTimeData, cloudConfig] = await Promise.all([
-            storageService.getEntries(user.uid),
-            storageService.getTimeEntries(user.uid),
-            storageService.getConfig(user.uid)
-          ]);
-
-        const cloudEntries = cloudData.entries;
-        const cloudUpdatedAt = cloudData.updatedAt;
-        const cloudTimeEntries = cloudTimeData.timeEntries;
-        const cloudTimeUpdatedAt = cloudTimeData.updatedAt;
-
-        // Reconciliação inteligente para evitar perda de dados recentes
-        if (cloudEntries.length > 0) {
-          const isCloudNewer = !localUpdatedAt || !cloudUpdatedAt || new Date(cloudUpdatedAt) > new Date(localUpdatedAt);
-          if (isCloudNewer) {
-            console.log(`[App] Atualizando entries da nuvem (Cloud: ${cloudUpdatedAt}, Local: ${localUpdatedAt})`);
-            setEntries(recalculateKmDeltas(cloudEntries));
-          } else {
-            console.log(`[App] Mantendo entries locais mais recentes (Cloud: ${cloudUpdatedAt}, Local: ${localUpdatedAt})`);
-          }
-        }
-
-        if (cloudTimeEntries.length > 0) {
-          const isCloudNewer = !localTimeUpdatedAt || !cloudTimeUpdatedAt || new Date(cloudTimeUpdatedAt) > new Date(localTimeUpdatedAt);
-          if (isCloudNewer) {
-            console.log(`[App] Atualizando timeEntries da nuvem (Cloud: ${cloudTimeUpdatedAt}, Local: ${localTimeUpdatedAt})`);
-            setTimeEntries(cloudTimeEntries);
-          } else {
-            console.log(`[App] Mantendo timeEntries locais mais recentes (Cloud: ${cloudTimeUpdatedAt}, Local: ${localTimeUpdatedAt})`);
-          }
-        }
-        if (cloudConfig) {
-          setConfig(prev => ({ 
-            ...DEFAULT_CONFIG, 
-            ...prev, 
-            ...cloudConfig,
-            profile: {
-              ...(cloudConfig.profile || {}),
-              isPro: isUserAdmin(user.email) ? true : (cloudConfig.profile?.isPro || false),
-              subscriptionStatus: isUserAdmin(user.email) ? 'active' : (cloudConfig.profile?.subscriptionStatus || 'none')
-            }
-          }));
-        } else if (user && isUserAdmin(user.email)) {
-          // Fallback para novos admins sem config na nuvem
-          setConfig(prev => ({
-            ...prev,
-            profile: {
-              ...prev.profile,
-              isPro: true,
-              subscriptionStatus: 'active'
-            }
-          }));
-        }
-      } else {
-        console.log(`[App] Sincronização em segundo plano (nuvem) desativada para usuários padrão.`);
-      }
+        setIsRefreshing(false);
       } catch (e) {
         console.error("Erro na inicialização:", e);
       } finally {
-        setIsRefreshing(false);
         setIsInitialLoading(false);
       }
     };
@@ -551,25 +392,38 @@ const App: React.FC = () => {
   }, [authChecked, user]);
 
   const refreshData = async () => {
+    // No modo local, o refresh apenas recarrega do localforage
     if (isRefreshing || !user) return;
     setIsRefreshing(true);
     try {
-      const [cloudData, cloudTimeData, savedConfig] = await Promise.all([
-        storageService.getEntries(user.uid),
-        storageService.getTimeEntries(user.uid),
-        storageService.getConfig(user.uid)
+      const [localData, localTimeData, localConfig] = await Promise.all([
+        storageService.getLocalEntriesWithMetadata(user.uid),
+        storageService.getLocalTimeEntriesWithMetadata(user.uid),
+        storageService.getLocalConfig(user.uid)
       ]);
 
-      const savedEntries = cloudData.entries;
-      const savedTimeEntries = cloudTimeData.timeEntries;
-
-      setEntries(savedEntries.map(entry => ({ ...entry, id: entry.id || generateId() })));
-      setTimeEntries(savedTimeEntries);
-      if (savedConfig) setConfig(savedConfig);
+      setEntries(recalculateKmDeltas(localData.entries));
+      setTimeEntries(localTimeData.timeEntries);
+      if (localConfig) setConfig(localConfig);
       
-      showToast("Dados atualizados!");
+      showToast("Dados locais atualizados!");
     } catch (e) {
-      showToast("Erro ao atualizar dados.", "error");
+      showToast("Erro ao carregar dados.", "error");
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
+
+  const handleBackup = async () => {
+    if (!user) return;
+    setIsRefreshing(true); // Reutiliza o estado de loading para feedback visual
+    try {
+      await storageService.exportBackup(user.uid);
+      showToast("Backup gerado com sucesso!", "success");
+      setShowBackupReminder(false);
+      setLastBackupTime(new Date().toISOString());
+    } catch (e) {
+      showToast("Erro ao gerar backup.", "error");
     } finally {
       setTimeout(() => setIsRefreshing(false), 500);
     }
@@ -627,63 +481,37 @@ const App: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [entries, timeEntries, isInitialLoading, user, config]);
 
-  // 2. Sincronização com a Nuvem (DESATIVADA PARA LANÇAMENTO, EXCETO PARA ADM)
+  // 2. Sincronização com a Nuvem (DESATIVADA)
   useEffect(() => {
+    // Sincronização automática com a nuvem removida para usar apenas modo Local.
+    /*
     if (isInitialLoading || isRefreshing || !user) return;
-    
-    if (isUserAdmin(user.email)) {
-      const timeout = setTimeout(async () => {
-        console.log(`[App] Iniciando sync na nuvem para ADM (debounced).`);
-        setIsSaving(true);
-        try {
-          await Promise.all([
-            storageService.saveEntries(entries, user.uid, config, true),
-            storageService.saveTimeEntries(timeEntries, user.uid, true)
-          ]);
-          console.log(`[App] Sync na nuvem concluído.`);
-        } catch (e) {
-          console.error("[App] Erro ao sincronizar com a nuvem", e);
-        } finally {
-          setTimeout(() => setIsSaving(false), 1000);
-        }
-      }, 2500);
-      return () => clearTimeout(timeout);
-    } else {
-      // Bloqueado temporariamente para lançamento ilimitado
-      console.log("[App] Sincronização com a nuvem desativada temporariamente.");
-    }
+    ...
+    */
   }, [entries, timeEntries, isInitialLoading, isRefreshing, user, config]);
 
+  // config save local
   useEffect(() => {
     if (isInitialLoading || isRefreshing || !user) return;
     
-    if (isUserAdmin(user.email)) {
-      const timeout = setTimeout(() => {
-        storageService.saveConfig(config, user.uid, true).catch(console.error);
-      }, 1000);
-      return () => clearTimeout(timeout);
-    } else {
-      // Sincroniza config apenas localmente por enquanto
-      console.log("[App] Sincronização de config com a nuvem desativada temporariamente.");
-    }
+    const timeout = setTimeout(() => {
+      storageService.saveConfig(config, user.uid, false).catch(console.error);
+    }, 1000);
+    return () => clearTimeout(timeout);
   }, [config, isInitialLoading, isRefreshing, user]);
 
   const handleForceSync = async () => {
     if (!user) return;
-    if (!isUserAdmin(user.email)) {
-      showToast("Backup em nuvem em breve! ☁️", "success");
-      return;
-    }
+    
     setIsSaving(true);
     try {
-      await Promise.all([
-        storageService.saveEntries(entries, user.uid, config, true, true),
-        storageService.saveTimeEntries(timeEntries, user.uid, true, true),
-        storageService.saveConfig(config, user.uid, true, true)
-      ]);
-      showToast("Sincronização forçada concluída!", "success");
-    } catch (e) {
+      await storageService.syncAll(user.uid, entries, timeEntries, config, true);
+      setLastSyncTime(new Date().toISOString());
+      setSyncError(null);
+      showToast("Sincronização concluída com sucesso!", "success");
+    } catch (e: any) {
       console.error("[App] Erro na sincronização forçada", e);
+      setSyncError(e.message || String(e));
       showToast("Erro ao sincronizar. Tente novamente.", "error");
     } finally {
       setTimeout(() => setIsSaving(false), 1000);
@@ -897,6 +725,11 @@ const App: React.FC = () => {
     if (newTimeEntries) setTimeEntries(newTimeEntries);
     if (newConfig) setConfig(newConfig);
 
+    // Se admin, força sync imedato após importação
+    if (user && isUserAdmin(user.email)) {
+      storageService.saveEntries(sanitizedEntries, user.uid, newConfig || config, true, true);
+    }
+
     showToast(`Restauração concluída!`);
     setActiveTab('history'); 
   };
@@ -1053,28 +886,25 @@ const App: React.FC = () => {
               </div>
               <div className="flex items-center gap-1.5">
                 <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-500 ${isSaving ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`}></div>
-                <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-1">
-                  {isSaving ? 'Salvando...' : <><Cloud size={8} /> Nuvem Local Ativa</>}
+                <span className={`text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${syncError ? 'text-rose-500' : 'text-slate-400'}`}>
+                  {isSaving ? 'Salvando...' : (
+                    syncError ? (
+                      <><AlertTriangle size={8} className="animate-pulse" /> Erro de Sync</>
+                    ) : (
+                      isUserAdmin(user?.email) ? <><Cloud size={8} /> Backup Ativo</> : <><Cloud size={8} /> Nuvem Local</>
+                    )
+                  )}
                 </span>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {!config.profile?.isPro && (
-              <button 
-                onClick={() => setIsSubModalOpen(true)}
-                className="hidden sm:flex items-center gap-2 px-3 py-2 bg-amber-400 hover:bg-amber-500 text-amber-950 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-amber-200 dark:shadow-none"
-              >
-                <Sparkles size={14} fill="currentColor" />
-                Seja PRO
-              </button>
-            )}
             <button 
-              onClick={refreshData}
-              className={`p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-indigo-600 transition-all ${isRefreshing ? 'animate-spin text-indigo-600' : ''}`}
-              title="Atualizar dados"
+              onClick={handleBackup}
+              className={`p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-indigo-600 transition-all ${isRefreshing ? 'animate-pulse text-indigo-600' : ''}`}
+              title="Salvar Backup no Dispositivo"
             >
-              <RefreshCw size={20} />
+              <Download size={20} />
             </button>
             <button onClick={handleSettingsClick} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-400 hover:text-indigo-600 transition-colors" title={activeTab === 'settings' ? "Voltar" : "Configurações"}>
               <motion.div
@@ -1089,6 +919,43 @@ const App: React.FC = () => {
           </div>
         </div>
       </header>
+
+      <AnimatePresence>
+        {showBackupReminder && user && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-indigo-600 overflow-hidden"
+          >
+            <div className="max-w-6xl mx-auto px-6 py-2 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 text-white">
+                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Download size={16} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold leading-tight">Sugestão de Backup Manual</p>
+                  <p className="text-[10px] opacity-80 leading-tight">Faz mais de 24h que você não salva uma cópia dos seus dados.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={handleBackup}
+                  className="px-3 py-1 bg-white text-indigo-600 text-[10px] font-black rounded-lg hover:bg-indigo-50 transition-colors uppercase"
+                >
+                  Salvar Agora
+                </button>
+                <button 
+                  onClick={() => setShowBackupReminder(false)}
+                  className="p-1 text-white/60 hover:text-white transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="max-w-6xl mx-auto px-4 py-4">
         <AnimatePresence initial={false}>
@@ -1125,7 +992,6 @@ const App: React.FC = () => {
                 timeEntries={timeEntries} 
                 config={config} 
                 onAddEntry={addEntry} 
-                onOpenSubscription={() => setIsSubModalOpen(true)}
                 selectedStore={globalStoreFilter}
                 onStoreChange={setGlobalStoreFilter}
               />
@@ -1146,7 +1012,7 @@ const App: React.FC = () => {
                 />
               </div>
             )}
-            {activeTab === 'settings' && <Settings config={config} entries={entries} timeEntries={timeEntries} onChange={setConfig} onImport={importData} onOpenSubscription={() => setIsSubModalOpen(true)} showToast={showToast} onResetData={resetData} onDeleteAccount={deleteAccount} onForceSync={handleForceSync} />}
+            {activeTab === 'settings' && <Settings config={config} entries={entries} timeEntries={timeEntries} onChange={setConfig} onImport={importData} showToast={showToast} onResetData={resetData} onDeleteAccount={deleteAccount} onForceSync={handleForceSync} />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -1178,72 +1044,6 @@ const App: React.FC = () => {
           </div>
         </nav>
       )}
-
-      {/* Floating AI Button (APENAS PARA ADM) */}
-      {activeTab !== 'settings' && !isKeyboardOpen && isUserAdmin(user?.email) && (
-        <div className="fixed bottom-24 right-6 z-40">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => {
-              setIsAIChatOpen(true);
-            }}
-            className="w-14 h-14 bg-indigo-600 dark:bg-indigo-500 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-200 dark:shadow-none relative group"
-          >
-            <div className="absolute -top-12 right-0 bg-slate-900 text-white text-[10px] font-black px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap uppercase tracking-widest pointer-events-none">
-              Mestre das Rotas
-            </div>
-            <Sparkles size={24} fill="currentColor" />
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-950 animate-pulse"></div>
-          </motion.button>
-        </div>
-      )}
-
-      {/* AI Chat Modal */}
-      <AnimatePresence>
-        {isAIChatOpen && (
-          <AIReportAssistant 
-            onClose={() => setIsAIChatOpen(false)}
-            onAddEntries={(newEntries) => newEntries.forEach(addEntry)}
-            onUpdateEntry={updateEntry}
-            onDeleteEntry={deleteEntry}
-            entries={entries}
-            timeEntries={timeEntries}
-            config={config}
-            isAdmin={isUserAdmin(user?.email)}
-            reportData={{
-              startDate: 'Últimos 30 dias',
-              endDate: getLocalDateStr(),
-              summary: getWeeklySummary(entries.filter(e => {
-                const date = new Date(e.date);
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                return date >= thirtyDaysAgo;
-              })),
-              last7Days: entries
-                .filter(e => {
-                  const date = new Date(e.date + 'T12:00:00');
-                  const sevenDaysAgo = new Date();
-                  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-                  return date >= sevenDaysAgo;
-                })
-                .reduce((acc, curr) => {
-                  acc[curr.date] = (acc[curr.date] || 0) + curr.grossAmount;
-                  return acc;
-                }, {} as Record<string, number>)
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isSubModalOpen && (
-          <SubscriptionModal 
-            onClose={() => setIsSubModalOpen(false)}
-            onSubscribe={handleSubscribe}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 };

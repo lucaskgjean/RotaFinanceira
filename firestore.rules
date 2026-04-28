@@ -1,157 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users/{userId}
-    // Document ID: userId
-    // Fields:
-    //   - entries: list (DailyEntry)
-    //   - timeEntries: list (TimeEntry)
-    //   - config: map (AppConfig)
-    //   - role: string (optional)
-    //   - updatedAt: string (ISO date-time)
-    //
-    // Collection: entries/{entryId}
-    // Document ID: entryId
-    // Fields:
-    //   - uid: string (required)
-    //   - netAmount: number (required)
-    //   - valor_liquido: number
-    //   - date: string (required, YYYY-MM-DD)
-    //   - description: string (required)
-    //   - paymentMethod: string (optional, enum)
-    //
-    // Collection: balances/{userId}
-    // Document ID: userId
-    // Fields:
-    //   - totalNetAmount: number (required)
-    //   - valor_liquido: number
-    //   - uid: string (required)
-    //   - month: string (required, YYYY-MM)
-    //   - updatedAt: string (date-time)
-    //
-    // Collection: time_entries/{userId}
-    // Document ID: userId
-    // Fields:
-    //   - timeEntries: list (TimeEntry)
-    //   - updatedAt: string (ISO date-time)
-    //
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
+    // Modo de Manutenção: Regras restritas enquanto o banco é reestabelecido
     
-    function isAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isAdmin() {
-      return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
-         (request.auth.token.email == "jeanlucasgontijo.15@gmail.com" && request.auth.token.email_verified == true));
-    }
-
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
-    }
-
-    function isValidDateString(dateStr) {
-      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}$");
-    }
-
-    function isValidDateTimeString(dateTimeStr) {
-      return dateTimeStr is string && dateTimeStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
-    }
-
-    // ===============================================================
-    // Domain Validators
-    // ===============================================================
-
-    function isValidUserDoc(data) {
-      return (!('entries' in data) || data.entries is list) &&
-             (!('timeEntries' in data) || data.timeEntries is list) &&
-             (!('config' in data) || data.config is map) &&
-             (!('role' in data) || data.role is string) &&
-             (!('updatedAt' in data) || isValidDateTimeString(data.updatedAt));
-    }
-
-    function isValidRotaBankEntry(data) {
-      return hasRequiredFields(['netAmount', 'uid', 'date', 'description']) &&
-             data.netAmount is number &&
-             (!('valor_liquido' in data) || data.valor_liquido is number) &&
-             data.uid is string &&
-             isValidDateTimeString(data.date) &&
-             data.description is string &&
-             data.description.size() < 200 &&
-             (!('paymentMethod' in data) || data.paymentMethod in ["money", "pix", "debito", "caderno"]);
-    }
-
-    function isValidMonthlyBalance(data) {
-      return hasRequiredFields(['totalNetAmount', 'uid', 'month']) &&
-             data.totalNetAmount is number &&
-             (!('valor_liquido' in data) || data.valor_liquido is number) &&
-             data.uid is string &&
-             data.month is string &&
-             data.month.matches("^\\d{4}-\\d{2}$") &&
-             (!('updatedAt' in data) || isValidDateTimeString(data.updatedAt));
-    }
-
-    function isValidTimeEntriesDoc(data) {
-      return hasRequiredFields(['timeEntries']) &&
-             data.timeEntries is list &&
-             (!('updatedAt' in data) || isValidDateTimeString(data.updatedAt));
-    }
-
-    // ===============================================================
-    // Match Rules
-    // ===============================================================
-
-    // User Documents
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && isValidUserDoc(request.resource.data) && (!('role' in request.resource.data) || request.resource.data.role == 'user');
-      allow update: if (isOwner(userId) && isValidUserDoc(request.resource.data) && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role)) || isAdmin();
-      allow delete: if isAdmin();
+      // Bloqueia escritas externas temporariamente para evitar erros de permissão persistentes no console
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false;
     }
 
-    // RotaBank Entries (Individual documents for consolidated view)
-    match /entries/{entryId} {
-      // O usuário só pode ler se o documento pertencer a ele
-      allow read: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
-      
-      // Regra de listagem: OBRIGA o filtro por UID na query do cliente
-      allow list: if isAuthenticated() && (isAdmin() || resource.data.uid == request.auth.uid);
-      
-      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid && isValidRotaBankEntry(request.resource.data);
-      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid && isValidRotaBankEntry(request.resource.data);
-      allow delete: if isAuthenticated() && (resource.data.uid == request.auth.uid || isAdmin());
-    }
-
-    // Monthly Balances
-    match /balances/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId) && isValidMonthlyBalance(request.resource.data);
-    }
-
-    // Time Entries (Separate collection for points)
-    match /time_entries/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId) && isValidTimeEntriesDoc(request.resource.data);
-    }
-
-    // Default deny
     match /{document=**} {
       allow read, write: if false;
     }

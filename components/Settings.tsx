@@ -4,7 +4,7 @@ import { AppConfig, DEFAULT_CONFIG, DailyEntry, TimeEntry } from '../types';
 import { formatCurrency, entriesToCSV } from '../utils/calculations';
 import CustomDialog from './CustomDialog';
 import CustomDateRangePicker from './CustomDateRangePicker';
-import { Sun, Moon, Monitor, Settings as SettingsIcon, Bell, Plus, Trash2, Clock, LogOut, User, Camera, Phone, Mail, Lock, ChevronRight, Sparkles, ShieldCheck, RefreshCw, AlertTriangle, Calendar, Wallet, ArrowUpRight, CreditCard, MoreHorizontal } from 'lucide-react';
+import { Sun, Moon, Monitor, Settings as SettingsIcon, Bell, Plus, Trash2, Clock, LogOut, User, Camera, Phone, Mail, Lock, ChevronRight, Sparkles, ShieldCheck, RefreshCw, AlertTriangle, Calendar, Wallet, ArrowUpRight, CreditCard, MoreHorizontal, Cloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { notificationService } from '../services/notificationService';
 import { authService } from '../services/authService';
@@ -17,14 +17,27 @@ interface SettingsProps {
   timeEntries: TimeEntry[];
   onChange: (newConfig: AppConfig) => void;
   onImport: (entries: DailyEntry[], config?: AppConfig, timeEntries?: TimeEntry[]) => void;
-  onOpenSubscription: () => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
   onResetData: (type: 'total' | 'period', start?: string, end?: string) => Promise<void>;
   onDeleteAccount: (password?: string) => Promise<void>;
   onForceSync: () => Promise<void>;
+  lastSyncTime?: string | null;
+  syncError?: string | null;
 }
 
-const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onChange, onImport, onOpenSubscription, showToast, onResetData, onDeleteAccount, onForceSync }) => {
+const Settings: React.FC<SettingsProps> = ({ 
+  config, 
+  entries, 
+  timeEntries, 
+  onChange, 
+  onImport, 
+  showToast, 
+  onResetData, 
+  onDeleteAccount, 
+  onForceSync,
+  lastSyncTime,
+  syncError
+}) => {
   const [localConfig, setLocalConfig] = useState<AppConfig>(config);
   const [showTutorial, setShowTutorial] = useState(false);
   const [activeTab, setActiveTab] = useState<'perfil' | 'sistema' | 'aparencia'>('perfil');
@@ -731,29 +744,6 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
       {/* CONTEÚDO: SISTEMA */}
       {activeTab === 'sistema' && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          {/* CARD: SEJA PRO */}
-          {!config.profile?.isPro && (
-            <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-6 rounded-[2.5rem] text-amber-950 shadow-xl relative overflow-hidden border-4 border-amber-300/30">
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles size={20} fill="currentColor" />
-                  <h3 className="text-xl font-black uppercase tracking-tight">Rota PRO</h3>
-                </div>
-                <p className="text-sm font-bold opacity-90 mb-6 leading-relaxed">
-                  Desbloqueie backup em nuvem real, relatórios avançados e IA ilimitada.
-                </p>
-                <button 
-                  onClick={onOpenSubscription}
-                  className="w-full py-4 bg-amber-950 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-black active:scale-95 flex items-center justify-center gap-2"
-                >
-                  Conhecer o Plano PRO
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-              <Sparkles className="absolute -bottom-4 -right-4 w-24 h-24 text-amber-300/20 rotate-12" fill="currentColor" />
-            </div>
-          )}
-
           {/* CARD: SOBRE O APP E TUTORIAL */}
           <div className="bg-indigo-900 p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden border-4 border-indigo-500/30">
             <div className="relative z-10">
@@ -780,22 +770,74 @@ const Settings: React.FC<SettingsProps> = ({ config, entries, timeEntries, onCha
                     <p>No histórico, identifique dívidas rapidamente pela <b>barra lateral vermelha</b> (Pendente) ou <b>verde</b> (Pago). Clique no botão de status para alternar sem precisar editar.</p>
                   </div>
                   <div className="space-y-2">
-                    <p className="font-black text-indigo-300 uppercase tracking-wider">3. Relatórios e IA (Em Breve)</p>
-                    <p>Na aba de Relatórios, motoristas <b>PRO</b> têm acesso a análises profundas de lucro. No botão flutuante, converse com o <b>Mestre das Rotas</b> para obter insights sobre seu desempenho (Disponível em breve para todos).</p>
+                    <p className="font-black text-indigo-300 uppercase tracking-wider">3. Relatórios</p>
+                    <p>Na aba de Relatórios, você tem acesso a análises profundas de lucro e desempenho.</p>
                   </div>
                   <div className="space-y-2">
                     <p className="font-black text-indigo-300 uppercase tracking-wider">4. Manutenção e Alertas</p>
                     <p>Configure seus alertas de KM aqui nas configurações. Acompanhe o progresso na aba "Manutenção" para saber exatamente quando revisar seu veículo.</p>
                   </div>
                   <div className="space-y-2">
-                    <p className="font-black text-indigo-300 uppercase tracking-wider">5. Backup e Segurança (Em Breve na Nuvem)</p>
-                    <p>Seus dados ficam no seu celular. Use o <b>"Criar Backup"</b> regularmente para salvar um arquivo com tudo. O backup automático na nuvem estará disponível em breve!</p>
+                    <p className="font-black text-indigo-300 uppercase tracking-wider">5. Backup e Segurança na Nuvem</p>
+                    <p>Seus dados estão protegidos. O backup automático na nuvem sincroniza seus dados sempre que você faz um lançamento (exclusivo para Admins e PROs).</p>
                   </div>
                   <button onClick={() => setShowTutorial(false)} className="w-full pt-2 font-black text-indigo-300 uppercase tracking-widest hover:text-white transition-colors">Entendi, fechar tutorial</button>
                 </div>
               )}
             </div>
           </div>
+
+          {/* STATUS DE SINCRONIZAÇÃO (SOMENTE ADMIN/PRO) */}
+          {(isUserAdmin(authService.auth?.currentUser?.email) || config.profile?.isPro) && (
+            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Cloud className={syncError ? "text-rose-500" : "text-emerald-500"} size={18} />
+                  <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest">Status da Sincronização</h4>
+                </div>
+                <button 
+                  onClick={onForceSync}
+                  className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
+                  title="Forçar Sincronização"
+                >
+                  <RefreshCw size={16} />
+                </button>
+              </div>
+
+              {syncError ? (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-start gap-3">
+                  <AlertTriangle size={16} className="text-rose-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-black text-rose-600 uppercase tracking-tight">Erro detectado</p>
+                    <p className="text-[9px] text-rose-500/80 font-bold leading-tight">{syncError}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck size={16} className="text-emerald-600" />
+                    <div>
+                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-tight">Backup Conectado</p>
+                      <p className="text-[9px] text-emerald-500/80 font-bold">Documento RotaFinanceira único (Seguro)</p>
+                    </div>
+                  </div>
+                  {lastSyncTime && (
+                    <div className="text-right">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Último Sync</p>
+                      <p className="text-[10px] font-bold text-slate-500">{new Date(lastSyncTime).toLocaleTimeString()}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="p-3 bg-indigo-50 dark:bg-slate-800 rounded-xl space-y-1">
+                <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Estrutura de Dados</p>
+                <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold italic leading-relaxed">
+                  Os dados do RotaBank foram desativados. Agora, o RotaFinanceira utiliza um documento consolidado de alta performance no Firebase.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* CARD: PERSONALIZAÇÃO DE CATEGORIAS */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">

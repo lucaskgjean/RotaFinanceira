@@ -248,7 +248,11 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
         {/* Card Unificado: Hoje, Semana, Mês */}
         <motion.div 
           variants={itemVariants}
-          whileHover={{ y: -4, transition: { duration: 0.2 } }}
+          whileHover={{ 
+            y: -6, 
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.1)',
+            transition: { duration: 0.2 } 
+          }}
           className="md:col-span-4 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden group"
         >
           <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800">
@@ -350,7 +354,13 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
           <motion.div 
             key={i}
             variants={itemVariants}
-            className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-3 group hover:border-indigo-100 dark:hover:border-indigo-500 transition-colors"
+            whileHover={{ 
+              y: -5,
+              borderColor: 'rgba(99, 102, 241, 0.5)',
+              boxShadow: '0 15px 30px -10px rgba(99, 102, 241, 0.15)',
+              transition: { duration: 0.2 }
+            }}
+            className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-3 group transition-all"
           >
             <div className={`w-10 h-10 ${metric.bg} ${metric.color} rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform`}>
               {metric.icon}

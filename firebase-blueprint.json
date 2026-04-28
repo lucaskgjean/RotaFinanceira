@@ -78,47 +78,12 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["timeEntries"]
-    },
-    "RotaBankEntry": {
-      "title": "RotaBank Entry",
-      "description": "Entry synchronized to RotaBank",
-      "type": "object",
-      "properties": {
-        "netAmount": { "type": "number" },
-        "valor_liquido": { "type": "number" },
-        "uid": { "type": "string" },
-        "date": { "type": "string", "format": "date" },
-        "description": { "type": "string" },
-        "paymentMethod": { "type": "string", "enum": ["money", "pix", "debito", "caderno"] }
-      },
-      "required": ["netAmount", "uid", "date", "description"]
-    },
-    "MonthlyBalance": {
-      "title": "Monthly Balance",
-      "description": "The total net amount for the current month",
-      "type": "object",
-      "properties": {
-        "totalNetAmount": { "type": "number" },
-        "valor_liquido": { "type": "number" },
-        "uid": { "type": "string" },
-        "month": { "type": "string" },
-        "updatedAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["totalNetAmount", "uid", "month"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "UserDocument",
       "description": "User document containing all application data"
-    },
-    "/entries/{entryId}": {
-      "schema": "RotaBankEntry",
-      "description": "Global entries collection for RotaBank synchronization"
-    },
-    "/balances/{userId}": {
-      "schema": "MonthlyBalance",
-      "description": "Monthly balance for RotaBank synchronization"
     },
     "/time_entries/{userId}": {
       "schema": "TimeEntriesDocument",
