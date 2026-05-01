@@ -301,17 +301,12 @@ const App: React.FC = () => {
       hasChanges = true;
     }
 
-    // 2. Inicializa nome e foto se estiverem vazios
+    // 2. Inicializa nome se estiver vazio
     if (!newProfile.displayName && user.displayName) {
       newProfile.displayName = user.displayName;
       const names = user.displayName.split(' ');
       if (!newProfile.firstName) newProfile.firstName = names[0] || '';
       if (!newProfile.lastName) newProfile.lastName = names.slice(1).join(' ') || '';
-      hasChanges = true;
-    }
-
-    if (!newProfile.photoURL && user.photoURL) {
-      newProfile.photoURL = user.photoURL;
       hasChanges = true;
     }
 
@@ -916,6 +911,30 @@ const App: React.FC = () => {
                 {activeTab === 'settings' ? <ArrowLeft size={20} /> : <SettingsIcon size={20} />}
               </motion.div>
             </button>
+            {user && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative"
+              >
+                <div className="w-9 h-9 rounded-xl border-2 border-slate-50 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm">
+                  {config.profile?.photoURL ? (
+                    <img 
+                      key={config.profile.photoURL}
+                      src={config.profile.photoURL} 
+                      alt="Profile" 
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center w-full h-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                      <User size={18} />
+                    </div>
+                  )}
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
+              </motion.div>
+            )}
           </div>
         </div>
       </header>
