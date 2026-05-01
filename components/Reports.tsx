@@ -79,6 +79,22 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
     onConfirm: () => {}
   });
 
+  const yesterdayStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  const monthRange = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+  }, []);
+
   const reportData = useMemo(() => {
     const filteredEntries = entries.filter(e => e.date >= startDate && e.date <= endDate);
     const filteredTime = timeEntries.filter(t => t.date >= startDate && t.date <= endDate);
@@ -474,8 +490,10 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
               <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
                 {[
                   { label: 'Hoje', start: today, end: today },
+                  { label: 'Ontem', start: yesterdayStr, end: yesterdayStr },
                   { label: '7 dias', days: 7 },
-                  { label: '30 dias', days: 30 }
+                  { label: '30 dias', days: 30 },
+                  { label: 'Mês', start: monthRange.start, end: monthRange.end }
                 ].map((p, i) => {
                   let pStart = p.start;
                   let pEnd = p.end;

@@ -135,6 +135,22 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
     show: { opacity: 1, y: 0 }
   };
 
+  const yesterdayStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  const monthRange = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+  }, []);
+
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (filterStartDate !== todayStr || filterEndDate !== todayStr) count++;
@@ -179,8 +195,10 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
             <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
               {[
                 { label: 'Hoje', start: todayStr, end: todayStr },
+                { label: 'Ontem', start: yesterdayStr, end: yesterdayStr },
                 { label: '7 dias', days: 7 },
-                { label: '30 dias', days: 30 }
+                { label: '30 dias', days: 30 },
+                { label: 'Mês', start: monthRange.start, end: monthRange.end }
               ].map((p, i) => {
                 let pStart = p.start;
                 let pEnd = p.end;
