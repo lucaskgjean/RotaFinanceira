@@ -447,6 +447,11 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
                             </span>
                           )}
                         </div>
+                        {entry.description && (
+                          <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 font-medium italic border-t border-slate-50 dark:border-slate-800/50 pt-1.5">
+                            {entry.description}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="text-right shrink-0 ml-4">

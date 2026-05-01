@@ -33,6 +33,7 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
   const [kmType, setKmType] = useState<'work' | 'personal'>(entry.kmType || 'work');
   const [liters, setLiters] = useState<string>(entry.liters?.toString() || '');
   const [paymentMethod, setPaymentMethod] = useState<'money' | 'pix' | 'debito' | 'caderno'>(entry.paymentMethod || 'pix');
+  const [entryNotes, setEntryNotes] = useState<string>(entry.description || '');
   const [isPaid, setIsPaid] = useState<boolean>(entry.isPaid || false);
   const [category, setCategory] = useState<'fuel' | 'food' | 'maintenance' | 'others'>(
     entry.fuel > 0 ? 'fuel' : entry.food > 0 ? 'food' : entry.maintenance > 0 ? 'maintenance' : 'others'
@@ -69,19 +70,18 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
     let updated: DailyEntry;
     if (isKmClosing) {
       updated = {
-        ...calculateKmClosing(numKmAtMaintenance || 0, config.lastTotalKm || 0, numFuelPrice || 0, date, time, kmType),
+        ...calculateKmClosing(numKmAtMaintenance || 0, config.lastTotalKm || 0, numFuelPrice || 0, date, time, kmType, entryNotes),
         id: entry.id
       };
     } else if (isIncome) {
       updated = {
-        ...calculateDailyEntry(parseFloat(amount), date, time, description, config, numKm, numFuelPrice, paymentMethod, isPaid),
+        ...calculateDailyEntry(parseFloat(amount), date, time, description, config, numKm, numFuelPrice, paymentMethod, isPaid, entryNotes),
         id: entry.id
       };
     } else {
       updated = {
-        ...calculateManualExpense(parseFloat(amount), category, date, time, description, numKmAtMaintenance, paymentMethod, numLiters),
-        id: entry.id,
-        isPaid: isPaid
+        ...calculateManualExpense(parseFloat(amount), category, date, time, description, numKmAtMaintenance, paymentMethod, numLiters, isPaid, entryNotes),
+        id: entry.id
       };
     }
     
@@ -309,6 +309,17 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
                   <span>{time}</span>
                 </button>
               </div>
+            </div>
+
+            {/* Descrição Adicional / Observação */}
+            <div>
+              <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase mb-2 tracking-widest">Observação / Descrição</label>
+              <input 
+                type="text"
+                value={entryNotes} onChange={(e) => setEntryNotes(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-700 dark:text-slate-200 font-bold focus:border-indigo-500 outline-none transition-all"
+                placeholder="Bairro ou detalhes adicionais..."
+              />
             </div>
 
             <AnimatePresence>

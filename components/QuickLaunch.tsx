@@ -33,6 +33,7 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
   const [storeName, setStoreName] = useState<string>('');
   const [time, setTime] = useState<string>(getCurrentTime());
   const [date, setDate] = useState<string>(getLocalDateStr());
+  const [description, setDescription] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'money' | 'pix' | 'debito' | 'caderno'>('pix');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -40,10 +41,16 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
 
   const allStores = Array.from(new Set(existingEntries.filter(e => e.grossAmount > 0).map(e => e.storeName).reverse())) as string[];
   
+  const allDescriptions = Array.from(new Set(existingEntries.filter(e => e.description).map(e => e.description!).reverse())) as string[];
+
   // Filtra as lojas do carrossel com base no que o usuário está digitando
   const filteredStores = storeName.trim() === '' 
     ? allStores 
     : allStores.filter(s => s.toLowerCase().includes(storeName.toLowerCase()));
+
+  const filteredDescriptions = description.trim() === ''
+    ? allDescriptions
+    : allDescriptions.filter(d => d.toLowerCase().includes(description.toLowerCase()));
 
   const suggestionAmounts = [6, 7, 8, 10, 12, 17, 18, 22, 25, 30, 40];
 
@@ -58,8 +65,8 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
     if (existingMatch) {
       finalStoreName = existingMatch;
     }
-
-    const newEntry = calculateDailyEntry(numAmount, date, time, finalStoreName, config, undefined, undefined, paymentMethod, paid);
+    
+    const newEntry = calculateDailyEntry(numAmount, date, time, finalStoreName, config, undefined, undefined, paymentMethod, paid, description.trim());
     onAdd(newEntry);
     
     // Fecha o teclado removendo o foco do elemento ativo
@@ -69,6 +76,7 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
     
     setAmount('6');
     setStoreName('');
+    setDescription('');
     setTime(getCurrentTime());
     setShowAdvanced(false);
   };
@@ -231,6 +239,38 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
                     <Clock className="text-slate-300 dark:text-slate-600" size={16} />
                     <span>{time}</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Descrição Oculta (Expandível) */}
+              <div className="mt-4 space-y-2">
+                <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Observação / Descrição</label>
+                <div className="relative p-1">
+                  <input
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition font-medium text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                    placeholder="Bairro ou detalhe (opcional)"
+                  />
+                  <div className="flex overflow-x-auto gap-2 mt-3 pb-1 scrollbar-hide -mx-1 px-1">
+                    {filteredDescriptions.length > 0 ? (
+                      filteredDescriptions.slice(0, 8).map(desc => (
+                        <motion.button
+                          key={desc}
+                          type="button"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setDescription(desc)}
+                          className={`text-[9px] font-black px-4 py-2 rounded-xl transition-all whitespace-nowrap flex-shrink-0 ${description === desc ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                        >
+                          {desc}
+                        </motion.button>
+                      ))
+                    ) : description.trim() !== '' && (
+                      <div className="text-[9px] font-bold text-slate-400 py-2 px-1 uppercase italic">Nova descrição</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>

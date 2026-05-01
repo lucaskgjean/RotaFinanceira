@@ -18,6 +18,7 @@ export interface DailyEntry {
   paymentMethod?: 'money' | 'pix' | 'debito' | 'caderno';
   isPaid?: boolean;
   category?: 'income' | 'fuel' | 'food' | 'maintenance' | 'others';
+  description?: string;
 }
 
 export interface WeeklySummary {

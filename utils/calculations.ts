@@ -36,7 +36,8 @@ export const calculateDailyEntry = (
   kmDriven?: number,
   fuelPrice?: number,
   paymentMethod?: 'money' | 'pix' | 'debito' | 'caderno',
-  isPaid?: boolean
+  isPaid?: boolean,
+  description?: string
 ): DailyEntry => {
   const fuel = gross * config.percFuel;
   const food = gross * config.percFood;
@@ -59,7 +60,8 @@ export const calculateDailyEntry = (
     fuelPrice,
     paymentMethod,
     isPaid: isPaid ?? (paymentMethod === 'money'),
-    category: 'income'
+    category: 'income',
+    description
   };
 };
 
@@ -71,17 +73,18 @@ export const calculateManualExpense = (
   category: 'fuel' | 'food' | 'maintenance' | 'others',
   date: string,
   time: string,
-  description: string,
+  storeName: string,
   kmAtMaintenance?: number,
   paymentMethod?: 'money' | 'pix' | 'debito' | 'caderno',
   liters?: number,
-  isPaid?: boolean
+  isPaid?: boolean,
+  description?: string
 ): DailyEntry => {
   return {
     id: generateId(),
     date,
     time,
-    storeName: description ? `[GASTO] ${description}` : '[GASTO]',
+    storeName: storeName ? `[GASTO] ${storeName}` : '[GASTO]',
     grossAmount: 0,
     fuel: category === 'fuel' ? amount : 0,
     food: category === 'food' ? amount : 0,
@@ -92,6 +95,7 @@ export const calculateManualExpense = (
     paymentMethod,
     isPaid: isPaid ?? (paymentMethod === 'money'),
     category,
+    description,
     liters: category === 'fuel' ? liters : undefined
   };
 };
@@ -105,7 +109,8 @@ export const calculateKmClosing = (
   fuelPrice: number,
   date: string,
   time: string,
-  kmType: 'work' | 'personal' = 'work'
+  kmType: 'work' | 'personal' = 'work',
+  description?: string
 ): DailyEntry => {
   const kmDriven = (kmType === 'work' && lastTotalKm > 0) ? totalKm - lastTotalKm : 0;
   
@@ -124,7 +129,8 @@ export const calculateKmClosing = (
     kmAtMaintenance: totalKm, 
     fuelPrice: fuelPrice,
     category: 'others',
-    kmType
+    kmType,
+    description
   };
 };
 
