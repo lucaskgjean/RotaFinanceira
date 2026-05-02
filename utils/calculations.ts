@@ -163,17 +163,10 @@ export const getWeeklySummary = (entries: DailyEntry[]): WeeklySummary => {
   const spentOthers = expenseEntries.reduce((acc, curr) => acc + (curr.others || 0), 0);
   
   // Cálculo de KM Consistente:
-  // Se houver registros de odômetro, o KM Total é a variação entre o primeiro e o último do período.
-  // Caso contrário, usa a soma dos deltas (fallback).
-  let totalKm = 0;
-  if (kmEntries.length >= 2) {
-    totalKm = (kmEntries[kmEntries.length - 1].kmAtMaintenance || 0) - (kmEntries[0].kmAtMaintenance || 0);
-  } else {
-    totalKm = entries.reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
-  }
-
-  const workKm = entries.filter(e => (!e.kmType || e.kmType === 'work') && e.category !== 'maintenance').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
-  const personalKm = entries.filter(e => e.kmType === 'personal' && e.category !== 'maintenance').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
+  // Soma os deltas (kmDriven) que já foram validados como não-negativos em recalculateKmDeltas.
+  const totalKm = entries.reduce((acc, curr) => acc + Math.max(0, curr.kmDriven || 0), 0);
+  const workKm = entries.filter(e => (!e.kmType || e.kmType === 'work') && e.category !== 'maintenance').reduce((acc, curr) => acc + Math.max(0, curr.kmDriven || 0), 0);
+  const personalKm = entries.filter(e => e.kmType === 'personal' && e.category !== 'maintenance').reduce((acc, curr) => acc + Math.max(0, curr.kmDriven || 0), 0);
   
   const totalLiters = expenseEntries.reduce((acc, curr) => acc + (curr.liters || 0), 0);
 

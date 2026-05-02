@@ -611,7 +611,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
                           {new Date(delivery.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                         </span>
                         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">
-                          {delivery.time} • {delivery.kmDriven || 0} km
+                          {delivery.time} • {Math.max(0, delivery.kmDriven || 0)} km
                         </span>
                       </div>
                     </div>

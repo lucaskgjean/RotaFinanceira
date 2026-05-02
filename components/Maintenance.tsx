@@ -370,7 +370,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
               <span className="text-[10px] font-black uppercase tracking-widest">KM Trabalhado</span>
             </div>
             <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">
-              {kmHistoryEntries.filter(e => e.kmType === 'work').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0).toFixed(1)}
+              {kmHistoryEntries.filter(e => e.kmType === 'work').reduce((acc, curr) => acc + Math.max(0, curr.kmDriven || 0), 0).toFixed(1)}
               <span className="text-xs ml-1 opacity-50 uppercase">KM</span>
             </p>
           </div>
@@ -381,7 +381,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
               <span className="text-[10px] font-black uppercase tracking-widest">KM Total Rodado</span>
             </div>
             <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">
-              {kmHistoryEntries.reduce((acc, curr) => acc + (curr.kmDriven || 0), 0).toFixed(1)}
+              {kmHistoryEntries.reduce((acc, curr) => acc + Math.max(0, curr.kmDriven || 0), 0).toFixed(1)}
               <span className="text-xs ml-1 opacity-50 uppercase">KM</span>
             </p>
           </div>
@@ -421,7 +421,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
                         </span>
                       </div>
                       <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">
-                        {new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR')} • <span className={entry.kmType === 'personal' ? 'text-slate-400' : 'text-emerald-500'}>{entry.kmType === 'personal' ? 'Pessoal' : `+${entry.kmDriven?.toFixed(1)} KM`}</span>
+                        {new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR')} • <span className={entry.kmType === 'personal' ? 'text-slate-400' : 'text-emerald-500'}>{entry.kmType === 'personal' ? 'Pessoal' : `+${Math.max(0, entry.kmDriven || 0).toFixed(1)} KM`}</span>
                       </p>
                     </div>
                   </div>
