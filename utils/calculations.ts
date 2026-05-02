@@ -112,7 +112,7 @@ export const calculateKmClosing = (
   kmType: 'work' | 'personal' = 'work',
   description?: string
 ): DailyEntry => {
-  const kmDriven = (kmType === 'work' && lastTotalKm > 0) ? totalKm - lastTotalKm : 0;
+  const kmDriven = (lastTotalKm > 0 && totalKm > lastTotalKm) ? totalKm - lastTotalKm : 0;
   
   return {
     id: generateId(),

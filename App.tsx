@@ -519,8 +519,18 @@ const App: React.FC = () => {
   };
 
   const recalculateKmDeltas = useCallback((allEntries: DailyEntry[]) => {
-    // Ordena por data e hora para garantir a sequência lógica do odômetro
-    const sorted = [...allEntries].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+    // Ordena por data e depois pelo valor do odômetro para garantir a sequência lógica correta
+    const sorted = [...allEntries].sort((a, b) => {
+      const dateCompare = a.date.localeCompare(b.date);
+      if (dateCompare !== 0) return dateCompare;
+      
+      // Se ambos tiverem odômetro, usa o valor do odômetro como critério de ordem
+      if (a.kmAtMaintenance && b.kmAtMaintenance) {
+        return a.kmAtMaintenance - b.kmAtMaintenance;
+      }
+      
+      return a.time.localeCompare(b.time);
+    });
     
     let lastKm = 0;
     return sorted.map(entry => {
@@ -528,15 +538,15 @@ const App: React.FC = () => {
         const currentKm = entry.kmAtMaintenance;
         
         // Se for manutenção, o KM é apenas informativo ("conhecimento")
-        // Não deve atualizar o lastKm para o próximo registro e o kmDriven deve ser 0
-        // para não duplicar a quilometragem nos relatórios de soma.
+        // Mas ainda atualizamos o lastKm para que o próximo fechamento use este ponto como base
         if (entry.category === 'maintenance') {
+          lastKm = currentKm;
           return { ...entry, kmDriven: 0 };
         }
 
         // O delta é a diferença para o último odômetro conhecido
-        // Se for o primeiro registro, o delta é 0
-        const delta = lastKm > 0 ? currentKm - lastKm : 0;
+        // Se for o primeiro registro ou o KM atual for menor que o anterior (reset de odômetro), delta é 0
+        const delta = (lastKm > 0 && currentKm >= lastKm) ? currentKm - lastKm : 0;
         lastKm = currentKm;
         
         return { ...entry, kmDriven: delta };

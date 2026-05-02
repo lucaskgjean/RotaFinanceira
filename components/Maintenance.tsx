@@ -401,7 +401,11 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
             </div>
           ) : (
             kmHistoryEntries
-              .sort((a, b) => b.date.localeCompare(a.date))
+              .sort((a, b) => {
+                const dateCompare = b.date.localeCompare(a.date);
+                if (dateCompare !== 0) return dateCompare;
+                return (b.kmAtMaintenance || 0) - (a.kmAtMaintenance || 0);
+              })
               .slice(0, visibleCountKm)
               .map(entry => (
                 <div key={entry.id} className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex justify-between items-center group hover:border-blue-100 dark:hover:border-blue-500 transition-all">
