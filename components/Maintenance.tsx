@@ -8,13 +8,18 @@ import {
   Navigation, 
   AlertTriangle, 
   Calendar, 
+  ChevronLeft,
   ChevronRight, 
   History as HistoryIcon,
   Trash2,
   ShieldCheck,
   Clock,
   Filter,
-  X
+  X,
+  Plus,
+  Edit2,
+  Save,
+  Settings
 } from 'lucide-react';
 import QuickKM from './QuickKM';
 import CustomDateRangePicker from './CustomDateRangePicker';
@@ -25,9 +30,19 @@ interface MaintenanceProps {
   onEdit: (entry: DailyEntry) => void;
   onAdd: (entry: DailyEntry) => void;
   onDelete: (id: string) => void;
+  onChangeConfig: (newConfig: AppConfig) => void;
+  showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
-const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAdd, onDelete }) => {
+const Maintenance: React.FC<MaintenanceProps> = ({ 
+  entries, 
+  config, 
+  onEdit, 
+  onAdd, 
+  onDelete,
+  onChangeConfig,
+  showToast
+}) => {
   const todayStr = getLocalDateStr();
   const [filterStartDate, setFilterStartDate] = useState<string>(todayStr);
   const [filterEndDate, setFilterEndDate] = useState<string>(todayStr);
@@ -35,7 +50,45 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
   const [visibleCountKm, setVisibleCountKm] = useState(3);
   const [visibleCountMaintenance, setVisibleCountMaintenance] = useState(3);
 
+  // Estados locais para controle inteligente de Alertas de Manutenção
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newAlertDesc, setNewAlertDesc] = useState('');
+  const [newAlertInterval, setNewAlertInterval] = useState<number | ''>('');
+  const [newAlertLastKm, setNewAlertLastKm] = useState<number | ''>('');
+  const [editingAlertId, setEditingAlertId] = useState<string | null>(null);
+  const [editingAlertDesc, setEditingAlertDesc] = useState('');
+  const [editingAlertInterval, setEditingAlertInterval] = useState<number | ''>('');
+  const [editingAlertLastKm, setEditingAlertLastKm] = useState<number | ''>('');
+
   const currentMonthStr = todayStr.substring(0, 7);
+
+  const yesterdayStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  const weekRange = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const start = new Date(now.getFullYear(), now.getMonth(), diff);
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+  }, []);
+
+  const monthRange = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+  }, []);
 
   const todayEntries = entries.filter(e => e.date === todayStr);
   const monthEntries = entries.filter(e => e.date.startsWith(currentMonthStr));
@@ -166,86 +219,410 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
       </motion.div>
 
       {/* Alertas de Manutenção */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {alerts.map(alert => {
-          const maintenanceForThis = maintenanceEntries.filter(e => e.storeName.toLowerCase().includes(alert.description.toLowerCase()));
-          const lastMaintenanceKm = maintenanceForThis.length > 0 
-            ? Math.max(...maintenanceForThis.map(e => e.kmAtMaintenance || 0))
-            : alert.lastKm;
-          
-          const nextMaintenanceKm = lastMaintenanceKm + alert.kmInterval;
-          const kmRemaining = nextMaintenanceKm - lastKmEntry;
-          const progress = Math.min(100, Math.max(0, ((lastKmEntry - lastMaintenanceKm) / alert.kmInterval) * 100));
-          
-          let isUrgent = false;
-          if (alert.kmInterval >= 1000 && alert.kmInterval <= 3000) {
-            isUrgent = kmRemaining <= 200;
-          } else if (alert.kmInterval >= 4000 && alert.kmInterval <= 10000) {
-            isUrgent = kmRemaining <= 700;
-          } else if (alert.kmInterval >= 11000) {
-            isUrgent = kmRemaining <= 1000;
-          } else {
-            isUrgent = kmRemaining <= 200;
-          }
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+          <div>
+            <h3 className="text-sm font-black text-slate-800 dark:text-white flex items-center gap-3 uppercase tracking-widest">
+              <div className="w-1.5 h-5 bg-blue-500 rounded-full"></div>
+              Alertas de Manutenção
+            </h3>
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">Toque em qualquer card para editar ou ajustar</p>
+          </div>
+          <button 
+            type="button"
+            onClick={() => {
+              setNewAlertDesc('');
+              setNewAlertInterval('');
+              setNewAlertLastKm(lastKmEntry);
+              setShowAddForm(!showAddForm);
+              setEditingAlertId(null);
+            }}
+            className={`text-[9px] font-black uppercase tracking-widest px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5 active:scale-95 border ${
+              showAddForm 
+                ? 'bg-rose-50 dark:bg-rose-950/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/25' 
+                : 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-500/25 hover:bg-blue-100 dark:hover:bg-blue-500/20'
+            }`}
+          >
+            {showAddForm ? (
+              <>
+                <X size={12} /> Cancelar
+              </>
+            ) : (
+              <>
+                <Plus size={12} /> Novo Alerta
+              </>
+            )}
+          </button>
+        </div>
 
-          const estimatedDays = avgDailyKm > 0 ? Math.ceil(kmRemaining / avgDailyKm) : null;
-          const estimatedDate = estimatedDays !== null ? new Date(Date.now() + estimatedDays * 24 * 60 * 60 * 1000) : null;
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <AnimatePresence mode="popLayout">
+            {showAddForm && (
+              <motion.div 
+                key="new-alert-card"
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                className="bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-blue-200 dark:border-blue-500/30 p-5 rounded-[2rem] flex flex-col justify-between shadow-md"
+              >
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                      <Plus size={16} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">Novo Alerta</span>
+                      <span className="text-[8px] text-slate-400 dark:text-slate-500 block leading-none">Cadastre um item de acompanhamento</span>
+                    </div>
+                  </div>
 
-          return (
-            <motion.div 
-              key={alert.id} 
-              variants={itemVariants}
-              className={`bg-white dark:bg-slate-900 p-5 rounded-[2rem] border transition-all ${isUrgent ? 'border-rose-100 dark:border-rose-500/20 shadow-lg shadow-rose-50/50 dark:shadow-none' : 'border-slate-100 dark:border-slate-800 shadow-sm'}`}
-            >
-              <div className="flex items-center gap-4 mb-4">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isUrgent ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'}`}>
-                  {isUrgent ? <AlertTriangle size={20} /> : <Wrench size={20} />}
+                  <div className="space-y-1">
+                    <label className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Descrição</label>
+                    <input 
+                      type="text"
+                      placeholder="Ex: Troca de Óleo, Pastilha"
+                      value={newAlertDesc}
+                      onChange={(e) => setNewAlertDesc(e.target.value)}
+                      className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:border-blue-500 outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Intervalo de KM</label>
+                    <input 
+                      type="number"
+                      placeholder="Ex: 5000"
+                      value={newAlertInterval}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? '' : parseInt(e.target.value) || 0;
+                        setNewAlertInterval(val);
+                      }}
+                      className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:border-blue-500 outline-none"
+                    />
+                    <div className="flex gap-1.5 mt-1">
+                      {[1000, 5000, 10000].map(val => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setNewAlertInterval(val)}
+                          className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-lg text-[9px] font-black text-slate-400 dark:text-slate-500 hover:border-blue-400 hover:text-blue-500 transition-colors"
+                        >
+                          {val.toLocaleString()} KM
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Último Serviço Feito em</label>
+                    <input 
+                      type="number"
+                      placeholder={`KM Inicial (padrão: ${lastKmEntry.toLocaleString()})`}
+                      value={newAlertLastKm}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? '' : parseInt(e.target.value) || 0;
+                        setNewAlertLastKm(val);
+                      }}
+                      className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:border-blue-500 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setNewAlertLastKm(lastKmEntry)}
+                      className="text-[8px] font-black text-blue-500 hover:underline block text-right mt-1 uppercase tracking-wider"
+                    >
+                      Usar KM atual ({lastKmEntry.toLocaleString()})
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="font-black text-slate-800 dark:text-white text-sm truncate">{alert.description}</h4>
-                    {isUrgent && (
-                      <span className="bg-rose-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse shrink-0">Atenção</span>
+
+                <div className="flex gap-2 mt-4 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!newAlertDesc.trim()) {
+                        showToast('Digite uma descrição para o alerta', 'error');
+                        return;
+                      }
+                      if (!newAlertInterval || newAlertInterval <= 0) {
+                        showToast('Defina um intervalo de KM válido', 'error');
+                        return;
+                      }
+                      const activeLastKm = newAlertLastKm === '' ? lastKmEntry : newAlertLastKm;
+                      const newAlert = {
+                        id: Math.random().toString(36).substr(2, 9),
+                        description: newAlertDesc.trim(),
+                        kmInterval: Number(newAlertInterval),
+                        lastKm: Number(activeLastKm)
+                      };
+                      const updatedAlerts = [...(config.maintenanceAlerts || []), newAlert];
+                      onChangeConfig({ ...config, maintenanceAlerts: updatedAlerts });
+                      showToast('Alerta criado com sucesso!');
+                      setShowAddForm(false);
+                      setNewAlertDesc('');
+                      setNewAlertInterval('');
+                    }}
+                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-black text-[9px] uppercase tracking-widest py-3 rounded-xl transition duration-200 flex items-center justify-center gap-1 shadow-md shadow-blue-100 dark:shadow-none"
+                  >
+                    Salvar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddForm(false);
+                    }}
+                    className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-[9px] uppercase tracking-widest px-3 py-3 rounded-xl transition duration-200"
+                  >
+                    X
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {alerts.map(alert => {
+              const staticIsEditing = editingAlertId === alert.id;
+
+              const maintenanceForThis = maintenanceEntries.filter(e => e.storeName.toLowerCase().includes(alert.description.toLowerCase()));
+              const lastMaintenanceKm = maintenanceForThis.length > 0 
+                ? Math.max(...maintenanceForThis.map(e => e.kmAtMaintenance || 0))
+                : alert.lastKm;
+              
+              const nextMaintenanceKm = lastMaintenanceKm + alert.kmInterval;
+              const kmRemaining = nextMaintenanceKm - lastKmEntry;
+              const progress = Math.min(100, Math.max(0, ((lastKmEntry - lastMaintenanceKm) / alert.kmInterval) * 100));
+              
+              let isUrgent = false;
+              if (alert.kmInterval >= 1000 && alert.kmInterval <= 3000) {
+                isUrgent = kmRemaining <= 200;
+              } else if (alert.kmInterval >= 4000 && alert.kmInterval <= 10000) {
+                isUrgent = kmRemaining <= 700;
+              } else if (alert.kmInterval >= 11000) {
+                isUrgent = kmRemaining <= 1000;
+              } else {
+                isUrgent = kmRemaining <= 200;
+              }
+
+              const estimatedDays = avgDailyKm > 0 ? Math.ceil(kmRemaining / avgDailyKm) : null;
+              const estimatedDate = estimatedDays !== null ? new Date(Date.now() + estimatedDays * 24 * 60 * 60 * 1000) : null;
+
+              if (staticIsEditing) {
+                return (
+                  <motion.div 
+                    key={`edit-${alert.id}`} 
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    className="bg-white dark:bg-slate-900 border-2 border-indigo-500/40 p-5 rounded-[2rem] shadow-lg flex flex-col justify-between"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                            <Settings size={16} />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">Editar Alerta</span>
+                            <span className="text-[8px] text-slate-400 dark:text-slate-500 block leading-none">Ajuste os parâmetros deste item</span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setEditingAlertId(null)}
+                          className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Descrição</label>
+                        <input 
+                          type="text"
+                          value={editingAlertDesc}
+                          onChange={(e) => setEditingAlertDesc(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Intervalo de KM</label>
+                        <input 
+                          type="number"
+                          value={editingAlertInterval}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? '' : parseInt(e.target.value) || 0;
+                            setEditingAlertInterval(val);
+                          }}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500 outline-none"
+                        />
+                        <div className="flex gap-1.5 mt-1">
+                          {[1000, 5000, 10000].map(val => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => setEditingAlertInterval(val)}
+                              className="bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 px-2 py-1 rounded-lg text-[9px] font-black text-slate-400 dark:text-slate-500 hover:border-indigo-400 hover:text-indigo-500 transition-colors"
+                            >
+                              {val.toLocaleString()} KM
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Último Serviço em (KM)</label>
+                        <input 
+                          type="number"
+                          value={editingAlertLastKm}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? '' : parseInt(e.target.value) || 0;
+                            setEditingAlertLastKm(val);
+                          }}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 mt-4 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!editingAlertDesc.trim()) {
+                            showToast('A descrição do alerta não pode estar vazia', 'error');
+                            return;
+                          }
+                          if (!editingAlertInterval || editingAlertInterval <= 0) {
+                            showToast('Defina um intervalo de KM válido', 'error');
+                            return;
+                          }
+                          const activeLastKm = editingAlertLastKm === '' ? alert.lastKm : editingAlertLastKm;
+                          const updatedAlerts = (config.maintenanceAlerts || []).map(a => {
+                            if (a.id === alert.id) {
+                              return {
+                                ...a,
+                                description: editingAlertDesc.trim(),
+                                kmInterval: Number(editingAlertInterval),
+                                lastKm: Number(activeLastKm)
+                              };
+                            }
+                            return a;
+                          });
+                          onChangeConfig({ ...config, maintenanceAlerts: updatedAlerts });
+                          showToast('Alerta atualizado!');
+                          setEditingAlertId(null);
+                        }}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] uppercase tracking-widest py-3 rounded-xl transition duration-200 flex items-center justify-center gap-1 shadow-md shadow-indigo-100 dark:shadow-none"
+                      >
+                        Salvar Alterações
+                      </button>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedAlerts = (config.maintenanceAlerts || []).filter(a => a.id !== alert.id);
+                            onChangeConfig({ ...config, maintenanceAlerts: updatedAlerts });
+                            showToast('Alerta excluído', 'error');
+                            setEditingAlertId(null);
+                          }}
+                          className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 font-black text-[9px] uppercase tracking-widest py-2.5 rounded-xl transition duration-200 flex items-center justify-center gap-1 border border-rose-100 dark:border-rose-500/10"
+                        >
+                          <Trash2 size={12} /> Remover
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingAlertId(null);
+                          }}
+                          className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 font-black text-[9px] uppercase tracking-widest px-4 py-2.5 rounded-xl transition duration-200"
+                        >
+                          Voltar
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              }
+
+              return (
+                <motion.div 
+                  key={alert.id} 
+                  variants={itemVariants}
+                  whileHover={{ y: -3 }}
+                  className={`bg-white dark:bg-slate-900 p-5 rounded-[2rem] border transition-all relative overflow-hidden group/alert ${
+                    isUrgent 
+                      ? 'border-rose-100 dark:border-rose-500/20 shadow-lg shadow-rose-50/50 dark:shadow-none' 
+                      : 'border-slate-100 dark:border-slate-800 shadow-sm'
+                  }`}
+                >
+                  {/* Botão de edição sempre aparente no canto superior direito */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingAlertId(alert.id);
+                      setEditingAlertDesc(alert.description);
+                      setEditingAlertInterval(alert.kmInterval);
+                      setEditingAlertLastKm(alert.lastKm);
+                    }}
+                    className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-all active:scale-95 cursor-pointer z-10"
+                    title="Editar alerta"
+                  >
+                    <Edit2 size={13} className="stroke-[2.5]" />
+                  </button>
+
+                  <div className="flex items-center gap-4 mb-4 pr-8">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isUrgent ? 'bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'}`}>
+                      {isUrgent ? <AlertTriangle size={20} /> : <Wrench size={20} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="font-black text-slate-800 dark:text-white text-sm truncate">{alert.description}</h4>
+                        {isUrgent && (
+                          <span className="bg-rose-500 text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest shrink-0">Atenção</span>
+                        )}
+                      </div>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Próxima em: {nextMaintenanceKm.toLocaleString()} KM</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-2.5 border border-slate-100 dark:border-slate-800/50">
+                      <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-0.5">Restam</span>
+                      <p className={`text-xs font-black font-mono-num ${isUrgent ? 'text-rose-500' : 'text-slate-700 dark:text-slate-200'}`}>
+                        {kmRemaining.toLocaleString()} <span className="text-[8px] opacity-50">KM</span>
+                      </p>
+                    </div>
+                    {estimatedDate && (
+                      <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-2.5 border border-slate-100 dark:border-slate-800/50">
+                        <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-0.5">Previsão</span>
+                        <p className="text-xs font-black text-slate-700 dark:text-slate-200 truncate">
+                          {estimatedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                        </p>
+                      </div>
                     )}
                   </div>
-                  <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Próxima em: {nextMaintenanceKm.toLocaleString()} KM</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-2.5 border border-slate-100 dark:border-slate-800/50">
-                  <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-0.5">Restam</span>
-                  <p className={`text-xs font-black font-mono-num ${isUrgent ? 'text-rose-500' : 'text-slate-700 dark:text-slate-200'}`}>
-                    {kmRemaining.toLocaleString()} <span className="text-[8px] opacity-50">KM</span>
-                  </p>
-                </div>
-                {estimatedDate && (
-                  <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-2.5 border border-slate-100 dark:border-slate-800/50">
-                    <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-0.5">Previsão</span>
-                    <p className="text-xs font-black text-slate-700 dark:text-slate-200 truncate">
-                      {estimatedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                    </p>
-                  </div>
-                )}
-              </div>
 
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-slate-400">
-                  <span>Progresso</span>
-                  <span>{Math.round(progress)}%</span>
-                </div>
-                <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${progress}%` }}
-                    transition={{ duration: 1.5, ease: "easeOut" }}
-                    className={`h-full ${isUrgent ? 'bg-rose-500' : 'bg-blue-500'}`} 
-                  />
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-slate-400">
+                      <span>Progresso</span>
+                      <span>{Math.round(progress)}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 1.5, ease: "easeOut" }}
+                        className={`h-full ${isUrgent ? 'bg-rose-500' : 'bg-blue-500'}`} 
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Filtros de Período */}
@@ -264,6 +641,9 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
             <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
               {[
                 { label: 'Hoje', start: todayStr, end: todayStr },
+                { label: 'Ontem', start: yesterdayStr, end: yesterdayStr },
+                { label: 'Semana', start: weekRange.start, end: weekRange.end },
+                { label: 'Mês', start: monthRange.start, end: monthRange.end },
                 { label: '7 dias', days: 7 },
                 { label: '30 dias', days: 30 }
               ].map((p, i) => {
@@ -300,20 +680,52 @@ const Maintenance: React.FC<MaintenanceProps> = ({ entries, config, onEdit, onAd
               })}
             </div>
 
-            <button 
-              type="button"
-              onClick={() => setShowRangePicker(true)}
-              className="w-full flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-blue-200 dark:hover:border-blue-500/30"
-            >
-              <div className="flex items-center gap-3">
-                <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
-                <span>{new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-              </div>
-              <ChevronRight size={14} className="text-slate-300" />
-              <div className="flex items-center gap-3">
-                <span>{new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-              </div>
-            </button>
+            <div className="flex gap-2 items-center">
+              <button
+                type="button"
+                onClick={() => {
+                  const dStart = new Date(filterStartDate + 'T12:00:00');
+                  dStart.setDate(dStart.getDate() - 1);
+                  const newDateStr = dStart.toISOString().split('T')[0];
+                  setFilterStartDate(newDateStr);
+                  setFilterEndDate(newDateStr);
+                }}
+                className="flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 w-12 h-[50px] rounded-2xl transition-all border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-500/30 flex-shrink-0"
+                title="Dia anterior"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <button 
+                type="button"
+                onClick={() => setShowRangePicker(true)}
+                className="flex-1 flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-blue-200 dark:hover:border-blue-500/30 h-[50px] min-w-0"
+              >
+                <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 truncate">
+                  <Calendar className="text-slate-300 dark:text-slate-600 flex-shrink-0" size={14} />
+                  <span className="truncate">{new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                </div>
+                <ChevronRight size={12} className="text-slate-300 flex-shrink-0" />
+                <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 truncate">
+                  <span className="truncate">{new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const dStart = new Date(filterStartDate + 'T12:00:00');
+                  dStart.setDate(dStart.getDate() + 1);
+                  const newDateStr = dStart.toISOString().split('T')[0];
+                  setFilterStartDate(newDateStr);
+                  setFilterEndDate(newDateStr);
+                }}
+                className="flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 w-12 h-[50px] rounded-2xl transition-all border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-500/30 flex-shrink-0"
+                title="Próximo dia"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
           <button 
             onClick={() => {

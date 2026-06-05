@@ -1013,7 +1013,17 @@ const App: React.FC = () => {
               />
             )}
             {activeTab === 'expenses' && <Expenses entries={entries} config={config} onEdit={setEditingEntry} onAdd={addEntry} onDelete={deleteEntry} onUpdate={updateEntry} />}
-            {activeTab === 'maintenance' && <Maintenance entries={entries} config={config} onEdit={setEditingEntry} onAdd={addEntry} onDelete={deleteEntry} />}
+            {activeTab === 'maintenance' && (
+              <Maintenance 
+                entries={entries} 
+                config={config} 
+                onEdit={setEditingEntry} 
+                onAdd={addEntry} 
+                onDelete={deleteEntry} 
+                onChangeConfig={setConfig}
+                showToast={showToast}
+              />
+            )}
             {activeTab === 'ponto' && <TimeTracking timeEntries={timeEntries} onAdd={addTimeEntry} onUpdate={updateTimeEntry} onDelete={deleteTimeEntry} />}
             {activeTab === 'reports' && (
               <Reports 

@@ -16,7 +16,9 @@ import {
   Package,
   Clock,
   ChevronRight,
-  Gauge
+  Gauge,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
 import PerformanceCalendar from './PerformanceCalendar';
@@ -36,6 +38,15 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
   const todayStr = getLocalDateStr();
   const currentMonthStr = todayStr.substring(0, 7);
   const [now, setNow] = useState(new Date());
+  const [hideNumbers, setHideNumbers] = useState(() => localStorage.getItem('rota_hide_numbers') === 'true');
+
+  const toggleHideNumbers = () => {
+    setHideNumbers(prev => {
+      const next = !prev;
+      localStorage.setItem('rota_hide_numbers', String(next));
+      return next;
+    });
+  };
 
   const todayEntries = entries.filter(e => e.date === todayStr);
   const todaySum = { ...getWeeklySummary(todayEntries), count: todayEntries.filter(e => e.grossAmount > 0).length };
@@ -201,6 +212,17 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
                   <Target size={18} strokeWidth={2.5} />
                 </div>
                 <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-500 ${isGoalReached ? 'text-amber-950/80' : 'text-slate-400 dark:text-slate-500'}`}>Meta Diária</h3>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); toggleHideNumbers(); }}
+                  className={`p-1 rounded-lg transition-colors relative z-20 ${
+                    isGoalReached 
+                      ? 'hover:bg-white/20 text-amber-950/75 hover:text-amber-950' 
+                      : 'hover:bg-indigo-100 dark:hover:bg-slate-800 text-slate-450 hover:text-slate-650'
+                  }`}
+                  title={hideNumbers ? "Mostrar valores" : "Esconder valores"}
+                >
+                  {hideNumbers ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
               </div>
               <div className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest transition-all duration-500 ${isGoalReached ? 'bg-white/40 text-white shadow-sm backdrop-blur-sm' : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400'}`}>
                 {isGoalReached ? '🏆 Meta Batida!' : 'Em progresso'}
@@ -210,9 +232,11 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
             <div className="mb-6">
               <div className="flex items-baseline gap-1">
                 <span className={`text-4xl font-black font-mono-num tracking-tighter transition-colors duration-500 ${isGoalReached ? 'text-amber-950 drop-shadow-sm' : 'text-slate-800 dark:text-white'}`}>
-                  {formatCurrency(todaySum.totalGross).replace('R$', '')}
+                  {hideNumbers ? '••••' : formatCurrency(todaySum.totalGross).replace('R$', '')}
                 </span>
-                <span className={`text-lg font-bold transition-colors duration-500 ${isGoalReached ? 'text-amber-900/50' : 'text-slate-300 dark:text-slate-600'}`}>/ {formatCurrency(config.dailyGoal)}</span>
+                <span className={`text-lg font-bold transition-colors duration-500 ${isGoalReached ? 'text-amber-900/50' : 'text-slate-300 dark:text-slate-600'}`}>
+                  {hideNumbers ? ' / R$ ••••' : `/ ${formatCurrency(config.dailyGoal)}`}
+                </span>
               </div>
             </div>
 
@@ -226,8 +250,8 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
                 />
               </div>
               <div className={`flex justify-between text-[10px] font-black uppercase transition-colors duration-500 ${isGoalReached ? 'text-amber-900/70' : 'text-slate-400'}`}>
-                <span>{goalPercent.toFixed(0)}% concluído</span>
-                <span>{isGoalReached ? 'Objetivo Alcançado!' : `Faltam ${formatCurrency(Math.max(0, config.dailyGoal - todaySum.totalGross))}`}</span>
+                <span>{hideNumbers ? '••%' : `${goalPercent.toFixed(0)}%`} concluído</span>
+                <span>{isGoalReached ? 'Objetivo Alcançado!' : `Faltam ${hideNumbers ? 'R$ ••••' : formatCurrency(Math.max(0, config.dailyGoal - todaySum.totalGross))}`}</span>
               </div>
             </div>
           </div>
@@ -253,8 +277,17 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.1)',
             transition: { duration: 0.2 } 
           }}
-          className="md:col-span-4 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden group"
+          className="md:col-span-4 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden group/resumos"
         >
+          {/* Eye Toggle for Resumos Card */}
+          <button 
+            onClick={(e) => { e.stopPropagation(); toggleHideNumbers(); }}
+            className="absolute top-6 right-6 z-20 p-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 border border-slate-100 dark:border-slate-800/50 transition-colors"
+            title={hideNumbers ? "Mostrar valores" : "Esconder valores"}
+          >
+            {hideNumbers ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+
           <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800">
             {/* Hoje Section */}
             <div className="flex flex-col justify-between">
@@ -268,16 +301,16 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
                 <div className="mb-1">
                   <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tight">Lucro Líquido</span>
                   <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num tracking-tighter">
-                    {formatCurrency(todaySum.totalNet)}
+                    {hideNumbers ? 'R$ ••••' : formatCurrency(todaySum.totalNet)}
                   </div>
                 </div>
               </div>
               <div className="flex items-center justify-between mt-2">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                  Bruto: {formatCurrency(todaySum.totalGross)}
+                  Bruto: {hideNumbers ? 'R$ ••••' : formatCurrency(todaySum.totalGross)}
                 </div>
                 <span className="text-[9px] font-black bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-md uppercase">
-                  {todaySum.count} Entregas
+                  {hideNumbers ? '••' : todaySum.count} Entregas
                 </span>
               </div>
             </div>
@@ -294,16 +327,16 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
                 <div className="mb-1">
                   <span className="text-[9px] font-black text-indigo-500 uppercase tracking-tight">Faturamento Bruto</span>
                   <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num tracking-tighter">
-                    {formatCurrency(weekSum.totalGross)}
+                    {hideNumbers ? 'R$ ••••' : formatCurrency(weekSum.totalGross)}
                   </div>
                 </div>
               </div>
               <div className="flex items-center justify-between mt-2">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                  Líquido: {formatCurrency(weekSum.totalNet)}
+                  Líquido: {hideNumbers ? 'R$ ••••' : formatCurrency(weekSum.totalNet)}
                 </div>
                 <span className="text-[9px] font-black bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-md uppercase">
-                  {weekSum.count} Entregas
+                  {hideNumbers ? '••' : weekSum.count} Entregas
                 </span>
               </div>
             </div>
@@ -320,21 +353,21 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
                 <div className="mb-1">
                   <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tight">Faturamento Bruto</span>
                   <div className="text-3xl font-black text-slate-800 dark:text-white font-mono-num tracking-tighter">
-                    {formatCurrency(monthSum.totalGross)}
+                    {hideNumbers ? 'R$ ••••' : formatCurrency(monthSum.totalGross)}
                   </div>
                 </div>
               </div>
               <div className="flex items-center justify-between mt-2">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                  Líquido: {formatCurrency(monthSum.totalNet)}
+                  Líquido: {hideNumbers ? 'R$ ••••' : formatCurrency(monthSum.totalNet)}
                 </div>
                 <span className="text-[9px] font-black bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-md uppercase">
-                  {monthSum.count} Entregas
+                  {hideNumbers ? '••' : monthSum.count} Entregas
                 </span>
               </div>
             </div>
           </div>
-          <div className="absolute -right-10 -bottom-10 opacity-[0.02] group-hover:scale-110 transition-transform duration-700 pointer-events-none">
+          <div className="absolute -right-10 -bottom-10 opacity-[0.02] group-hover/resumos:scale-110 transition-transform duration-700 pointer-events-none">
             <TrendingUp size={240} />
           </div>
         </motion.div>

@@ -14,6 +14,7 @@ import {
   FileText, 
   Trash2, 
   Calendar, 
+  ChevronLeft,
   ChevronRight,
   Timer,
   Plus,
@@ -51,6 +52,34 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
   const [filterEndDate, setFilterEndDate] = useState(today);
   const [showRangePicker, setShowRangePicker] = useState(false);
   const [visibleCount, setVisibleCount] = useState(3);
+
+  const yesterdayStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  const weekRange = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const start = new Date(now.getFullYear(), now.getMonth(), diff);
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+  }, []);
+
+  const monthRange = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -364,6 +393,9 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
               <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
                 {[
                   { label: 'Hoje', start: today, end: today },
+                  { label: 'Ontem', start: yesterdayStr, end: yesterdayStr },
+                  { label: 'Semana', start: weekRange.start, end: weekRange.end },
+                  { label: 'Mês', start: monthRange.start, end: monthRange.end },
                   { label: '7 dias', days: 7 },
                   { label: '30 dias', days: 30 }
                 ].map((p, i) => {
@@ -400,20 +432,52 @@ const TimeTracking: React.FC<TimeTrackingProps> = ({ timeEntries, onAdd, onUpdat
                 })}
               </div>
 
-              <button 
-                type="button"
-                onClick={() => setShowRangePicker(true)}
-                className="w-full flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-emerald-200 dark:hover:border-emerald-500/30"
-              >
-                <div className="flex items-center gap-3">
-                  <Calendar className="text-slate-300 dark:text-slate-600" size={16} />
-                  <span>{new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                </div>
-                <ChevronRight size={14} className="text-slate-300" />
-                <div className="flex items-center gap-3">
-                  <span>{new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                </div>
-              </button>
+              <div className="flex gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const dStart = new Date(filterStartDate + 'T12:00:00');
+                    dStart.setDate(dStart.getDate() - 1);
+                    const newDateStr = dStart.toISOString().split('T')[0];
+                    setFilterStartDate(newDateStr);
+                    setFilterEndDate(newDateStr);
+                  }}
+                  className="flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 w-12 h-[50px] rounded-2xl transition-all border border-slate-100 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-500/30 flex-shrink-0"
+                  title="Dia anterior"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={() => setShowRangePicker(true)}
+                  className="flex-1 flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-emerald-200 dark:hover:border-emerald-500/30 h-[50px] min-w-0"
+                >
+                  <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 truncate">
+                    <Calendar className="text-slate-300 dark:text-slate-600 flex-shrink-0" size={14} />
+                    <span className="truncate">{new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                  </div>
+                  <ChevronRight size={12} className="text-slate-300 flex-shrink-0" />
+                  <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 truncate">
+                    <span className="truncate">{new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const dStart = new Date(filterStartDate + 'T12:00:00');
+                    dStart.setDate(dStart.getDate() + 1);
+                    const newDateStr = dStart.toISOString().split('T')[0];
+                    setFilterStartDate(newDateStr);
+                    setFilterEndDate(newDateStr);
+                  }}
+                  className="flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 w-12 h-[50px] rounded-2xl transition-all border border-slate-100 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-500/30 flex-shrink-0"
+                  title="Próximo dia"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
             </div>
             <button 
               onClick={() => {

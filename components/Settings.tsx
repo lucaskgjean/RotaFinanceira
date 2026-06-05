@@ -419,32 +419,7 @@ const Settings: React.FC<SettingsProps> = ({
     }
   };
 
-  const handleMaintenanceAlertChange = (id: string, field: 'description' | 'kmInterval', value: string) => {
-    const alerts = (localConfig.maintenanceAlerts || []).map(alert => {
-      if (alert.id === id) {
-        return { 
-          ...alert, 
-          [field]: field === 'kmInterval' ? parseInt(value) || 0 : value 
-        };
-      }
-      return alert;
-    });
-    setLocalConfig({ ...localConfig, maintenanceAlerts: alerts });
-  };
 
-  const addMaintenanceAlert = () => {
-    const newAlert = {
-      id: Math.random().toString(36).substr(2, 9),
-      description: 'Novo Alerta',
-      kmInterval: 1000,
-      lastKm: config.lastTotalKm || 0
-    };
-    setLocalConfig({ ...localConfig, maintenanceAlerts: [...(localConfig.maintenanceAlerts || []), newAlert] });
-  };
-
-  const removeMaintenanceAlert = (id: string) => {
-    setLocalConfig({ ...localConfig, maintenanceAlerts: (localConfig.maintenanceAlerts || []).filter(a => a.id !== id) });
-  };
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -874,42 +849,6 @@ const Settings: React.FC<SettingsProps> = ({
             </div>
           </div>
 
-          {/* CARD: ALERTAS DE MANUTENÇÃO */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-black text-slate-800 dark:text-white">Alertas de manutenção</h3>
-              <button onClick={addMaintenanceAlert} className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1.5 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5">
-                + Adicionar
-              </button>
-            </div>
-            <div className="space-y-4">
-              {(localConfig.maintenanceAlerts || []).map(alert => (
-                <div key={alert.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-4 items-end">
-                  <div className="flex-1 w-full">
-                    <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Descrição</label>
-                    <input 
-                      type="text" 
-                      value={alert.description} 
-                      onChange={(e) => handleMaintenanceAlertChange(alert.id, 'description', e.target.value)}
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500 outline-none"
-                    />
-                  </div>
-                  <div className="w-full sm:w-32">
-                    <label className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase mb-1">Intervalo (KM)</label>
-                    <input 
-                      type="number" 
-                      value={alert.kmInterval} 
-                      onChange={(e) => handleMaintenanceAlertChange(alert.id, 'kmInterval', e.target.value)}
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 dark:text-slate-200 focus:border-indigo-500 outline-none"
-                    />
-                  </div>
-                  <button onClick={() => removeMaintenanceAlert(alert.id)} className="p-2 text-rose-400 hover:text-rose-600 transition-colors">
-                    <Trash2 size={20} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* CARD: BACKUP E RESTAURAÇÃO */}
           <div className="bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-xl">

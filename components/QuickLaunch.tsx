@@ -78,7 +78,6 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
     setStoreName('');
     setDescription('');
     setTime(getCurrentTime());
-    setShowAdvanced(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {

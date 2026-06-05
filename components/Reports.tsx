@@ -30,6 +30,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Filter,
+  ChevronLeft,
   ChevronRight,
   Download,
   Store,
@@ -83,6 +84,18 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
     const d = new Date();
     d.setDate(d.getDate() - 1);
     return d.toISOString().split('T')[0];
+  }, []);
+
+  const weekRange = useMemo(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const start = new Date(now.getFullYear(), now.getMonth(), diff);
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
   }, []);
 
   const monthRange = useMemo(() => {
@@ -491,9 +504,10 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
                 {[
                   { label: 'Hoje', start: today, end: today },
                   { label: 'Ontem', start: yesterdayStr, end: yesterdayStr },
+                  { label: 'Semana', start: weekRange.start, end: weekRange.end },
+                  { label: 'Mês', start: monthRange.start, end: monthRange.end },
                   { label: '7 dias', days: 7 },
-                  { label: '30 dias', days: 30 },
-                  { label: 'Mês', start: monthRange.start, end: monthRange.end }
+                  { label: '30 dias', days: 30 }
                 ].map((p, i) => {
                   let pStart = p.start;
                   let pEnd = p.end;
@@ -528,20 +542,52 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
                 })}
               </div>
 
-              <button 
-                type="button"
-                onClick={() => setShowRangePicker(true)}
-                className="w-full flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 focus:ring-2 focus:ring-indigo-500 transition outline-none font-bold text-slate-700 dark:text-slate-200 text-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <Calendar className="text-slate-300 dark:text-slate-600" size={18} />
-                  <span>{new Date(startDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                </div>
-                <ChevronRight size={14} className="text-slate-300" />
-                <div className="flex items-center gap-3">
-                  <span>{new Date(endDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-                </div>
-              </button>
+              <div className="flex gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const dStart = new Date(startDate + 'T12:00:00');
+                    dStart.setDate(dStart.getDate() - 1);
+                    const newDateStr = dStart.toISOString().split('T')[0];
+                    setStartDate(newDateStr);
+                    setEndDate(newDateStr);
+                  }}
+                  className="flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 w-12 h-[50px] rounded-2xl transition-all border border-slate-100 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-500/30 flex-shrink-0"
+                  title="Dia anterior"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+
+                <button 
+                  type="button"
+                  onClick={() => setShowRangePicker(true)}
+                  className="flex-1 flex items-center justify-between bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-4 py-3.5 text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition-all hover:border-indigo-200 dark:hover:border-indigo-500/30 h-[50px] min-w-0"
+                >
+                  <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 truncate">
+                    <Calendar className="text-slate-300 dark:text-slate-600 flex-shrink-0" size={14} />
+                    <span className="truncate">{new Date(startDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                  </div>
+                  <ChevronRight size={12} className="text-slate-300 flex-shrink-0" />
+                  <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 truncate">
+                    <span className="truncate">{new Date(endDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const dStart = new Date(startDate + 'T12:00:00');
+                    dStart.setDate(dStart.getDate() + 1);
+                    const newDateStr = dStart.toISOString().split('T')[0];
+                    setStartDate(newDateStr);
+                    setEndDate(newDateStr);
+                  }}
+                  className="flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 w-12 h-[50px] rounded-2xl transition-all border border-slate-100 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-500/30 flex-shrink-0"
+                  title="Próximo dia"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
             </div>
             <div className="relative">
               <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">Filtrar por Loja</label>
