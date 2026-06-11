@@ -56,6 +56,24 @@ const App: React.FC = () => {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'expenses' | 'maintenance' | 'ponto' | 'history' | 'reports' | 'settings'>('dashboard');
+  const [draggedTab, setDraggedTab] = useState<'dashboard' | 'expenses' | 'maintenance' | 'ponto' | 'reports' | 'history' | null>(null);
+  const [isNavTouched, setIsNavTouched] = useState(false);
+  const navTouchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const setNavTouchedWithDelay = (value: boolean, delay: number = 0) => {
+    if (navTouchTimeoutRef.current) {
+      clearTimeout(navTouchTimeoutRef.current);
+      navTouchTimeoutRef.current = null;
+    }
+    
+    if (delay > 0) {
+      navTouchTimeoutRef.current = setTimeout(() => {
+        setIsNavTouched(value);
+      }, delay);
+    } else {
+      setIsNavTouched(value);
+    }
+  };
   const [prevTab, setPrevTab] = useState<'dashboard' | 'expenses' | 'maintenance' | 'ponto' | 'history' | 'reports' | 'settings'>('dashboard');
   const [editingEntry, setEditingEntry] = useState<DailyEntry | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -219,6 +237,127 @@ const App: React.FC = () => {
     } else {
       setPrevTab(activeTab);
       setActiveTab('settings');
+    }
+  };
+
+  // Estado de recolher/expandir a barra
+  const [isNavbarCollapsed, setIsNavbarCollapsed] = useState(false);
+  const lastScrollY = useRef(0);
+
+  const setNavbarCollapsedWithDelay = (value: boolean) => {
+    setIsNavbarCollapsed(value);
+  };
+
+  useEffect(() => {
+    let lastTouchY = 0;
+    
+    // Captura a posição inicial do toque físico (celular)
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches && e.touches.length > 0) {
+        lastTouchY = e.touches[0].clientY;
+      }
+    };
+
+    // Detecta direção física do dedo instantaneamente
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!e.touches || e.touches.length === 0) return;
+      
+      const currentTouchY = e.touches[0].clientY;
+      const diffY = lastTouchY - currentTouchY; // Positivo = rolou para baixo | Negativo = rolou para cima
+      
+      const currentScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      
+      // Se arrastou para cima (rolou a página para baixo)
+      if (diffY > 10 && currentScrollY > 15) {
+        setNavbarCollapsedWithDelay(true);
+      }
+      // Se arrastou para baixo (rolou a página para cima) ou chegou próximo ao topo
+      else if (diffY < -10 || currentScrollY < 12) {
+        setNavbarCollapsedWithDelay(false);
+      }
+      
+      lastTouchY = currentTouchY;
+    };
+
+    // Fallback excelente para o scroll tradicional de mouse/desktop
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      
+      if (currentScrollY > lastScrollY.current + 5 && currentScrollY > 20) {
+        setNavbarCollapsedWithDelay(true);
+      } else if (currentScrollY < lastScrollY.current - 5 || currentScrollY < 12) {
+        setNavbarCollapsedWithDelay(false);
+      }
+      
+      lastScrollY.current = Math.max(0, currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
+
+  // Sempre expanda a barra automaticamente se o usuário trocar de página/aba
+  useEffect(() => {
+    setNavbarCollapsedWithDelay(false);
+  }, [activeTab]);
+
+  // Ref da barra de navegação para tracking preciso dos gestos horizontais
+  const bottomNavRef = useRef<HTMLElement | null>(null);
+
+  // Monitora a movimentação física do dedo e move o seletor em tempo real para a aba correspondente
+  const handleNavTouch = (e: React.TouchEvent<HTMLElement>) => {
+    if (!bottomNavRef.current) return;
+    setNavTouchedWithDelay(true);
+    
+    // Calcula as dimensões físicas da barra no momento do toque
+    const rect = bottomNavRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+    if (!touch) return;
+    
+    // Obtém a posição X do toque relativa à largura total da barra
+    const relativeX = touch.clientX - rect.left;
+    const percentage = relativeX / rect.width;
+    const clampedPercent = Math.max(0, Math.min(0.999, percentage));
+    
+    // Divide a barra nas 6 zonas de abas correspondentes
+    const itemsCount = 6;
+    const index = Math.floor(clampedPercent * itemsCount);
+    
+    const targetTabs: ('dashboard' | 'expenses' | 'maintenance' | 'ponto' | 'reports' | 'history')[] = [
+      'dashboard', 
+      'expenses', 
+      'maintenance', 
+      'ponto', 
+      'reports', 
+      'history'
+    ];
+    
+    const targetTab = targetTabs[index];
+    if (targetTab && draggedTab !== targetTab) {
+      setDraggedTab(targetTab);
+      
+      // Delicado haptic feedback nativo para simular as marcas físicas do celular
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate(8);
+        } catch (err) {}
+      }
+    }
+  };
+
+  // Efetiva a mudança de aba quando o usuário levanta o dedo da tela
+  const handleNavTouchEnd = () => {
+    setNavTouchedWithDelay(false, 300); // 300ms delay to expand/collapse smoothly
+    if (draggedTab) {
+      handleTabChange(draggedTab);
+      setDraggedTab(null);
     }
   };
 
@@ -1057,29 +1196,76 @@ const App: React.FC = () => {
       </main>
 
       {activeTab !== 'settings' && !isKeyboardOpen && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 md:hidden pb-safe z-50 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.3)]">
-          <div className="flex justify-around items-center h-20 px-2">
+        <nav 
+          ref={bottomNavRef}
+          onTouchStart={handleNavTouch}
+          onTouchMove={handleNavTouch}
+          onTouchEnd={handleNavTouchEnd}
+          onTouchCancel={() => { setDraggedTab(null); setNavTouchedWithDelay(false, 300); }}
+          onMouseDown={() => setNavTouchedWithDelay(true)}
+          onMouseUp={() => setNavTouchedWithDelay(false, 300)}
+          onMouseLeave={() => setNavTouchedWithDelay(false, 300)}
+          className={`fixed bottom-5 left-4 right-4 mx-auto z-50 transition-all duration-500 ease-out md:hidden flex justify-around items-center touch-none select-none ${
+            isNavbarCollapsed && !isNavTouched
+              ? 'max-w-[270px] h-12 px-1 bg-white/80 dark:bg-slate-900/80 border border-slate-200/30 dark:border-slate-800/40 backdrop-blur-md opacity-90 shadow-sm rounded-[1.75rem] scale-100' 
+              : 'max-w-md h-16 px-2 bg-white/90 dark:bg-slate-900/90 border border-slate-200/40 dark:border-slate-800/60 backdrop-blur-lg shadow-md rounded-[2rem] scale-100'
+          } ${
+            isNavTouched 
+              ? '!scale-[1.04] -translate-y-1.5 shadow-lg' 
+              : ''
+          }`}
+        >
+          <div className="flex justify-around items-center h-full w-full">
             {[
-              { id: 'dashboard', label: 'Início', icon: <Home size={22} /> },
-              { id: 'expenses', label: 'Gastos', icon: <ArrowUpRight size={22} /> },
-              { id: 'maintenance', label: 'Manut.', icon: <Wrench size={22} /> },
-              { id: 'ponto', label: 'Ponto', icon: <Clock size={22} /> },
-              { id: 'reports', label: 'Relat.', icon: <BarChart3 size={22} /> },
-              { id: 'history', label: 'Histórico', icon: <HistoryIcon size={22} /> }
-            ].map((item) => (
-              <button key={item.id} onClick={() => handleTabChange(item.id as any)} className="flex flex-col items-center flex-1 py-1 group relative">
-                <div className={`w-12 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${activeTab === item.id ? 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400' : 'text-slate-400'}`}>
-                  {item.icon}
-                </div>
-                <span className={`text-[9px] mt-1 font-black uppercase tracking-tighter ${activeTab === item.id ? 'text-indigo-700 dark:text-indigo-400' : 'text-slate-400'}`}>{item.label}</span>
-                {activeTab === item.id && (
-                  <motion.div 
-                    layoutId="nav-indicator"
-                    className="absolute -top-1 w-1 h-1 bg-indigo-600 dark:bg-indigo-400 rounded-full"
-                  />
-                )}
-              </button>
-            ))}
+              { id: 'dashboard', label: 'Início', icon: <Home size={18} /> },
+              { id: 'expenses', label: 'Gastos', icon: <ArrowUpRight size={18} /> },
+              { id: 'maintenance', label: 'Manut.', icon: <Wrench size={18} /> },
+              { id: 'ponto', label: 'Ponto', icon: <Clock size={18} /> },
+              { id: 'reports', label: 'Relat.', icon: <BarChart3 size={18} /> },
+              { id: 'history', label: 'Histórico', icon: <HistoryIcon size={18} /> }
+            ].map((item) => {
+              const isVisualActive = (draggedTab || activeTab) === item.id;
+              const isSmallState = isNavbarCollapsed && !isNavTouched;
+              
+              return (
+                <button 
+                  key={item.id} 
+                  onClick={() => handleTabChange(item.id as any)} 
+                  className={`flex flex-col items-center justify-center flex-1 group relative transition-all duration-500 px-1 ${
+                    isSmallState ? 'py-0 h-10' : 'py-1.5 h-14'
+                  }`}
+                >
+                  {/* O Cartão de Destaque Flutuante (Active Pill) */}
+                  {isVisualActive && (
+                    <motion.div 
+                      layoutId="nav-active-bg"
+                      className="absolute inset-x-1 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl -z-10 border border-indigo-100/20 dark:border-indigo-550/10"
+                      style={{
+                        top: isSmallState ? '3px' : '4px',
+                        bottom: isSmallState ? '3px' : '4px',
+                      }}
+                      transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                    />
+                  )}
+
+                  {/* Ícone */}
+                  <div className={`flex items-center justify-center transition-all duration-500 ${
+                    isSmallState ? 'w-8 h-8 scale-95' : 'w-10 h-6 scale-100'
+                  } ${isVisualActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-indigo-500'}`}>
+                    {item.icon}
+                  </div>
+
+                  {/* Texto que some suavemente com escala e transição de tamanho */}
+                  <span className={`text-[9px] font-black uppercase tracking-tighter transition-all duration-500 ease-in-out origin-top block overflow-hidden ${
+                    isSmallState 
+                      ? 'opacity-0 max-h-0 h-0 mt-0 pointer-events-none scale-0' 
+                      : 'opacity-100 max-h-4 mt-0.5 scale-100'
+                  } ${isVisualActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </nav>
       )}
