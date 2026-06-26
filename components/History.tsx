@@ -37,7 +37,8 @@ import {
   Printer,
   Copy,
   Camera,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Download
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
 import PerformanceCalendar from './PerformanceCalendar';
@@ -183,6 +184,26 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
     }
   };
 
+  const downloadImage = () => {
+    if (!cachedShareFile) {
+      alert("Aguarde a geração do cupom de cobrança...");
+      return;
+    }
+    try {
+      const url = URL.createObjectURL(cachedShareFile);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cobranca_${billingStore?.name?.toLowerCase().replace(/\s+/g, '_') || 'loja'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível realizar o download automático. Tente copiar a imagem ou tirar um print.");
+    }
+  };
+
   if (printMode && billingStore) {
     return createPortal(
       <div 
@@ -283,7 +304,7 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
                 background: white !important;
                 color: black !important;
               }
-              #print-button, #close-button, #share-button, #copy-button, #copy-image-button, #screenshot-mode-button, #close-top-button {
+              #download-button, #close-button, #share-button, #copy-button, #copy-image-button, #screenshot-mode-button, #close-top-button {
                 display: none !important;
               }
             }
@@ -403,18 +424,13 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
                   </button>
 
                   <button
-                    id="print-button"
-                    onClick={() => {
-                      if (window.print) {
-                        window.print();
-                      } else {
-                        alert("O seu aplicativo não suporta a impressão nativa. Por favor, use a opção 'Modo Print de Tela' ou 'Copiar Imagem'.");
-                      }
-                    }}
-                    className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                    id="download-button"
+                    onClick={downloadImage}
+                    disabled={isGeneratingShare || !cachedShareFile}
+                    className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-center gap-1.5 cursor-pointer h-11 disabled:opacity-50"
                   >
-                    <Printer size={12} />
-                    PDF / Imprimir
+                    <Download size={12} />
+                    {isGeneratingShare ? 'Gerando...' : 'Baixar Imagem'}
                   </button>
                 </div>
               </div>
