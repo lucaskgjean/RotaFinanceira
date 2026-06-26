@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DailyEntry, AppConfig, TimeEntry } from '../types';
 import { formatCurrency, getWeeklySummary, getDailyStats, getLocalDateStr } from '../utils/calculations';
 import { motion, AnimatePresence } from 'motion/react';
@@ -164,6 +164,8 @@ const History: React.FC<HistoryProps> = ({
   const [billingStore, setBillingStore] = useState<{ name: string; totalDue: number } | null>(null);
   const [copied, setCopied] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [cachedShareFile, setCachedShareFile] = useState<File | null>(null);
+  const [isGeneratingShare, setIsGeneratingShare] = useState(false);
   const [confirmingStoreIds, setConfirmingStoreIds] = useState<string[] | null>(null);
 
   const storePendingBalances = useMemo(() => {
@@ -213,139 +215,185 @@ const History: React.FC<HistoryProps> = ({
     setCopied(false);
   };
 
-  const handleShare = async (storeName: string, amount: number, pixCode: string, qrCodeUrl: string) => {
+  const handleShare = async (storeName: string, amount: number, pixCode: string) => {
     try {
       setIsSharing(true);
       
-      const canvas = document.createElement('canvas');
-      canvas.width = 600;
-      canvas.height = 750;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Cannot get canvas context');
-      
-      const grad = ctx.createLinearGradient(0, 0, 0, 750);
-      grad.addColorStop(0, '#0f172a');
-      grad.addColorStop(1, '#020617');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 600, 750);
-      
-      ctx.fillStyle = '#6366f1';
-      ctx.font = '900 14px sans-serif';
-      ctx.fillText('ROTA FINANCEIRA', 50, 60);
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '900 24px sans-serif';
-      ctx.fillText('Cobrança de Loja', 50, 100);
-      
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(50, 130);
-      ctx.lineTo(550, 130);
-      ctx.stroke();
-      
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillText('ESTABELECIMENTO', 50, 165);
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '900 18px sans-serif';
-      const storeNameText = storeName.length > 35 ? storeName.slice(0, 35) + '...' : storeName;
-      ctx.fillText(storeNameText, 50, 195);
-      
-      ctx.fillStyle = '#f43f5e';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillText('VALOR PENDENTE', 50, 245);
-      
-      ctx.fillStyle = '#f43f5e';
-      ctx.font = 'bold 32px monospace';
-      ctx.fillText(formatCurrency(amount), 50, 285);
-      
-      ctx.beginPath();
-      ctx.moveTo(50, 320);
-      ctx.lineTo(550, 320);
-      ctx.stroke();
+      // Instantly copy Pix code to clipboard synchronously
+      try {
+        await navigator.clipboard.writeText(pixCode);
+      } catch (e) {
+        console.warn("Clipboard access denied", e);
+      }
 
-      const qrImg = new Image();
-      qrImg.crossOrigin = 'anonymous';
-      
-      await new Promise<void>((resolve, reject) => {
-        qrImg.onload = () => {
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath();
-          if (ctx.roundRect) {
-            ctx.roundRect(175, 360, 250, 250, 24);
-          } else {
-            ctx.rect(175, 360, 250, 250);
-          }
-          ctx.fill();
-          ctx.drawImage(qrImg, 185, 370, 230, 230);
-          resolve();
-        };
-        qrImg.onerror = () => {
-          reject(new Error('Erro ao desenhar QR code'));
-        };
-        qrImg.src = qrCodeUrl;
-      });
-      
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('Escaneie o QR Code acima para pagar', 300, 640);
-      ctx.fillText('O Pix Copia e Cola também foi copiado!', 300, 660);
-      
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          throw new Error('Falha ao gerar blob');
-        }
-        
-        const file = new File([blob], `cobranca_${storeName.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
-        const shareText = `Olá! Segue cobrança da loja *${storeName}* no valor de *${formatCurrency(amount)}*.\n\nVocê pode pagar escaneando o QR Code na imagem ou utilizando o Pix Copia e Cola abaixo:\n\n${pixCode}`;
-        
-        try {
-          await navigator.clipboard.writeText(pixCode);
-        } catch (e) {
-          console.warn("Clipboard access denied", e);
-        }
+      const shareText = `Olá! Segue cobrança da loja *${storeName}* no valor de *${formatCurrency(amount)}*.\n\nVocê pode pagar escaneando o QR Code na imagem ou utilizando o Pix Copia e Cola abaixo:\n\n${pixCode}`;
 
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `Cobrança - ${storeName}`,
-            text: shareText
-          });
-        } else {
-          const url = URL.createObjectURL(blob);
+      // If we have a cached file and navigator.share with files is supported
+      if (cachedShareFile && navigator.share && navigator.canShare && navigator.canShare({ files: [cachedShareFile] })) {
+        await navigator.share({
+          files: [cachedShareFile],
+          title: `Cobrança - ${storeName}`,
+          text: shareText
+        });
+      } else if (navigator.share) {
+        // Fallback: If sharing files is not supported but sharing text is, do text share synchronously
+        await navigator.share({
+          title: `Cobrança - ${storeName}`,
+          text: shareText
+        });
+      } else {
+        // Fallback for desktop or unsupported environments: Download the image
+        if (cachedShareFile) {
+          const url = URL.createObjectURL(cachedShareFile);
           const a = document.createElement('a');
           a.href = url;
           a.download = `cobranca_${storeName.replace(/\s+/g, '_')}.png`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          alert(`Código Pix Copia e Cola copiado para a área de transferência!\n\nAlém disso, a imagem com o QR Code foi baixada para você enviar ao estabelecimento.`);
+          URL.revokeObjectURL(url);
         }
-        setIsSharing(false);
-      }, 'image/png');
-      
+        alert(`Código Pix Copia e Cola copiado para a área de transferência!\n\nAlém disso, a imagem com o QR Code foi baixada para você enviar ao estabelecimento.`);
+      }
     } catch (err) {
       console.error(err);
-      try {
-        await navigator.clipboard.writeText(pixCode);
-        const shareText = `Olá! Segue cobrança da loja *${storeName}* no valor de *${formatCurrency(amount)}*.\n\nPix Copia e Cola:\n\n${pixCode}`;
-        if (navigator.share) {
-          await navigator.share({
-            title: `Cobrança - ${storeName}`,
-            text: shareText
-          });
-        } else {
-          alert(`Código Pix Copia e Cola copiado para a área de transferência!\n\nPix Copia e Cola:\n\n${pixCode}`);
-        }
-      } catch (e) {
-        alert(`Não foi possível compartilhar a imagem, mas o Pix Copia e Cola foi copiado para a área de transferência!`);
-      }
+      alert(`Código Pix Copia e Cola copiado para a área de transferência!`);
+    } finally {
       setIsSharing(false);
     }
   };
+
+  useEffect(() => {
+    if (!billingStore) {
+      setCachedShareFile(null);
+      setIsGeneratingShare(false);
+      return;
+    }
+
+    const hasPixConfig = !!(config.pixKey && config.pixKey.trim().length > 0);
+    if (!hasPixConfig) {
+      setCachedShareFile(null);
+      setIsGeneratingShare(false);
+      return;
+    }
+
+    const pixCode = generatePixPayload(
+      config.pixKey!,
+      config.pixName || '',
+      config.pixCity || '',
+      billingStore.totalDue,
+      billingStore.name
+    );
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`;
+
+    setIsGeneratingShare(true);
+
+    const generate = async () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 600;
+        canvas.height = 750;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          setIsGeneratingShare(false);
+          return;
+        }
+
+        // Draw background
+        const grad = ctx.createLinearGradient(0, 0, 0, 750);
+        grad.addColorStop(0, '#0f172a');
+        grad.addColorStop(1, '#020617');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 600, 750);
+
+        // Header
+        ctx.fillStyle = '#6366f1';
+        ctx.font = '900 14px sans-serif';
+        ctx.fillText('ROTA FINANCEIRA', 50, 60);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 24px sans-serif';
+        ctx.fillText('Cobrança de Loja', 50, 100);
+
+        // Separator
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(50, 130);
+        ctx.lineTo(550, 130);
+        ctx.stroke();
+
+        // Establishment Info
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText('ESTABELECIMENTO', 50, 165);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 18px sans-serif';
+        const storeNameText = billingStore.name.length > 35 ? billingStore.name.slice(0, 35) + '...' : billingStore.name;
+        ctx.fillText(storeNameText, 50, 195);
+
+        // Due value
+        ctx.fillStyle = '#f43f5e';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText('VALOR PENDENTE', 50, 245);
+
+        ctx.fillStyle = '#f43f5e';
+        ctx.font = 'bold 32px monospace';
+        ctx.fillText(formatCurrency(billingStore.totalDue), 50, 285);
+
+        // Separator
+        ctx.beginPath();
+        ctx.moveTo(50, 320);
+        ctx.lineTo(550, 320);
+        ctx.stroke();
+
+        // QR Code load and draw
+        const qrImg = new Image();
+        qrImg.crossOrigin = 'anonymous';
+
+        await new Promise<void>((resolve, reject) => {
+          qrImg.onload = () => {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(175, 360, 250, 250, 24);
+            } else {
+              ctx.rect(175, 360, 250, 250);
+            }
+            ctx.fill();
+            ctx.drawImage(qrImg, 185, 370, 230, 230);
+            resolve();
+          };
+          qrImg.onerror = () => {
+            reject(new Error('Erro ao desenhar QR code'));
+          };
+          qrImg.src = qrCodeUrl;
+        });
+
+        // Instructions
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Escaneie o QR Code acima para pagar', 300, 640);
+        ctx.fillText('O Pix Copia e Cola também foi copiado!', 300, 660);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], `cobranca_${billingStore.name.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
+            setCachedShareFile(file);
+          }
+          setIsGeneratingShare(false);
+        }, 'image/png');
+
+      } catch (err) {
+        console.error('Error caching share file', err);
+        setIsGeneratingShare(false);
+      }
+    };
+
+    generate();
+  }, [billingStore, config.pixKey, config.pixName, config.pixCity]);
 
   const uniqueStores = useMemo(() => {
     return Array.from(new Set(entries.filter(e => e.grossAmount > 0).map(e => e.storeName))).sort();
@@ -1094,12 +1142,12 @@ const History: React.FC<HistoryProps> = ({
                 {hasPixConfig && (
                   <div className="w-full mt-4">
                     <button
-                      onClick={() => handleShare(billingStore.name, billingStore.totalDue, pixCode, qrCodeUrl)}
-                      disabled={isSharing}
-                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                      onClick={() => handleShare(billingStore.name, billingStore.totalDue, pixCode)}
+                      disabled={isSharing || isGeneratingShare}
+                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
                     >
-                      <Share2 size={12} className={isSharing ? 'animate-spin' : ''} />
-                      {isSharing ? 'Gerando Imagem...' : 'Compartilhar Cobrança'}
+                      <Share2 size={12} className={(isSharing || isGeneratingShare) ? 'animate-spin' : ''} />
+                      {isGeneratingShare ? 'Preparando Imagem...' : isSharing ? 'Compartilhando...' : 'Compartilhar Cobrança'}
                     </button>
                   </div>
                 )}
