@@ -93,6 +93,9 @@ export interface AppConfig {
   notificationsEnabled: boolean;
   customNotifications?: CustomNotification[];
   profile?: UserProfile;
+  pixKey?: string;
+  pixName?: string;
+  pixCity?: string;
   paymentMethodLabels?: {
     money: string;
     pix: string;
@@ -112,6 +115,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   themeMode: 'auto',
   notificationsEnabled: false,
   customNotifications: [],
+  pixKey: '',
+  pixName: '',
+  pixCity: '',
   paymentMethodLabels: {
     money: 'Dinheiro',
     pix: 'PIX',

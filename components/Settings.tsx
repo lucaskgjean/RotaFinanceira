@@ -567,6 +567,54 @@ const Settings: React.FC<SettingsProps> = ({
             </div>
           </div>
 
+          {/* CONFIGURAÇÃO DO PIX PARA COBRANÇA */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+            <div>
+              <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest">Cobrança (Chave Pix)</h4>
+              <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Configure seus dados para gerar os códigos Pix de cobrança</p>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                <Wallet size={12} /> Chave Pix
+              </label>
+              <input 
+                type="text" 
+                value={localConfig.pixKey || ''}
+                onChange={(e) => setLocalConfig({ ...localConfig, pixKey: e.target.value })}
+                placeholder="Ex: CPF, E-mail, Celular ou Chave Aleatória"
+                className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 ring-indigo-500/20 outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  <User size={12} /> Nome do Dono
+                </label>
+                <input 
+                  type="text" 
+                  value={localConfig.pixName || ''}
+                  onChange={(e) => setLocalConfig({ ...localConfig, pixName: e.target.value })}
+                  placeholder="Ex: Joao Silva"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 ring-indigo-500/20 outline-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  Cidade
+                </label>
+                <input 
+                  type="text" 
+                  value={localConfig.pixCity || ''}
+                  onChange={(e) => setLocalConfig({ ...localConfig, pixCity: e.target.value })}
+                  placeholder="Ex: Sao Paulo"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 ring-indigo-500/20 outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* SEGURANÇA */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
             <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest mb-4">Segurança</h4>

@@ -31,10 +31,98 @@ import {
   BarChart3,
   ArrowUpRight,
   Smartphone,
-  BookOpen
+  BookOpen,
+  Share2
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
 import PerformanceCalendar from './PerformanceCalendar';
+
+// Algoritmo CRC-16 CCITT (0x1021) usado pelo Banco Central para Pix
+function crc16(data: string): string {
+  let crc = 0xFFFF;
+  const polynomial = 0x1021;
+  
+  for (let i = 0; i < data.length; i++) {
+    const byte = data.charCodeAt(i);
+    for (let b = 0; b < 8; b++) {
+      const bit = ((byte >> (7 - b)) & 1) === 1;
+      const c15 = ((crc >> 15) & 1) === 1;
+      crc <<= 1;
+      if (c15 !== bit) {
+        crc ^= polynomial;
+      }
+    }
+  }
+  crc &= 0xFFFF;
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+export function generatePixPayload(key: string, name: string, city: string, amount: number, storeName: string): string {
+  const cleanKey = key.trim();
+  
+  // Sanitiza nome (retira acentos, max 25 chars, uppercase)
+  let cleanName = (name || 'ROTA FINANCEIRA').trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9 ]/g, "")
+    .slice(0, 25)
+    .toUpperCase();
+  if (!cleanName) cleanName = 'ROTA FINANCEIRA';
+
+  let cleanCity = (city || 'SAO PAULO').trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9 ]/g, "")
+    .slice(0, 15)
+    .toUpperCase();
+  if (!cleanCity) cleanCity = 'SAO PAULO';
+
+  // Identificador da transação (TXID). Nome da loja sanitizado, max 25 caracteres, sem espaços
+  let cleanTxid = storeName.trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9]/g, "") // sem espaços para txid estático padrão
+    .slice(0, 25)
+    .toUpperCase();
+  if (!cleanTxid) cleanTxid = 'COBRANCA';
+
+  // GUI (ID 00)
+  const gui = "0014br.gov.bcb.pix";
+  // Chave Pix (ID 01)
+  const keyField = `01${cleanKey.length.toString().padStart(2, '0')}${cleanKey}`;
+  const accountInfoValue = `${gui}${keyField}`;
+  const accountInfo = `26${accountInfoValue.length.toString().padStart(2, '0')}${accountInfoValue}`;
+  
+  // Merchant Category Code (ID 52)
+  const mcc = "52040000";
+  
+  // Currency (ID 53)
+  const currency = "5303986"; // BRL
+  
+  // Amount (ID 54)
+  const formattedAmount = amount.toFixed(2);
+  const amountField = `54${formattedAmount.length.toString().padStart(2, '0')}${formattedAmount}`;
+  
+  // Country Code (ID 58)
+  const country = "5802BR";
+  
+  // Merchant Name (ID 59)
+  const nameField = `59${cleanName.length.toString().padStart(2, '0')}${cleanName}`;
+  
+  // Merchant City (ID 60)
+  const cityField = `60${cleanCity.length.toString().padStart(2, '0')}${cleanCity}`;
+  
+  // Additional Data (ID 62)
+  const txidField = `05${cleanTxid.length.toString().padStart(2, '0')}${cleanTxid}`;
+  const additionalData = `62${txidField.length.toString().padStart(2, '0')}${txidField}`;
+  
+  // Combine parts
+  let payload = `000201${accountInfo}${mcc}${currency}${amountField}${country}${nameField}${cityField}${additionalData}6304`;
+  
+  // Calculate CRC16
+  const crc = crc16(payload);
+  return payload + crc;
+}
 
 interface HistoryProps {
   entries: DailyEntry[];
@@ -44,11 +132,23 @@ interface HistoryProps {
   onEdit: (entry: DailyEntry) => void;
   onUpdate: (entry: DailyEntry) => void;
   onBulkUpdateStoreName: (oldName: string, newName: string) => void;
+  onBulkUpdatePaidStatus?: (ids: string[], isPaid: boolean) => void;
   filterStore: string;
   onFilterStoreChange: (val: string) => void;
 }
 
-const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelete, onEdit, onUpdate, onBulkUpdateStoreName, filterStore, onFilterStoreChange }) => {
+const History: React.FC<HistoryProps> = ({ 
+  entries, 
+  timeEntries, 
+  config, 
+  onDelete, 
+  onEdit, 
+  onUpdate, 
+  onBulkUpdateStoreName, 
+  onBulkUpdatePaidStatus,
+  filterStore, 
+  onFilterStoreChange 
+}) => {
   const todayStr = getLocalDateStr();
   const [filterStartDate, setFilterStartDate] = useState<string>(todayStr);
   const [filterEndDate, setFilterEndDate] = useState<string>(todayStr);
@@ -61,6 +161,191 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
   const [visibleCount, setVisibleCount] = useState(3);
   const [isEditingStoreName, setIsEditingStoreName] = useState(false);
   const [newStoreName, setNewStoreName] = useState('');
+  const [billingStore, setBillingStore] = useState<{ name: string; totalDue: number } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [confirmingStoreIds, setConfirmingStoreIds] = useState<string[] | null>(null);
+
+  const storePendingBalances = useMemo(() => {
+    const map: Record<string, { totalDue: number; totalEntries: number; totalPaid: number; entryIds: string[] }> = {};
+    
+    entries.forEach(e => {
+      if (e.grossAmount <= 0 || e.storeName === 'Fechamento de KM') return;
+      
+      const matchRange = (filterStartDate || filterEndDate) ? (
+        (!filterStartDate || e.date >= filterStartDate) &&
+        (!filterEndDate || e.date <= filterEndDate)
+      ) : true;
+      
+      if (!matchRange) return;
+      
+      const store = e.storeName || 'Geral';
+      if (!map[store]) {
+        map[store] = { totalDue: 0, totalEntries: 0, totalPaid: 0, entryIds: [] };
+      }
+      
+      if (!e.isPaid) {
+        map[store].totalDue += e.grossAmount;
+        map[store].entryIds.push(e.id);
+        map[store].totalEntries += 1;
+      } else {
+        map[store].totalPaid += e.grossAmount;
+      }
+    });
+
+    return Object.entries(map)
+      .map(([name, data]) => ({
+        name,
+        totalDue: data.totalDue,
+        totalPaid: data.totalPaid,
+        totalEntries: data.totalEntries,
+        entryIds: data.entryIds
+      }))
+      .sort((a, b) => b.totalDue - a.totalDue);
+  }, [entries, filterStartDate, filterEndDate]);
+
+  const storesWithDues = useMemo(() => {
+    return storePendingBalances.filter(item => item.totalDue > 0);
+  }, [storePendingBalances]);
+
+  const handleBillStore = (store: { name: string; totalDue: number }) => {
+    setBillingStore(store);
+    setCopied(false);
+  };
+
+  const handleShare = async (storeName: string, amount: number, pixCode: string, qrCodeUrl: string) => {
+    try {
+      setIsSharing(true);
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 750;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Cannot get canvas context');
+      
+      const grad = ctx.createLinearGradient(0, 0, 0, 750);
+      grad.addColorStop(0, '#0f172a');
+      grad.addColorStop(1, '#020617');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 600, 750);
+      
+      ctx.fillStyle = '#6366f1';
+      ctx.font = '900 14px sans-serif';
+      ctx.fillText('ROTA FINANCEIRA', 50, 60);
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 24px sans-serif';
+      ctx.fillText('Cobrança de Loja', 50, 100);
+      
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(50, 130);
+      ctx.lineTo(550, 130);
+      ctx.stroke();
+      
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('ESTABELECIMENTO', 50, 165);
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 18px sans-serif';
+      const storeNameText = storeName.length > 35 ? storeName.slice(0, 35) + '...' : storeName;
+      ctx.fillText(storeNameText, 50, 195);
+      
+      ctx.fillStyle = '#f43f5e';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('VALOR PENDENTE', 50, 245);
+      
+      ctx.fillStyle = '#f43f5e';
+      ctx.font = 'bold 32px monospace';
+      ctx.fillText(formatCurrency(amount), 50, 285);
+      
+      ctx.beginPath();
+      ctx.moveTo(50, 320);
+      ctx.lineTo(550, 320);
+      ctx.stroke();
+
+      const qrImg = new Image();
+      qrImg.crossOrigin = 'anonymous';
+      
+      await new Promise<void>((resolve, reject) => {
+        qrImg.onload = () => {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          if (ctx.roundRect) {
+            ctx.roundRect(175, 360, 250, 250, 24);
+          } else {
+            ctx.rect(175, 360, 250, 250);
+          }
+          ctx.fill();
+          ctx.drawImage(qrImg, 185, 370, 230, 230);
+          resolve();
+        };
+        qrImg.onerror = () => {
+          reject(new Error('Erro ao desenhar QR code'));
+        };
+        qrImg.src = qrCodeUrl;
+      });
+      
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Escaneie o QR Code acima para pagar', 300, 640);
+      ctx.fillText('O Pix Copia e Cola também foi copiado!', 300, 660);
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          throw new Error('Falha ao gerar blob');
+        }
+        
+        const file = new File([blob], `cobranca_${storeName.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
+        const shareText = `Olá! Segue cobrança da loja *${storeName}* no valor de *${formatCurrency(amount)}*.\n\nVocê pode pagar escaneando o QR Code na imagem ou utilizando o Pix Copia e Cola abaixo:\n\n${pixCode}`;
+        
+        try {
+          await navigator.clipboard.writeText(pixCode);
+        } catch (e) {
+          console.warn("Clipboard access denied", e);
+        }
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Cobrança - ${storeName}`,
+            text: shareText
+          });
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `cobranca_${storeName.replace(/\s+/g, '_')}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          alert(`Código Pix Copia e Cola copiado para a área de transferência!\n\nAlém disso, a imagem com o QR Code foi baixada para você enviar ao estabelecimento.`);
+        }
+        setIsSharing(false);
+      }, 'image/png');
+      
+    } catch (err) {
+      console.error(err);
+      try {
+        await navigator.clipboard.writeText(pixCode);
+        const shareText = `Olá! Segue cobrança da loja *${storeName}* no valor de *${formatCurrency(amount)}*.\n\nPix Copia e Cola:\n\n${pixCode}`;
+        if (navigator.share) {
+          await navigator.share({
+            title: `Cobrança - ${storeName}`,
+            text: shareText
+          });
+        } else {
+          alert(`Código Pix Copia e Cola copiado para a área de transferência!\n\nPix Copia e Cola:\n\n${pixCode}`);
+        }
+      } catch (e) {
+        alert(`Não foi possível compartilhar a imagem, mas o Pix Copia e Cola foi copiado para a área de transferência!`);
+      }
+      setIsSharing(false);
+    }
+  };
 
   const uniqueStores = useMemo(() => {
     return Array.from(new Set(entries.filter(e => e.grossAmount > 0).map(e => e.storeName))).sort();
@@ -586,6 +871,121 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
         </div>
       </div>
 
+      {/* SEÇÃO: COBRANÇA DE LOJAS */}
+      <motion.div 
+        variants={itemVariants} 
+        className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 space-y-6"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+              <Banknote size={20} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Cobrança das Lojas</h3>
+              <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">
+                Pendências no período selecionado
+              </p>
+            </div>
+          </div>
+          {storesWithDues.length > 0 && (
+            <span className="text-[9px] font-black bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 px-3 py-1.5 rounded-full uppercase tracking-widest border border-rose-100 dark:border-rose-500/10 self-start sm:self-center">
+              {storesWithDues.length} {storesWithDues.length === 1 ? 'Loja pendente' : 'Lojas pendentes'}
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 max-h-[460px] overflow-y-auto -mr-2 pr-2 custom-scrollbar">
+          {storesWithDues.length > 0 ? (
+            storesWithDues.map((store, idx) => (
+              <div 
+                key={idx} 
+                onMouseLeave={() => {
+                  if (confirmingStoreIds && JSON.stringify(confirmingStoreIds) === JSON.stringify(store.entryIds)) {
+                    setConfirmingStoreIds(null);
+                  }
+                }}
+                className="flex flex-col p-5 bg-slate-50 dark:bg-slate-800/30 rounded-3xl border border-slate-100 dark:border-slate-800/80 transition-all hover:bg-slate-100/50 dark:hover:bg-slate-800/60 gap-3"
+              >
+                {/* Linha 1: Posição da Loja e Nome na frente */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="shrink-0 text-[10px] font-black bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                    {idx + 1}º
+                  </span>
+                  <span className="text-sm font-black text-slate-800 dark:text-white truncate">
+                    {store.name}
+                  </span>
+                </div>
+
+                {/* Linha 2: Quantidade de Entregas Pendentes e o Valor Pendente */}
+                <div className="flex items-center justify-between gap-4 bg-white dark:bg-slate-900/40 px-3.5 py-2.5 rounded-xl border border-slate-100/80 dark:border-slate-800/50">
+                  <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                    <Layers size={11} className="text-indigo-500" />
+                    <span>{store.totalEntries} {store.totalEntries === 1 ? 'entrega' : 'entregas'} pendente{store.totalEntries === 1 ? '' : 's'}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mr-2">A cobrar:</span>
+                    <span className="text-sm font-black text-rose-500 dark:text-rose-400 font-mono-num leading-none">
+                      {formatCurrency(store.totalDue)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Linha 3: Botões de Pago e Cobrar (Alinhamento na linha inferior, Pago primeiro, Cobrar no mesmo estilo) */}
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  {/* Botão Pago */}
+                  {confirmingStoreIds && JSON.stringify(confirmingStoreIds) === JSON.stringify(store.entryIds) ? (
+                    <button
+                      onClick={() => {
+                        if (onBulkUpdatePaidStatus && store.entryIds && store.entryIds.length > 0) {
+                          onBulkUpdatePaidStatus(store.entryIds, true);
+                          setConfirmingStoreIds(null);
+                        }
+                      }}
+                      className="w-full py-2.5 bg-rose-500 hover:bg-rose-600 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 text-white dark:text-rose-400 rounded-2xl text-[9px] font-black uppercase tracking-widest border border-rose-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 h-10 cursor-pointer animate-pulse"
+                    >
+                      <CheckCircle2 size={12} strokeWidth={2.5} />
+                      Confirmar?
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (store.entryIds && store.entryIds.length > 0) {
+                          setConfirmingStoreIds(store.entryIds);
+                        }
+                      }}
+                      className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-2xl text-[9px] font-black uppercase tracking-widest border border-emerald-100/50 dark:border-emerald-500/10 active:scale-95 transition-all flex items-center justify-center gap-1.5 h-10 cursor-pointer"
+                    >
+                      <CheckCircle2 size={12} strokeWidth={2.5} />
+                      Pago
+                    </button>
+                  )}
+
+                  {/* Botão Cobrar */}
+                  <button
+                    onClick={() => handleBillStore(store)}
+                    className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl text-[9px] font-black uppercase tracking-widest border border-indigo-100/50 dark:border-indigo-500/10 active:scale-95 transition-all flex items-center justify-center gap-1.5 h-10 cursor-pointer"
+                  >
+                    <Smartphone size={12} strokeWidth={2.5} />
+                    Cobrar
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-12 text-center flex flex-col items-center justify-center">
+              <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 mb-4 shadow-inner">
+                <Check size={28} strokeWidth={3} />
+              </div>
+              <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest mb-1.5">Tudo em dia!</h4>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest leading-normal max-w-sm">
+                Nenhum valor pendente para cobrar das lojas no período selecionado.
+              </p>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
       {/* Calendário de Performance */}
       <PerformanceCalendar dailyStats={dailyBreakdown} />
 
@@ -601,6 +1001,121 @@ const History: React.FC<HistoryProps> = ({ entries, timeEntries, config, onDelet
             onClose={() => setShowRangePicker(false)} 
           />
         )}
+        {billingStore && (() => {
+          const hasPixConfig = config.pixKey && config.pixKey.trim().length > 0;
+          const pixCode = hasPixConfig 
+            ? generatePixPayload(config.pixKey!, config.pixName || '', config.pixCity || '', billingStore.totalDue, billingStore.name)
+            : '';
+          const qrCodeUrl = hasPixConfig
+            ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`
+            : '';
+
+          return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-5 shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-y-auto max-h-[92vh] custom-scrollbar"
+              >
+                <button 
+                  onClick={() => setBillingStore(null)}
+                  className="absolute top-4 right-4 p-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 rounded-full transition-all"
+                >
+                  <X size={14} />
+                </button>
+
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <Smartphone size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Cobrança de Loja</h3>
+                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Enviar cobrança via Pix</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 mb-4">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800/50">
+                    <span className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">Estabelecimento</span>
+                    <span className="block text-sm font-black text-slate-800 dark:text-white">{billingStore.name}</span>
+                  </div>
+
+                  <div className="p-3 bg-rose-500/5 dark:bg-rose-500/10 rounded-xl border border-rose-500/10">
+                    <span className="block text-[8px] font-black text-rose-500 uppercase tracking-widest mb-0.5">Valor Não Recebido (Pendente)</span>
+                    <span className="block text-lg font-black text-rose-600 dark:text-rose-400 font-mono-num">{formatCurrency(billingStore.totalDue)}</span>
+                  </div>
+                </div>
+
+                {hasPixConfig ? (
+                  <div className="space-y-4 flex flex-col items-center">
+                    <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-none flex items-center justify-center">
+                      <img 
+                        src={qrCodeUrl} 
+                        alt="Pix QR Code" 
+                        className="w-36 h-36 object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+
+                    <div className="w-full space-y-1.5">
+                      <label className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Pix Copia e Cola</label>
+                      <div className="flex gap-2">
+                        <div className="flex-1 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-[11px] font-mono rounded-xl border border-slate-100 dark:border-slate-800 break-all select-all text-slate-600 dark:text-slate-300 max-h-12 overflow-y-auto custom-scrollbar">
+                          {pixCode}
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(pixCode);
+                            setCopied(true);
+                            setTimeout(() => setCopied(false), 2000);
+                          }}
+                          className={`px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 flex items-center justify-center ${copied ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
+                        >
+                          {copied ? 'Copiado!' : 'Copiar'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-5 bg-amber-500/10 rounded-xl border border-amber-500/20 text-center space-y-3">
+                    <div className="w-10 h-10 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto">
+                      <AlertCircle size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-0.5">Chave Pix não encontrada</h4>
+                      <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-normal font-bold uppercase tracking-tight">
+                        Para gerar o código Pix automático, configure sua chave Pix e o seu nome de beneficiário na aba <span className="text-indigo-500 font-black">Perfil</span> nas Configurações.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {hasPixConfig && (
+                  <div className="w-full mt-4">
+                    <button
+                      onClick={() => handleShare(billingStore.name, billingStore.totalDue, pixCode, qrCodeUrl)}
+                      disabled={isSharing}
+                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                    >
+                      <Share2 size={12} className={isSharing ? 'animate-spin' : ''} />
+                      {isSharing ? 'Gerando Imagem...' : 'Compartilhar Cobrança'}
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-3">
+                  <button 
+                    onClick={() => setBillingStore(null)}
+                    className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition h-11"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
         {isEditingStoreName && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
             <motion.div 
