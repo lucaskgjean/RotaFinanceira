@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { jsPDF } from 'jspdf';
 import { DailyEntry, AppConfig, TimeEntry } from '../types';
 import { formatCurrency, getWeeklySummary, getDailyStats, getLocalDateStr } from '../utils/calculations';
 import { motion, AnimatePresence } from 'motion/react';
@@ -38,7 +39,8 @@ import {
   Copy,
   Camera,
   Image as ImageIcon,
-  Download
+  Download,
+  FileText
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
 import PerformanceCalendar from './PerformanceCalendar';
@@ -131,7 +133,7 @@ export function generatePixPayload(key: string, name: string, city: string, amou
 }
 
 interface BillingModalPortalProps {
-  billingStore: { name: string; totalDue: number } | null;
+  billingStore: { name: string; totalDue: number; entryIds?: string[] } | null;
   config: AppConfig;
   copied: boolean;
   setCopied: (copied: boolean) => void;
@@ -140,6 +142,7 @@ interface BillingModalPortalProps {
   handleShare: (storeName: string, amount: number, pixCode: string) => void;
   onClose: () => void;
   cachedShareFile: File | null;
+  entries: DailyEntry[];
 }
 
 const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
@@ -151,9 +154,10 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
   isGeneratingShare,
   handleShare,
   onClose,
-  cachedShareFile
+  cachedShareFile,
+  entries
 }) => {
-  const [isImgCopied, setIsImgCopied] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [printMode, setPrintMode] = useState(false);
 
   const hasPixConfig = billingStore ? !!(config.pixKey && config.pixKey.trim().length > 0) : false;
@@ -164,23 +168,304 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
     ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`
     : '';
 
-  const copyImageToClipboard = async () => {
-    if (!cachedShareFile) {
-      alert("Aguarde o carregamento do QR code...");
-      return;
-    }
+  const pendingEntries = useMemo(() => {
+    if (!billingStore || !entries) return [];
+    return entries.filter(e => {
+      if (e.storeName !== billingStore.name) return false;
+      if (e.isPaid) return false;
+      if (e.grossAmount <= 0) return false;
+      if (billingStore.entryIds && billingStore.entryIds.length > 0) {
+        return billingStore.entryIds.includes(e.id);
+      }
+      return true;
+    }).sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.time || '12:00'}:00`);
+      const dateB = new Date(`${b.date}T${b.time || '12:00'}:00`);
+      return dateA.getTime() - dateB.getTime();
+    });
+  }, [billingStore, entries]);
+
+  const getBase64Image = (imgUrl: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          reject(new Error('Failed to get 2d context'));
+        }
+      };
+      img.onerror = (e) => reject(e);
+      img.src = imgUrl;
+    });
+  };
+
+  const exportReportAsPDF = async () => {
+    if (!billingStore) return;
+    setIsExporting(true);
     try {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          [cachedShareFile.type]: cachedShareFile
-        })
-      ]);
-      setIsImgCopied(true);
-      setTimeout(() => setIsImgCopied(false), 2000);
-      alert("✨ Imagem copiada com SUCESSO!\n\nAgora você pode abrir o WhatsApp, entrar na conversa da loja, clicar em colar (segurar o dedo no campo de texto e selecionar Colar) para enviar o cupom de cobrança completo instantaneamente!");
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // Header Banner
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.rect(0, 0, 210, 35, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.text('ROTA FINANCEIRA', 15, 18);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text('RELATÓRIO DETALHADO DE COBRANÇA', 15, 26);
+
+      doc.setFontSize(8);
+      doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}`, 195, 26, { align: 'right' });
+
+      // Store & Period Info Box
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.roundedRect(15, 45, 180, 32, 4, 4, 'F');
+      doc.setDrawColor(226, 232, 240); // slate-200
+      doc.roundedRect(15, 45, 180, 32, 4, 4, 'S');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.text('ESTABELECIMENTO COBRADO', 20, 52);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.setTextColor(99, 102, 241); // indigo-500
+      const sName = billingStore.name.length > 40 ? billingStore.name.substring(0, 37) + '...' : billingStore.name;
+      doc.text(sName, 20, 60);
+
+      let periodText = 'Todas as pendências';
+      if (pendingEntries.length > 0) {
+        const dates = pendingEntries.map(e => e.date).sort();
+        const firstDate = new Date(dates[0] + 'T12:00:00').toLocaleDateString('pt-BR');
+        const lastDate = new Date(dates[dates.length - 1] + 'T12:00:00').toLocaleDateString('pt-BR');
+        periodText = `${firstDate} até ${lastDate}`;
+      }
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.text(`Período das corridas: ${periodText}`, 20, 68);
+      doc.text(`Total de entregas listadas: ${pendingEntries.length}`, 20, 73);
+
+      // Total Due Box
+      doc.setFillColor(254, 242, 242); // rose-50
+      doc.roundedRect(140, 49, 50, 24, 3, 3, 'F');
+      doc.setDrawColor(254, 226, 226); // rose-200
+      doc.roundedRect(140, 49, 50, 24, 3, 3, 'S');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(225, 29, 72); // rose-600
+      doc.text('TOTAL DEVIDO', 145, 55);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text(formatCurrency(billingStore.totalDue), 145, 65);
+
+      // Detail Table Title
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text('DETALHAMENTO DAS ENTREGAS / CORRIDAS PENDENTES', 15, 90);
+
+      // Table Header
+      doc.setFillColor(99, 102, 241); // indigo-500
+      doc.rect(15, 95, 180, 8, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(255, 255, 255);
+      doc.text('Data/Hora', 18, 100);
+      doc.text('Descrição / Detalhes', 55, 100);
+      doc.text('Meio Pag.', 140, 100);
+      doc.text('Valor', 192, 100, { align: 'right' });
+
+      // Table Rows
+      let y = 103;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+
+      pendingEntries.forEach((entry, index) => {
+        if (index % 2 === 0) {
+          doc.setFillColor(248, 250, 252); // slate-50
+          doc.rect(15, y, 180, 8, 'F');
+        }
+
+        doc.setTextColor(51, 65, 85); // slate-700
+
+        const formattedDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR');
+        const timeStr = entry.time || '--:--';
+        doc.text(`${formattedDate} ${timeStr}`, 18, y + 5.5);
+
+        let desc = entry.description || 'Corrida de entrega';
+        if (desc.length > 55) desc = desc.substring(0, 52) + '...';
+        doc.text(desc, 55, y + 5.5);
+
+        const payMethod = config.paymentMethodLabels?.[entry.paymentMethod as keyof typeof config.paymentMethodLabels] || entry.paymentMethod || 'PIX';
+        doc.text(payMethod.toUpperCase(), 140, y + 5.5);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text(formatCurrency(entry.grossAmount), 192, y + 5.5, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+
+        y += 8;
+
+        if (y > 240) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7);
+          doc.setTextColor(148, 163, 184);
+          doc.text('Relatório de Cobrança • Rota Financeira', 15, 285);
+          doc.text('Página continua...', 195, 285, { align: 'right' });
+
+          doc.addPage();
+
+          // Header on new page
+          doc.setFillColor(15, 23, 42);
+          doc.rect(0, 0, 210, 15, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(10);
+          doc.text(`Relatório de Cobrança - ${billingStore?.name} (Continuação)`, 15, 10);
+
+          // Re-draw table header
+          doc.setFillColor(99, 102, 241);
+          doc.rect(15, 22, 180, 8, 'F');
+          doc.setFontSize(9);
+          doc.setTextColor(255, 255, 255);
+          doc.text('Data/Hora', 18, 27);
+          doc.text('Descrição / Detalhes', 55, 27);
+          doc.text('Meio Pag.', 140, 27);
+          doc.text('Valor', 192, 27, { align: 'right' });
+
+          y = 33;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+        }
+      });
+
+      if (y > 195) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(148, 163, 184);
+        doc.text('Relatório de Cobrança • Rota Financeira', 15, 285);
+
+        doc.addPage();
+        y = 20;
+      } else {
+        y += 10;
+      }
+
+      // Pix Payment Section
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.rect(15, y, 180, 65, 'F');
+      doc.setDrawColor(226, 232, 240); // slate-200
+      doc.rect(15, y, 180, 65, 'S');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text('INFORMAÇÕES DE PAGAMENTO (PIX)', 22, y + 8);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text('Para realizar o pagamento do saldo total pendente, utilize a chave Pix abaixo:', 22, y + 15);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Chave Pix:', 22, y + 24);
+      doc.setFont('helvetica', 'normal');
+      doc.text(config.pixKey || 'Não configurada', 48, y + 24);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Beneficiário:', 22, y + 31);
+      doc.setFont('helvetica', 'normal');
+      doc.text(config.pixName || 'Não configurado', 48, y + 31);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Cidade:', 22, y + 38);
+      doc.setFont('helvetica', 'normal');
+      doc.text(config.pixCity || '', 48, y + 38);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(99, 102, 241);
+      doc.text('Pix Copia e Cola:', 22, y + 47);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(100, 116, 139);
+
+      const wrappedPix = doc.splitTextToSize(pixCode, 110);
+      doc.text(wrappedPix, 22, y + 52);
+
+      // Embed QR Code
+      if (hasPixConfig && qrCodeUrl) {
+        try {
+          const qrBase64 = await getBase64Image(qrCodeUrl);
+          doc.setFillColor(255, 255, 255);
+          doc.rect(142, y + 5, 48, 48, 'F');
+          doc.addImage(qrBase64, 'PNG', 144, y + 7, 44, 44);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7);
+          doc.setTextColor(100, 116, 139);
+          doc.text('Escaneie p/ Pagar', 166, y + 58, { align: 'center' });
+        } catch (qrErr) {
+          console.error('Error drawing QR Code inside PDF:', qrErr);
+        }
+      }
+
+      // Final PDF Footer
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text('Rota Financeira - Controle de Entregas e Finanças Pessoais', 15, 285);
+
+      doc.text('Página 1 de 1', 195, 285, { align: 'right' });
+
+      // Share PDF/Open With or Download
+      const pdfBlob = doc.output('blob');
+      const fileName = `Relatorio_Cobranca_${billingStore.name.replace(/\s+/g, '_')}.pdf`;
+      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          files: [pdfFile],
+          title: `Relatório de Cobrança - ${billingStore.name}`,
+          text: `Olá! Segue o relatório detalhado de cobrança das entregas pendentes da loja *${billingStore.name}* no valor total de *${formatCurrency(billingStore.totalDue)}*.`
+        });
+      } else {
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        alert(`✨ Relatório PDF gerado com SUCESSO!\n\nEle foi baixado como "${fileName}".\nAbra o arquivo para escolher qual aplicativo usar para visualizar, imprimir ou compartilhar!`);
+      }
     } catch (err) {
-      console.error(err);
-      alert("O seu navegador ou WebView não suportou a cópia direta. Use o 'Modo Print de Tela' para tirar um print do seu celular e enviar.");
+      console.error('Error generating PDF report:', err);
+      alert('Não foi possível gerar o relatório PDF. Tente novamente.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -304,7 +589,7 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
                 background: white !important;
                 color: black !important;
               }
-              #download-button, #close-button, #share-button, #copy-button, #copy-image-button, #screenshot-mode-button, #close-top-button {
+              #download-button, #close-button, #share-button, #copy-button, #export-report-button, #screenshot-mode-button, #close-top-button {
                 display: none !important;
               }
             }
@@ -394,13 +679,13 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
             {hasPixConfig && (
               <div className="w-full mt-4 space-y-2">
                 <button
-                  id="copy-image-button"
-                  onClick={copyImageToClipboard}
-                  disabled={isGeneratingShare || !cachedShareFile}
+                  id="export-report-button"
+                  onClick={exportReportAsPDF}
+                  disabled={isExporting}
                   className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
                 >
-                  <Copy size={12} />
-                  {isImgCopied ? 'Imagem Copiada!' : 'Copiar Imagem (Enviar p/ WhatsApp)'}
+                  <FileText size={12} className={isExporting ? 'animate-spin' : ''} />
+                  {isExporting ? 'Exportando PDF...' : 'Exportar Relatório (PDF)'}
                 </button>
 
                 <button
@@ -491,7 +776,7 @@ const History: React.FC<HistoryProps> = ({
   const [visibleCount, setVisibleCount] = useState(3);
   const [isEditingStoreName, setIsEditingStoreName] = useState(false);
   const [newStoreName, setNewStoreName] = useState('');
-  const [billingStore, setBillingStore] = useState<{ name: string; totalDue: number } | null>(null);
+  const [billingStore, setBillingStore] = useState<{ name: string; totalDue: number; entryIds?: string[] } | null>(null);
   const [copied, setCopied] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [cachedShareFile, setCachedShareFile] = useState<File | null>(null);
@@ -540,7 +825,7 @@ const History: React.FC<HistoryProps> = ({
     return storePendingBalances.filter(item => item.totalDue > 0);
   }, [storePendingBalances]);
 
-  const handleBillStore = (store: { name: string; totalDue: number }) => {
+  const handleBillStore = (store: { name: string; totalDue: number; entryIds?: string[] }) => {
     setBillingStore(store);
     setCopied(false);
   };
@@ -1389,6 +1674,7 @@ const History: React.FC<HistoryProps> = ({
           handleShare={handleShare}
           onClose={() => setBillingStore(null)}
           cachedShareFile={cachedShareFile}
+          entries={entries}
         />
         {isEditingStoreName && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
