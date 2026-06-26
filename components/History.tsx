@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { DailyEntry, AppConfig, TimeEntry } from '../types';
 import { formatCurrency, getWeeklySummary, getDailyStats, getLocalDateStr } from '../utils/calculations';
 import { motion, AnimatePresence } from 'motion/react';
@@ -32,7 +33,8 @@ import {
   ArrowUpRight,
   Smartphone,
   BookOpen,
-  Share2
+  Share2,
+  Printer
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
 import PerformanceCalendar from './PerformanceCalendar';
@@ -123,6 +125,203 @@ export function generatePixPayload(key: string, name: string, city: string, amou
   const crc = crc16(payload);
   return payload + crc;
 }
+
+interface BillingModalPortalProps {
+  billingStore: { name: string; totalDue: number } | null;
+  config: AppConfig;
+  copied: boolean;
+  setCopied: (copied: boolean) => void;
+  isSharing: boolean;
+  isGeneratingShare: boolean;
+  handleShare: (storeName: string, amount: number, pixCode: string) => void;
+  onClose: () => void;
+}
+
+const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
+  billingStore,
+  config,
+  copied,
+  setCopied,
+  isSharing,
+  isGeneratingShare,
+  handleShare,
+  onClose
+}) => {
+  const hasPixConfig = billingStore ? !!(config.pixKey && config.pixKey.trim().length > 0) : false;
+  const pixCode = (billingStore && hasPixConfig)
+    ? generatePixPayload(config.pixKey!, config.pixName || '', config.pixCity || '', billingStore.totalDue, billingStore.name)
+    : '';
+  const qrCodeUrl = (billingStore && hasPixConfig)
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`
+    : '';
+
+  const modalContent = (
+    <AnimatePresence>
+      {billingStore && (
+        <div id="billing-modal-backdrop" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+          <style>{`
+            @media print {
+              /* Hide EVERYTHING else on the page during print */
+              body {
+                background: white !important;
+                color: black !important;
+              }
+              #root, header, main, footer, nav, .fixed:not(#billing-modal-backdrop) {
+                display: none !important;
+              }
+              /* Style the print container specifically */
+              #billing-modal-backdrop {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                background: white !important;
+                backdrop-filter: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                display: block !important;
+                z-index: 9999999 !important;
+              }
+              #billing-modal-content {
+                box-shadow: none !important;
+                border: none !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                max-height: none !important;
+                padding: 20px !important;
+                margin: 0 auto !important;
+                background: white !important;
+                color: black !important;
+              }
+              /* Hide the control buttons when printing */
+              #print-button, #close-button, #share-button, #copy-button, #close-top-button {
+                display: none !important;
+              }
+            }
+          `}</style>
+          <motion.div 
+            id="billing-modal-content"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-5 shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-y-auto max-h-[92vh] custom-scrollbar"
+          >
+            <button 
+              id="close-top-button"
+              onClick={onClose}
+              className="absolute top-4 right-4 p-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 rounded-full transition-all cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <Smartphone size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Cobrança de Loja</h3>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Enviar cobrança via Pix</p>
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-4">
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800/50">
+                <span className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">Estabelecimento</span>
+                <span className="block text-sm font-black text-slate-800 dark:text-white">{billingStore.name}</span>
+              </div>
+
+              <div className="p-3 bg-rose-500/5 dark:bg-rose-500/10 rounded-xl border border-rose-500/10">
+                <span className="block text-[8px] font-black text-rose-500 uppercase tracking-widest mb-0.5">Valor Não Recebido (Pendente)</span>
+                <span className="block text-lg font-black text-rose-600 dark:text-rose-400 font-mono-num">{formatCurrency(billingStore.totalDue)}</span>
+              </div>
+            </div>
+
+            {hasPixConfig ? (
+              <div className="space-y-4 flex flex-col items-center">
+                <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-none flex items-center justify-center">
+                  <img 
+                    src={qrCodeUrl} 
+                    alt="Pix QR Code" 
+                    className="w-36 h-36 object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+
+                <div className="w-full space-y-1.5">
+                  <label className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Pix Copia e Cola</label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-[11px] font-mono rounded-xl border border-slate-100 dark:border-slate-800 break-all select-all text-slate-600 dark:text-slate-300 max-h-12 overflow-y-auto custom-scrollbar">
+                      {pixCode}
+                    </div>
+                    <button
+                      id="copy-button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(pixCode);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className={`px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 flex items-center justify-center cursor-pointer ${copied ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
+                    >
+                      {copied ? 'Copiado!' : 'Copiar'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-5 bg-amber-500/10 rounded-xl border border-amber-500/20 text-center space-y-3">
+                <div className="w-10 h-10 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto">
+                  <AlertCircle size={20} />
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-0.5">Chave Pix não encontrada</h4>
+                  <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-normal font-bold uppercase tracking-tight">
+                    Para gerar o código Pix automático, configure sua chave Pix e o seu nome de beneficiário na aba <span className="text-indigo-500 font-black">Perfil</span> nas Configurações.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {hasPixConfig && (
+              <div className="w-full mt-4 space-y-2">
+                <button
+                  id="share-button"
+                  onClick={() => handleShare(billingStore.name, billingStore.totalDue, pixCode)}
+                  disabled={isSharing || isGeneratingShare}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                >
+                  <Share2 size={12} className={(isSharing || isGeneratingShare) ? 'animate-spin' : ''} />
+                  {isGeneratingShare ? 'Preparando Imagem...' : isSharing ? 'Compartilhando...' : 'Compartilhar Cobrança'}
+                </button>
+
+                <button
+                  id="print-button"
+                  onClick={() => window.print()}
+                  className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                >
+                  <Printer size={12} />
+                  Imprimir ou Salvar PDF
+                </button>
+              </div>
+            )}
+
+            <div className="mt-3">
+              <button 
+                id="close-button"
+                onClick={onClose}
+                className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition h-11 cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+
+  return createPortal(modalContent, document.body);
+};
 
 interface HistoryProps {
   entries: DailyEntry[];
@@ -1049,121 +1248,16 @@ const History: React.FC<HistoryProps> = ({
             onClose={() => setShowRangePicker(false)} 
           />
         )}
-        {billingStore && (() => {
-          const hasPixConfig = config.pixKey && config.pixKey.trim().length > 0;
-          const pixCode = hasPixConfig 
-            ? generatePixPayload(config.pixKey!, config.pixName || '', config.pixCity || '', billingStore.totalDue, billingStore.name)
-            : '';
-          const qrCodeUrl = hasPixConfig
-            ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`
-            : '';
-
-          return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-              <motion.div 
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-5 shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-y-auto max-h-[92vh] custom-scrollbar"
-              >
-                <button 
-                  onClick={() => setBillingStore(null)}
-                  className="absolute top-4 right-4 p-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 rounded-full transition-all"
-                >
-                  <X size={14} />
-                </button>
-
-                <div className="flex items-center gap-2.5 mb-4">
-                  <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                    <Smartphone size={16} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">Cobrança de Loja</h3>
-                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Enviar cobrança via Pix</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 mb-4">
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800/50">
-                    <span className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-0.5">Estabelecimento</span>
-                    <span className="block text-sm font-black text-slate-800 dark:text-white">{billingStore.name}</span>
-                  </div>
-
-                  <div className="p-3 bg-rose-500/5 dark:bg-rose-500/10 rounded-xl border border-rose-500/10">
-                    <span className="block text-[8px] font-black text-rose-500 uppercase tracking-widest mb-0.5">Valor Não Recebido (Pendente)</span>
-                    <span className="block text-lg font-black text-rose-600 dark:text-rose-400 font-mono-num">{formatCurrency(billingStore.totalDue)}</span>
-                  </div>
-                </div>
-
-                {hasPixConfig ? (
-                  <div className="space-y-4 flex flex-col items-center">
-                    <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 dark:border-none flex items-center justify-center">
-                      <img 
-                        src={qrCodeUrl} 
-                        alt="Pix QR Code" 
-                        className="w-36 h-36 object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-
-                    <div className="w-full space-y-1.5">
-                      <label className="block text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Pix Copia e Cola</label>
-                      <div className="flex gap-2">
-                        <div className="flex-1 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-[11px] font-mono rounded-xl border border-slate-100 dark:border-slate-800 break-all select-all text-slate-600 dark:text-slate-300 max-h-12 overflow-y-auto custom-scrollbar">
-                          {pixCode}
-                        </div>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(pixCode);
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
-                          }}
-                          className={`px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 flex items-center justify-center ${copied ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
-                        >
-                          {copied ? 'Copiado!' : 'Copiar'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-5 bg-amber-500/10 rounded-xl border border-amber-500/20 text-center space-y-3">
-                    <div className="w-10 h-10 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto">
-                      <AlertCircle size={20} />
-                    </div>
-                    <div>
-                      <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-0.5">Chave Pix não encontrada</h4>
-                      <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-normal font-bold uppercase tracking-tight">
-                        Para gerar o código Pix automático, configure sua chave Pix e o seu nome de beneficiário na aba <span className="text-indigo-500 font-black">Perfil</span> nas Configurações.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {hasPixConfig && (
-                  <div className="w-full mt-4">
-                    <button
-                      onClick={() => handleShare(billingStore.name, billingStore.totalDue, pixCode)}
-                      disabled={isSharing || isGeneratingShare}
-                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
-                    >
-                      <Share2 size={12} className={(isSharing || isGeneratingShare) ? 'animate-spin' : ''} />
-                      {isGeneratingShare ? 'Preparando Imagem...' : isSharing ? 'Compartilhando...' : 'Compartilhar Cobrança'}
-                    </button>
-                  </div>
-                )}
-
-                <div className="mt-3">
-                  <button 
-                    onClick={() => setBillingStore(null)}
-                    className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition h-11"
-                  >
-                    Fechar
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          );
-        })()}
+        <BillingModalPortal
+          billingStore={billingStore}
+          config={config}
+          copied={copied}
+          setCopied={setCopied}
+          isSharing={isSharing}
+          isGeneratingShare={isGeneratingShare}
+          handleShare={handleShare}
+          onClose={() => setBillingStore(null)}
+        />
         {isEditingStoreName && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
             <motion.div 
