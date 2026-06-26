@@ -34,7 +34,10 @@ import {
   Smartphone,
   BookOpen,
   Share2,
-  Printer
+  Printer,
+  Copy,
+  Camera,
+  Image as ImageIcon
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
 import PerformanceCalendar from './PerformanceCalendar';
@@ -135,6 +138,7 @@ interface BillingModalPortalProps {
   isGeneratingShare: boolean;
   handleShare: (storeName: string, amount: number, pixCode: string) => void;
   onClose: () => void;
+  cachedShareFile: File | null;
 }
 
 const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
@@ -145,8 +149,12 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
   isSharing,
   isGeneratingShare,
   handleShare,
-  onClose
+  onClose,
+  cachedShareFile
 }) => {
+  const [isImgCopied, setIsImgCopied] = useState(false);
+  const [printMode, setPrintMode] = useState(false);
+
   const hasPixConfig = billingStore ? !!(config.pixKey && config.pixKey.trim().length > 0) : false;
   const pixCode = (billingStore && hasPixConfig)
     ? generatePixPayload(config.pixKey!, config.pixName || '', config.pixCity || '', billingStore.totalDue, billingStore.name)
@@ -155,13 +163,95 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
     ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`
     : '';
 
+  const copyImageToClipboard = async () => {
+    if (!cachedShareFile) {
+      alert("Aguarde o carregamento do QR code...");
+      return;
+    }
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [cachedShareFile.type]: cachedShareFile
+        })
+      ]);
+      setIsImgCopied(true);
+      setTimeout(() => setIsImgCopied(false), 2000);
+      alert("✨ Imagem copiada com SUCESSO!\n\nAgora você pode abrir o WhatsApp, entrar na conversa da loja, clicar em colar (segurar o dedo no campo de texto e selecionar Colar) para enviar o cupom de cobrança completo instantaneamente!");
+    } catch (err) {
+      console.error(err);
+      alert("O seu navegador ou WebView não suportou a cópia direta. Use o 'Modo Print de Tela' para tirar um print do seu celular e enviar.");
+    }
+  };
+
+  if (printMode && billingStore) {
+    return createPortal(
+      <div 
+        onClick={() => setPrintMode(false)}
+        className="fixed inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center p-6 cursor-pointer select-none animate-fadeIn"
+      >
+        <div className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest mb-5 leading-normal max-w-xs">
+          📱 TIRE UM PRINT DO SEU CELULAR AGORA!<br/>
+          <span className="text-indigo-400 font-extrabold animate-pulse">Toque em qualquer lugar para voltar</span>
+        </div>
+        
+        {/* Clean centered card exactly optimized for phone screenshots */}
+        <div 
+          onClick={(e) => e.stopPropagation()} 
+          className="bg-slate-900 w-full max-w-[340px] rounded-[2rem] p-6 border border-slate-800 shadow-2xl space-y-5 text-left"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">ROTA FINANCEIRA</span>
+            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Cobrança de Loja</span>
+          </div>
+          
+          <div className="border-t border-slate-800/60 my-1"></div>
+          
+          <div className="space-y-3">
+            <div>
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Estabelecimento</span>
+              <span className="block text-base font-black text-white leading-tight">{billingStore.name}</span>
+            </div>
+
+            <div>
+              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Valor Pendente</span>
+              <span className="block text-2xl font-black text-rose-500 font-mono-num">{formatCurrency(billingStore.totalDue)}</span>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-800/60 my-1"></div>
+
+          {hasPixConfig && (
+            <div className="flex flex-col items-center space-y-3">
+              <div className="bg-white p-3 rounded-2xl shadow-lg flex items-center justify-center">
+                <img 
+                  src={qrCodeUrl} 
+                  alt="Pix QR Code" 
+                  className="w-40 h-40 object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="text-center space-y-0.5">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Escaneie o QR Code acima para pagar</p>
+                <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">Gerado por Rota Financeira</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="text-center text-[8px] font-bold text-slate-600 uppercase tracking-widest mt-5">
+          Toque para fechar • Rota Financeira © {new Date().getFullYear()}
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   const modalContent = (
     <AnimatePresence>
       {billingStore && (
         <div id="billing-modal-backdrop" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
           <style>{`
             @media print {
-              /* Hide EVERYTHING else on the page during print */
               body {
                 background: white !important;
                 color: black !important;
@@ -169,7 +259,6 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
               #root, header, main, footer, nav, .fixed:not(#billing-modal-backdrop) {
                 display: none !important;
               }
-              /* Style the print container specifically */
               #billing-modal-backdrop {
                 position: absolute !important;
                 left: 0 !important;
@@ -194,8 +283,7 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
                 background: white !important;
                 color: black !important;
               }
-              /* Hide the control buttons when printing */
-              #print-button, #close-button, #share-button, #copy-button, #close-top-button {
+              #print-button, #close-button, #share-button, #copy-button, #copy-image-button, #screenshot-mode-button, #close-top-button {
                 display: none !important;
               }
             }
@@ -285,23 +373,50 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
             {hasPixConfig && (
               <div className="w-full mt-4 space-y-2">
                 <button
-                  id="share-button"
-                  onClick={() => handleShare(billingStore.name, billingStore.totalDue, pixCode)}
-                  disabled={isSharing || isGeneratingShare}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                  id="copy-image-button"
+                  onClick={copyImageToClipboard}
+                  disabled={isGeneratingShare || !cachedShareFile}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
                 >
-                  <Share2 size={12} className={(isSharing || isGeneratingShare) ? 'animate-spin' : ''} />
-                  {isGeneratingShare ? 'Preparando Imagem...' : isSharing ? 'Compartilhando...' : 'Compartilhar Cobrança'}
+                  <Copy size={12} />
+                  {isImgCopied ? 'Imagem Copiada!' : 'Copiar Imagem (Enviar p/ WhatsApp)'}
                 </button>
 
                 <button
-                  id="print-button"
-                  onClick={() => window.print()}
-                  className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                  id="screenshot-mode-button"
+                  onClick={() => setPrintMode(true)}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
                 >
-                  <Printer size={12} />
-                  Imprimir ou Salvar PDF
+                  <Camera size={12} />
+                  Modo Print de Tela
                 </button>
+
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <button
+                    id="share-button"
+                    onClick={() => handleShare(billingStore.name, billingStore.totalDue, pixCode)}
+                    disabled={isSharing || isGeneratingShare}
+                    className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                  >
+                    <Share2 size={12} className={(isSharing || isGeneratingShare) ? 'animate-spin' : ''} />
+                    Compartilhar
+                  </button>
+
+                  <button
+                    id="print-button"
+                    onClick={() => {
+                      if (window.print) {
+                        window.print();
+                      } else {
+                        alert("O seu aplicativo não suporta a impressão nativa. Por favor, use a opção 'Modo Print de Tela' ou 'Copiar Imagem'.");
+                      }
+                    }}
+                    className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                  >
+                    <Printer size={12} />
+                    PDF / Imprimir
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1257,6 +1372,7 @@ const History: React.FC<HistoryProps> = ({
           isGeneratingShare={isGeneratingShare}
           handleShare={handleShare}
           onClose={() => setBillingStore(null)}
+          cachedShareFile={cachedShareFile}
         />
         {isEditingStoreName && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
