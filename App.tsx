@@ -1046,9 +1046,6 @@ const App: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-black text-slate-900 dark:text-white leading-tight">Rota<span className="text-indigo-600">Financeira</span></h1>
-                {config.profile?.isPro && (
-                  <span className="px-1.5 py-0.5 bg-amber-400 text-amber-950 text-[8px] font-black rounded uppercase tracking-widest">PRO</span>
-                )}
               </div>
               <div className="flex items-center gap-1.5">
                 <div className={`w-1.5 h-1.5 rounded-full transition-colors duration-500 ${isSaving ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`}></div>

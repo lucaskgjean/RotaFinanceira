@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DailyEntry, AppConfig, TimeEntry } from '../types';
 import { formatCurrency, getWeeklySummary, calculateFuelMetrics, getLocalDateStr, calculateDuration, formatDuration, getDailyStats } from '../utils/calculations';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   TrendingUp, 
   Calendar, 
@@ -103,6 +103,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
   };
 
   const [viewedEntryId, setViewedEntryId] = useState<string | null>(null);
+  const [navDirection, setNavDirection] = useState<-1 | 1>(1);
   const [isButtonVisible, setIsButtonVisible] = useState(true);
   const lastScrollY = useRef(0);
 
@@ -204,6 +205,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
   // Vai para um lançamento anterior (mais antigo no tempo -> índice aumenta na lista ordenada)
   const handleOlder = () => {
     if (allEntriesSorted.length === 0) return;
+    setNavDirection(-1);
     if (displayedIndex === -1) {
       // Se não havia lançamento no dia, puxa o último lançamento geral feito
       setViewedEntryId(allEntriesSorted[0].id);
@@ -214,6 +216,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
 
   // Vai para um lançamento mais recente (mais novo no tempo -> índice diminui)
   const handleNewer = () => {
+    setNavDirection(1);
     if (displayedIndex > 0) {
       setViewedEntryId(allEntriesSorted[displayedIndex - 1].id);
     } else if (displayedIndex === 0) {
@@ -421,6 +424,39 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
     }
   } as const;
 
+  const slideVariants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 300 : -300,
+      opacity: 0,
+      scale: 0.9,
+      rotate: direction > 0 ? 5 : -5,
+      zIndex: 0
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+      scale: 1,
+      rotate: 0,
+      zIndex: 1,
+      transition: {
+        type: "spring" as const,
+        stiffness: 300,
+        damping: 26
+      }
+    },
+    exit: (direction: number) => ({
+      x: direction > 0 ? -300 : 300,
+      opacity: 0,
+      scale: 0.9,
+      rotate: direction > 0 ? -5 : 5,
+      zIndex: 0,
+      transition: {
+        duration: 0.25,
+        ease: "easeInOut" as const
+      }
+    })
+  };
+
   return (
     <motion.div 
       variants={containerVariants}
@@ -554,216 +590,243 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
         </motion.div>
 
         {/* Card do Último Lançamento feito */}
-        <motion.div 
-          variants={itemVariants}
-          whileHover={{ 
-            y: -4, 
-            transition: { duration: 0.2 } 
-          }}
-          className="md:col-span-2 p-5 rounded-[2.5rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between relative overflow-hidden group h-[255px]"
-        >
-          <div className="relative z-10 flex flex-col h-full justify-between">
-            <div className="flex flex-col h-[155px] justify-between">
-              <div className="flex justify-between items-center h-8">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                    <Clock size={16} />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 truncate leading-none">
-                      {!displayedEntry 
-                        ? 'Último Lançamento' 
-                        : (displayedEntry.date === todayStr ? 'Lançamento de Hoje' : 'Lançamento Anterior')}
-                    </h3>
-                    {displayedEntry && (
-                      <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 mt-1 block uppercase tracking-tight">
-                        {new Date(displayedEntry.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace(/^\w/, c => c.toUpperCase())}
-                      </span>
-                    )}
-                  </div>
-                </div>
+        <div className="md:col-span-2 h-[255px] relative">
+          <AnimatePresence mode="popLayout" custom={navDirection}>
+            <motion.div 
+              key={displayedEntry ? displayedEntry.id : 'empty'}
+              custom={navDirection}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.6}
+              dragTransition={{ bounceStiffness: 600, bounceDamping: 25 }}
+              onDragEnd={(event, info) => {
+                const swipeThreshold = 50;
+                if (info.offset.x < -swipeThreshold) {
+                  handleNewer();
+                } else if (info.offset.x > swipeThreshold) {
+                  handleOlder();
+                }
+              }}
+              whileTap={{ cursor: "grabbing" }}
+              whileHover={{ 
+                y: -4, 
+                transition: { duration: 0.2 } 
+              }}
+              className="absolute inset-0 w-full h-full p-5 rounded-[2.5rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between overflow-hidden group select-none touch-pan-y cursor-grab active:cursor-grabbing"
+            >
+              <div className="relative z-10 flex flex-col h-full justify-between">
+                <div className="flex flex-col h-[155px] justify-between">
+                  <div className="flex justify-between items-center h-8">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                        <Clock size={16} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 truncate leading-none">
+                          {!displayedEntry 
+                            ? 'Último Lançamento' 
+                            : (displayedEntry.date === todayStr ? 'Lançamento de Hoje' : 'Lançamento Anterior')}
+                        </h3>
+                        {displayedEntry && (
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 block uppercase tracking-tight leading-none">
+                              {new Date(displayedEntry.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace(/^\w/, c => c.toUpperCase())}
+                            </span>
+                            <span className="text-[8px] text-slate-400 dark:text-slate-500 font-medium tracking-tight">
+                              • Arraste para navegar
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
-                {/* Setas de navegação sutis */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {allEntriesSorted.length > 0 && (
-                    <div className="flex items-center bg-slate-50 dark:bg-slate-800/60 p-0.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                      {viewedEntryId !== null && (
+                    {/* Setas de navegação sutis */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {allEntriesSorted.length > 0 && (
+                        <div className="flex items-center bg-slate-50 dark:bg-slate-800/60 p-0.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                          {viewedEntryId !== null && (
+                            <button
+                              onClick={() => setViewedEntryId(null)}
+                              className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer mr-0.5"
+                              title="Voltar para o último lançamento"
+                            >
+                              <RotateCcw size={12} />
+                            </button>
+                          )}
+                          
+                          <button
+                            onClick={handleOlder}
+                            disabled={displayedIndex >= allEntriesSorted.length - 1}
+                            className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors cursor-pointer"
+                            title="Lançamento anterior"
+                          >
+                            <ChevronLeft size={14} />
+                          </button>
+                          
+                          {displayedIndex !== -1 && (
+                            <span className="text-[9px] font-mono-num font-bold px-1 text-slate-400" title={`Lançamento ${displayedIndex + 1} de ${allEntriesSorted.length} geral`}>
+                              {displayedEntry && displayedEntry.grossAmount > 0 && activeDayIncomeIndex !== -1
+                                ? `${activeDayIncomeIndex + 1}/${activeDayIncomeEntries.length}`
+                                : `${activeDayAllIndex + 1}/${activeDayAllEntries.length}`
+                              }
+                            </span>
+                          )}
+
+                          <button
+                            onClick={handleNewer}
+                            disabled={displayedIndex <= 0 && viewedEntryId === null}
+                            className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors cursor-pointer"
+                            title="Lançamento mais recente"
+                          >
+                            <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      )}
+
+                      {displayedEntry && (
+                        <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest ${
+                          displayedEntry.isPaid 
+                            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20' 
+                            : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-500/20'
+                        }`}>
+                          {displayedEntry.isPaid ? 'Pago' : 'Pend'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {!displayedEntry ? (
+                    <div className="flex flex-col items-center justify-center text-center h-[110px]">
+                      <span className="text-[10px] text-slate-450 dark:text-slate-500 font-bold max-w-[200px] leading-relaxed mb-2">
+                        Nenhum lançamento hoje.
+                      </span>
+                      {allEntriesSorted.length > 0 && (
                         <button
-                          onClick={() => setViewedEntryId(null)}
-                          className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer mr-0.5"
-                          title="Voltar para o último lançamento"
+                          onClick={handleOlder}
+                          className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
                         >
-                          <RotateCcw size={12} />
+                          <ChevronLeft size={12} />
+                          Ver último anterior
                         </button>
                       )}
-                      
-                      <button
-                        onClick={handleOlder}
-                        disabled={displayedIndex >= allEntriesSorted.length - 1}
-                        className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors cursor-pointer"
-                        title="Lançamento anterior"
-                      >
-                        <ChevronLeft size={14} />
-                      </button>
-                      
-                      {displayedIndex !== -1 && (
-                        <span className="text-[9px] font-mono-num font-bold px-1 text-slate-400" title={`Lançamento ${displayedIndex + 1} de ${allEntriesSorted.length} geral`}>
-                          {displayedEntry && displayedEntry.grossAmount > 0 && activeDayIncomeIndex !== -1
-                            ? `${activeDayIncomeIndex + 1}/${activeDayIncomeEntries.length}`
-                            : `${activeDayAllIndex + 1}/${activeDayAllEntries.length}`
-                          }
-                        </span>
-                      )}
-
-                      <button
-                        onClick={handleNewer}
-                        disabled={displayedIndex <= 0 && viewedEntryId === null}
-                        className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors cursor-pointer"
-                        title="Lançamento mais recente"
-                      >
-                        <ChevronRight size={14} />
-                      </button>
                     </div>
-                  )}
+                  ) : (
+                    <div className="h-[110px] flex flex-col justify-between pt-1">
+                      <div className="flex justify-between items-start">
+                        <div className="flex gap-2.5 items-center min-w-0">
+                          <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${displayedEntryDetails?.colorClass}`}>
+                            {displayedEntryDetails?.icon}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-black text-slate-800 dark:text-white leading-tight text-sm truncate">
+                              {displayedEntry.storeName.replace('[GASTO]', '').trim()}
+                            </h4>
+                            <span className="text-[9px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-widest mt-0.5 block">
+                              {displayedEntryDetails?.label}
+                              {displayedEntry.grossAmount > 0 && activeDayIncomeIndex !== -1 && (
+                                <span className="text-indigo-500 dark:text-indigo-400 ml-1.5 bg-indigo-50 dark:bg-indigo-500/10 px-1 py-0.5 rounded text-[8px] font-black">
+                                  {activeDayIncomeIndex + 1}ª Corrida
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className={`text-xl font-black font-mono-num tracking-tighter ${
+                            displayedEntryDetails?.isIncome ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'
+                          }`}>
+                            {hideNumbers ? 'R$ ••••' : formatCurrency(displayedEntryDetails?.amount || 0)}
+                          </div>
+                          <span className="text-[8px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest">
+                            Valor
+                          </span>
+                        </div>
+                      </div>
 
-                  {displayedEntry && (
-                    <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest ${
-                      displayedEntry.isPaid 
-                        ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20' 
-                        : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-500/20'
-                    }`}>
-                      {displayedEntry.isPaid ? 'Pago' : 'Pend'}
+                      <div className="flex items-center gap-2.5 text-[9px] font-bold text-slate-400 dark:text-slate-500 border-t border-b border-slate-50 dark:border-slate-800/60 py-1">
+                        <span className="flex items-center gap-1">
+                          <Calendar size={11} className="text-slate-400" /> 
+                          {new Date(displayedEntry.date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                        </span>
+                        <span className="w-1 h-1 bg-slate-200 dark:bg-slate-800 rounded-full"></span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={11} className="text-slate-400" /> {displayedEntry.time}
+                        </span>
+                        {displayedEntry.paymentMethod && (
+                          <>
+                            <span className="w-1 h-1 bg-slate-200 dark:bg-slate-800 rounded-full"></span>
+                            <span className="flex items-center gap-1 uppercase tracking-tight">
+                              {getPaymentIcon(displayedEntry.paymentMethod)} 
+                              {config.paymentMethodLabels?.[displayedEntry.paymentMethod as keyof typeof config.paymentMethodLabels] || displayedEntry.paymentMethod}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="h-6 flex items-center">
+                        {displayedEntry.description ? (
+                          <p className="text-[9px] text-slate-450 dark:text-slate-400 italic bg-slate-50 dark:bg-slate-800/40 px-2 py-0.5 rounded-lg border border-slate-100/50 dark:border-slate-800/50 w-full truncate" title={displayedEntry.description}>
+                            &ldquo;{displayedEntry.description}&rdquo;
+                          </p>
+                        ) : (
+                          <p className="text-[9px] text-slate-350 dark:text-slate-650 italic px-1">
+                            Sem descrição adicional
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
 
-              {!displayedEntry ? (
-                <div className="flex flex-col items-center justify-center text-center h-[110px]">
-                  <span className="text-[10px] text-slate-450 dark:text-slate-500 font-bold max-w-[200px] leading-relaxed mb-2">
-                    Nenhum lançamento hoje.
-                  </span>
-                  {allEntriesSorted.length > 0 && (
-                    <button
-                      onClick={handleOlder}
-                      className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                <div className="flex gap-2 mt-auto">
+                  <button 
+                    onClick={() => displayedEntry && onDelete(displayedEntry.id)}
+                    disabled={!displayedEntry}
+                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800/50 dark:hover:bg-rose-950/20 dark:hover:text-rose-400 rounded-xl transition-all ${
+                      displayedEntry ? 'active:scale-95 text-slate-500 dark:text-slate-400 cursor-pointer' : 'opacity-30 cursor-not-allowed text-slate-400'
+                    }`}
+                  >
+                    <Trash2 size={12} className="text-rose-500 shrink-0" />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Excluir</span>
+                  </button>
+                  <button 
+                    onClick={() => displayedEntry && onEdit(displayedEntry)}
+                    disabled={!displayedEntry}
+                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-slate-800/50 dark:hover:bg-indigo-950/20 dark:hover:text-indigo-400 rounded-xl transition-all ${
+                      displayedEntry ? 'active:scale-95 text-slate-500 dark:text-slate-400 cursor-pointer' : 'opacity-30 cursor-not-allowed text-slate-400'
+                    }`}
+                  >
+                    <Edit3 size={12} className="text-indigo-500 shrink-0" />
+                    <span className="text-[9px] font-black uppercase tracking-widest">Editar</span>
+                  </button>
+                  {onUpdate && (
+                    <button 
+                      onClick={() => displayedEntry && onUpdate({ ...displayedEntry, isPaid: !displayedEntry.isPaid })}
+                      disabled={!displayedEntry}
+                      className={`flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 dark:bg-slate-800/50 dark:hover:bg-emerald-950/20 dark:hover:text-emerald-400 rounded-xl transition-all ${
+                        displayedEntry ? 'active:scale-95 text-slate-500 dark:text-slate-400 cursor-pointer' : 'opacity-30 cursor-not-allowed text-slate-400'
+                      }`}
                     >
-                      <ChevronLeft size={12} />
-                      Ver último anterior
+                      <div className={displayedEntry ? (displayedEntry.isPaid ? 'text-emerald-500 shrink-0' : 'text-rose-500 shrink-0') : 'text-slate-400 shrink-0'}>
+                        {displayedEntry && displayedEntry.isPaid ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-widest">
+                        {displayedEntry ? (displayedEntry.isPaid ? 'Pago' : 'Pendente') : 'Status'}
+                      </span>
                     </button>
                   )}
                 </div>
-              ) : (
-                <div className="h-[110px] flex flex-col justify-between pt-1">
-                  <div className="flex justify-between items-start">
-                    <div className="flex gap-2.5 items-center min-w-0">
-                      <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${displayedEntryDetails?.colorClass}`}>
-                        {displayedEntryDetails?.icon}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="font-black text-slate-800 dark:text-white leading-tight text-sm truncate">
-                          {displayedEntry.storeName.replace('[GASTO]', '').trim()}
-                        </h4>
-                        <span className="text-[9px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-widest mt-0.5 block">
-                          {displayedEntryDetails?.label}
-                          {displayedEntry.grossAmount > 0 && activeDayIncomeIndex !== -1 && (
-                            <span className="text-indigo-500 dark:text-indigo-400 ml-1.5 bg-indigo-50 dark:bg-indigo-500/10 px-1 py-0.5 rounded text-[8px] font-black">
-                              {activeDayIncomeIndex + 1}ª Corrida
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className={`text-xl font-black font-mono-num tracking-tighter ${
-                        displayedEntryDetails?.isIncome ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'
-                      }`}>
-                        {hideNumbers ? 'R$ ••••' : formatCurrency(displayedEntryDetails?.amount || 0)}
-                      </div>
-                      <span className="text-[8px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest">
-                        Valor
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2.5 text-[9px] font-bold text-slate-400 dark:text-slate-500 border-t border-b border-slate-50 dark:border-slate-800/60 py-1">
-                    <span className="flex items-center gap-1">
-                      <Calendar size={11} className="text-slate-400" /> 
-                      {new Date(displayedEntry.date + 'T12:00:00').toLocaleDateString('pt-BR')}
-                    </span>
-                    <span className="w-1 h-1 bg-slate-200 dark:bg-slate-800 rounded-full"></span>
-                    <span className="flex items-center gap-1">
-                      <Clock size={11} className="text-slate-400" /> {displayedEntry.time}
-                    </span>
-                    {displayedEntry.paymentMethod && (
-                      <>
-                        <span className="w-1 h-1 bg-slate-200 dark:bg-slate-800 rounded-full"></span>
-                        <span className="flex items-center gap-1 uppercase tracking-tight">
-                          {getPaymentIcon(displayedEntry.paymentMethod)} 
-                          {config.paymentMethodLabels?.[displayedEntry.paymentMethod as keyof typeof config.paymentMethodLabels] || displayedEntry.paymentMethod}
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="h-6 flex items-center">
-                    {displayedEntry.description ? (
-                      <p className="text-[9px] text-slate-450 dark:text-slate-400 italic bg-slate-50 dark:bg-slate-800/40 px-2 py-0.5 rounded-lg border border-slate-100/50 dark:border-slate-800/50 w-full truncate" title={displayedEntry.description}>
-                        &ldquo;{displayedEntry.description}&rdquo;
-                      </p>
-                    ) : (
-                      <p className="text-[9px] text-slate-350 dark:text-slate-650 italic px-1">
-                        Sem descrição adicional
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2 mt-auto">
-              <button 
-                onClick={() => displayedEntry && onDelete(displayedEntry.id)}
-                disabled={!displayedEntry}
-                className={`flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800/50 dark:hover:bg-rose-950/20 dark:hover:text-rose-400 rounded-xl transition-all ${
-                  displayedEntry ? 'active:scale-95 text-slate-500 dark:text-slate-400 cursor-pointer' : 'opacity-30 cursor-not-allowed text-slate-400'
-                }`}
-              >
-                <Trash2 size={12} className="text-rose-500 shrink-0" />
-                <span className="text-[9px] font-black uppercase tracking-widest">Excluir</span>
-              </button>
-              <button 
-                onClick={() => displayedEntry && onEdit(displayedEntry)}
-                disabled={!displayedEntry}
-                className={`flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-slate-800/50 dark:hover:bg-indigo-950/20 dark:hover:text-indigo-400 rounded-xl transition-all ${
-                  displayedEntry ? 'active:scale-95 text-slate-500 dark:text-slate-400 cursor-pointer' : 'opacity-30 cursor-not-allowed text-slate-400'
-                }`}
-              >
-                <Edit3 size={12} className="text-indigo-500 shrink-0" />
-                <span className="text-[9px] font-black uppercase tracking-widest">Editar</span>
-              </button>
-              {onUpdate && (
-                <button 
-                  onClick={() => displayedEntry && onUpdate({ ...displayedEntry, isPaid: !displayedEntry.isPaid })}
-                  disabled={!displayedEntry}
-                  className={`flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 dark:bg-slate-800/50 dark:hover:bg-emerald-950/20 dark:hover:text-emerald-400 rounded-xl transition-all ${
-                    displayedEntry ? 'active:scale-95 text-slate-500 dark:text-slate-400 cursor-pointer' : 'opacity-30 cursor-not-allowed text-slate-400'
-                  }`}
-                >
-                  <div className={displayedEntry ? (displayedEntry.isPaid ? 'text-emerald-500 shrink-0' : 'text-rose-500 shrink-0') : 'text-slate-400 shrink-0'}>
-                    {displayedEntry && displayedEntry.isPaid ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                  </div>
-                  <span className="text-[9px] font-black uppercase tracking-widest">
-                    {displayedEntry ? (displayedEntry.isPaid ? 'Pago' : 'Pendente') : 'Status'}
-                  </span>
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="absolute -right-4 -bottom-4 opacity-[0.02] group-hover:scale-110 group-hover:opacity-[0.04] transition-all duration-700 pointer-events-none">
-            <Clock size={160} />
-          </div>
-        </motion.div>
+              </div>
+              <div className="absolute -right-4 -bottom-4 opacity-[0.02] group-hover:scale-110 group-hover:opacity-[0.04] transition-all duration-700 pointer-events-none">
+                <Clock size={160} />
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
 
         {/* Card Unificado: Hoje, Semana, Mês */}
         <motion.div 
