@@ -40,7 +40,8 @@ import {
   Camera,
   Image as ImageIcon,
   Download,
-  FileText
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
 import PerformanceCalendar from './PerformanceCalendar';
@@ -159,6 +160,8 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
 }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [printMode, setPrintMode] = useState(false);
+  const [isTextCopied, setIsTextCopied] = useState(false);
+  const [isCopyingImage, setIsCopyingImage] = useState(false);
 
   const hasPixConfig = billingStore ? !!(config.pixKey && config.pixKey.trim().length > 0) : false;
   const pixCode = (billingStore && hasPixConfig)
@@ -184,6 +187,93 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
       return dateA.getTime() - dateB.getTime();
     });
   }, [billingStore, entries]);
+
+  const generateTextReport = () => {
+    if (!billingStore) return '';
+    let text = `🚨 *COBRANÇA - ${billingStore.name.toUpperCase()}* 🚨\n\n`;
+
+    let periodText = 'Todas as pendências';
+    if (pendingEntries.length > 0) {
+      const dates = pendingEntries.map(e => e.date).sort();
+      const firstDate = new Date(dates[0] + 'T12:00:00').toLocaleDateString('pt-BR');
+      const lastDate = new Date(dates[dates.length - 1] + 'T12:00:00').toLocaleDateString('pt-BR');
+      periodText = `${firstDate} até ${lastDate}`;
+    }
+
+    text += `📅 *Período:* ${periodText}\n`;
+    text += `📦 *Entregas:* ${pendingEntries.length}\n`;
+    text += `💰 *Total a Pagar:* *${formatCurrency(billingStore.totalDue)}*\n\n`;
+
+    text += `📋 *LISTA DE CORRIDAS:*\n`;
+    pendingEntries.forEach((entry, i) => {
+      const formattedDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR');
+      const timeStr = entry.time ? ` ${entry.time}` : '';
+      const desc = entry.description || 'Corrida de entrega';
+      const payMethod = config.paymentMethodLabels?.[entry.paymentMethod as keyof typeof config.paymentMethodLabels] || entry.paymentMethod || 'PIX';
+      text += `${i + 1}. *${formattedDate}${timeStr}* - ${desc} - *${formatCurrency(entry.grossAmount)}* (${payMethod.toUpperCase()})\n`;
+    });
+
+    text += `\n----------------------------------\n`;
+    text += `🔑 *DADOS DO PIX:*\n`;
+    text += `*Chave Pix:* \`${config.pixKey || 'Não configurada'}\`\n`;
+    text += `*Favorecido:* ${config.pixName || 'Não configurado'}\n`;
+    if (config.pixCity) {
+      text += `*Cidade:* ${config.pixCity}\n`;
+    }
+    text += `----------------------------------\n\n`;
+
+    text += `*Copia e Cola Pix (Toque para copiar no banco):*\n`;
+    text += `\`${pixCode}\`\n\n`;
+    text += `_Gerado por Rota Financeira_`;
+    return text;
+  };
+
+  const copyTextReportToClipboard = () => {
+    const text = generateTextReport();
+    if (!text) return;
+    try {
+      navigator.clipboard.writeText(text);
+      setIsTextCopied(true);
+      setTimeout(() => setIsTextCopied(false), 2000);
+      alert("✨ Relatório em formato texto copiado para a Área de Transferência!\n\nAgora você pode abrir o WhatsApp (ou qualquer outro app) e colar a mensagem inteira na conversa com o estabelecimento.");
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível copiar automaticamente. Tente selecionar o texto ou tirar print.");
+    }
+  };
+
+  const shareViaWhatsApp = () => {
+    const text = generateTextReport();
+    if (!text) return;
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  const copyImageAndOpenWhatsApp = async () => {
+    if (!cachedShareFile) {
+      alert("Aguarde a geração do cupom de cobrança...");
+      return;
+    }
+    setIsCopyingImage(true);
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [cachedShareFile.type]: cachedShareFile
+        })
+      ]);
+      
+      alert("✨ Cupom em IMAGEM copiado com SUCESSO!\n\nEstamos abrindo o WhatsApp. Ao entrar na conversa da loja, basta pressionar o campo de texto e selecionar 'Colar' para enviar a imagem do cupom!");
+
+      const text = `Olá! Segue o cupom de cobrança detalhado das entregas pendentes. O valor total é de *${formatCurrency(billingStore?.totalDue || 0)}*. (Favor colar o cupom em imagem que acabei de copiar para a sua área de transferência)`;
+      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error(err);
+      alert("O seu dispositivo ou WebView não suportou a cópia direta de imagens. Por favor, use a opção 'Enviar WhatsApp (Texto)' ou tire um print da tela.");
+    } finally {
+      setIsCopyingImage(false);
+    }
+  };
 
   const getBase64Image = (imgUrl: string): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -677,12 +767,51 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
             )}
 
             {hasPixConfig && (
-              <div className="w-full mt-4 space-y-2">
+              <div className="w-full mt-4 space-y-3">
+                <div className="p-3 bg-indigo-50 dark:bg-slate-800/40 rounded-xl border border-indigo-100/50 dark:border-slate-800/80 text-center">
+                  <p className="text-[9px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wide leading-relaxed">
+                    💡 DICA PARA O APP MEDIAN:<br />
+                    Se o download de arquivos estiver travado, use os botões de WhatsApp ou Copiar Texto abaixo para enviar o relatório completo!
+                  </p>
+                </div>
+
+                {/* WhatsApp Text Report & Copy Text buttons (Highly reliable, 100% works in Median/WebViews) */}
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={shareViaWhatsApp}
+                      className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                    >
+                      <MessageSquare size={12} />
+                      WhatsApp (Texto)
+                    </button>
+
+                    <button
+                      onClick={copyImageAndOpenWhatsApp}
+                      disabled={isGeneratingShare || !cachedShareFile}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-600/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                    >
+                      <ImageIcon size={12} className={isCopyingImage ? 'animate-pulse' : ''} />
+                      {isCopyingImage ? 'Copiando...' : 'WhatsApp (Imagem)'}
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={copyTextReportToClipboard}
+                    className={`w-full py-3 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer h-11 ${isTextCopied ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-700 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700'}`}
+                  >
+                    <Copy size={12} />
+                    {isTextCopied ? 'Texto de Cobrança Copiado!' : 'Copiar Texto de Cobrança'}
+                  </button>
+                </div>
+
+                <div className="h-[1px] bg-slate-200 dark:bg-slate-800/80 my-2" />
+
                 <button
                   id="export-report-button"
                   onClick={exportReportAsPDF}
                   disabled={isExporting}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
                 >
                   <FileText size={12} className={isExporting ? 'animate-spin' : ''} />
                   {isExporting ? 'Exportando PDF...' : 'Exportar Relatório (PDF)'}
@@ -691,7 +820,7 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
                 <button
                   id="screenshot-mode-button"
                   onClick={() => setPrintMode(true)}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                  className="w-full py-3 bg-slate-600 hover:bg-slate-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-slate-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
                 >
                   <Camera size={12} />
                   Modo Print de Tela

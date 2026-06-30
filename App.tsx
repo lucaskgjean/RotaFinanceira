@@ -864,10 +864,10 @@ const App: React.FC = () => {
     const activeShift = timeEntries.find(t => t.date === today && !t.endTime);
     
     if (activeShift) {
-      const now = new Date().toTimeString().slice(0, 5);
+      const now = new Date().toTimeString().slice(0, 8);
       updateTimeEntry({ ...activeShift, endTime: now });
     } else {
-      const now = new Date().toTimeString().slice(0, 5);
+      const now = new Date().toTimeString().slice(0, 8);
       addTimeEntry({
         id: generateId(),
         date: today,
@@ -1171,6 +1171,7 @@ const App: React.FC = () => {
                 onNavigate={setActiveTab} 
                 onAdd={addEntry} 
                 onToggleShift={toggleShift}
+                onUpdate={updateEntry}
               />
             )}
             {activeTab === 'expenses' && <Expenses entries={entries} config={config} onEdit={setEditingEntry} onAdd={addEntry} onDelete={deleteEntry} onUpdate={updateEntry} />}
@@ -1324,21 +1325,35 @@ const App: React.FC = () => {
                       isSmallState ? 'py-0 h-10' : 'py-1.5 h-14'
                     }`}
                   >
-                    {/* Ícone com toque orgânico de luz sutil */}
-                    <div className={`flex items-center justify-center transition-all duration-500 ${
-                      isSmallState ? 'w-8 h-8 scale-95' : 'w-10 h-6 scale-100'
-                    } ${isVisualActive ? 'text-indigo-600 dark:text-indigo-400 drop-shadow-[0_2px_8px_rgba(99,102,241,0.25)]' : 'text-slate-400 hover:text-indigo-500'}`}>
+                    {/* Ícone com toque orgânico de luz sutil - Aumenta de tamanho com efeito elástico apenas quando o seletor está ativo/sendo tocado e a gota aumenta */}
+                    <motion.div 
+                      animate={{
+                        scale: (isVisualActive && isNavTouched) ? (isSmallState ? 1.25 : 1.3) : (isSmallState ? 0.95 : 1),
+                        y: (isVisualActive && isNavTouched) ? -3 : 0
+                      }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                      className={`flex items-center justify-center ${
+                        isSmallState ? 'w-8 h-8' : 'w-10 h-6'
+                      } ${isVisualActive ? 'text-indigo-600 dark:text-indigo-400 drop-shadow-[0_2px_8px_rgba(99,102,241,0.3)]' : 'text-slate-400 hover:text-indigo-500'}`}
+                    >
                       {item.icon}
-                    </div>
+                    </motion.div>
 
-                    {/* Texto que some suavemente com escala e transição de tamanho */}
-                    <span className={`text-[9px] font-black uppercase tracking-tighter transition-all duration-500 ease-in-out origin-top block overflow-hidden ${
-                      isSmallState 
-                        ? 'opacity-0 max-h-0 h-0 mt-0 pointer-events-none scale-0' 
-                        : 'opacity-100 max-h-4 mt-0.5 scale-100'
-                    } ${isVisualActive ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-400'}`}>
+                    {/* Texto que some suavemente com escala e transição de tamanho, acompanhando o movimento do ícone */}
+                    <motion.span 
+                      animate={{
+                        scale: (isVisualActive && isNavTouched) ? 1.15 : 1,
+                        y: (isVisualActive && isNavTouched) ? -2 : 0
+                      }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                      className={`text-[9px] font-black uppercase tracking-tighter block origin-top ${
+                        isSmallState 
+                          ? 'opacity-0 max-h-0 h-0 mt-0 pointer-events-none scale-0 transition-all duration-500' 
+                          : 'opacity-100 max-h-4 mt-0.5 scale-100'
+                      } ${isVisualActive ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-400'}`}
+                    >
                       {item.label}
-                    </span>
+                    </motion.span>
                   </button>
                 );
               })}

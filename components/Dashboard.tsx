@@ -15,10 +15,20 @@ import {
   Navigation,
   Package,
   Clock,
+  ChevronLeft,
   ChevronRight,
   Gauge,
   Eye,
-  EyeOff
+  EyeOff,
+  Smartphone,
+  Banknote,
+  CreditCard,
+  BookOpen,
+  Trash2,
+  Edit3,
+  CheckCircle2,
+  AlertCircle,
+  RotateCcw
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
 import PerformanceCalendar from './PerformanceCalendar';
@@ -32,12 +42,56 @@ interface DashboardProps {
   onNavigate: (tab: any) => void;
   onAdd: (entry: DailyEntry) => void;
   onToggleShift: () => void;
+  onUpdate?: (entry: DailyEntry) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onEdit, onDelete, onNavigate, onAdd, onToggleShift }) => {
+const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onEdit, onDelete, onNavigate, onAdd, onToggleShift, onUpdate }) => {
   const todayStr = getLocalDateStr();
   const currentMonthStr = todayStr.substring(0, 7);
   const [now, setNow] = useState(new Date());
+
+  // Encontra o ponto ativo de hoje
+  const activeShift = useMemo(() => {
+    return timeEntries.find(t => t.date === todayStr && !t.endTime);
+  }, [timeEntries, todayStr]);
+
+  // Atualiza a hora 'now' a cada segundo se houver um ponto ativo
+  useEffect(() => {
+    if (!activeShift) return;
+
+    // Sincroniza imediatamente o estado de "now"
+    setNow(new Date());
+
+    const interval = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeShift]);
+
+  // Calcula a duração do ponto ativo em tempo real no formato HH:MM:SS
+  const activeShiftDuration = useMemo(() => {
+    if (!activeShift) return '';
+
+    try {
+      const [year, month, day] = activeShift.date.split('-').map(Number);
+      const [hour, minute, second = 0] = activeShift.startTime.split(':').map(Number);
+      const startDateTime = new Date(year, month - 1, day, hour, minute, second);
+
+      const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - startDateTime.getTime()) / 1000));
+
+      const hrs = Math.floor(elapsedSeconds / 3600);
+      const mins = Math.floor((elapsedSeconds % 3600) / 60);
+      const secs = elapsedSeconds % 60;
+
+      const formatNum = (num: number) => String(num).padStart(2, '0');
+      return `${formatNum(hrs)}:${formatNum(mins)}:${formatNum(secs)}`;
+    } catch (e) {
+      console.error(e);
+      return '00:00:00';
+    }
+  }, [activeShift, now]);
+
   const [hideNumbers, setHideNumbers] = useState(() => localStorage.getItem('rota_hide_numbers') === 'true');
 
   const toggleHideNumbers = () => {
@@ -48,7 +102,217 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
     });
   };
 
-  const todayEntries = entries.filter(e => e.date === todayStr);
+  const [viewedEntryId, setViewedEntryId] = useState<string | null>(null);
+  const [isButtonVisible, setIsButtonVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    let lastTouchY = 0;
+    
+    // Captura a posição inicial do toque físico (celular)
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches && e.touches.length > 0) {
+        lastTouchY = e.touches[0].clientY;
+      }
+    };
+
+    // Detecta direção física do dedo instantaneamente
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!e.touches || e.touches.length === 0) return;
+      
+      const currentTouchY = e.touches[0].clientY;
+      const diffY = lastTouchY - currentTouchY; // Positivo = rolou para baixo | Negativo = rolou para cima
+      
+      const currentScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      
+      // Se arrastou para cima (rolou a página para baixo)
+      if (diffY > 10 && currentScrollY > 15) {
+        setIsButtonVisible(false);
+      }
+      // Se arrastou para baixo (rolou a página para cima) ou chegou próximo ao topo
+      else if (diffY < -10 || currentScrollY < 12) {
+        setIsButtonVisible(true);
+      }
+      
+      lastTouchY = currentTouchY;
+    };
+
+    // Fallback excelente para o scroll tradicional de mouse/desktop
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      
+      if (currentScrollY > lastScrollY.current + 5 && currentScrollY > 20) {
+        setIsButtonVisible(false);
+      } else if (currentScrollY < lastScrollY.current - 5 || currentScrollY < 12) {
+        setIsButtonVisible(true);
+      }
+      
+      lastScrollY.current = Math.max(0, currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
+
+  // Redireciona para o último lançamento automaticamente quando um novo lançamento é feito
+  const prevEntriesLength = useRef(entries.length);
+  useEffect(() => {
+    if (entries.length > prevEntriesLength.current) {
+      setViewedEntryId(null);
+    }
+    prevEntriesLength.current = entries.length;
+  }, [entries.length]);
+
+  // Ordena todos os lançamentos cronologicamente (do mais novo para o mais antigo)
+  const allEntriesSorted = useMemo(() => {
+    if (entries.length === 0) return [];
+    return [...entries].sort((a, b) => {
+      const dateTimeA = `${a.date}T${a.time || '00:00'}`;
+      const dateTimeB = `${b.date}T${b.time || '00:00'}`;
+      return dateTimeB.localeCompare(dateTimeA);
+    });
+  }, [entries]);
+
+  // Lançamentos de hoje ordenados (do mais novo para o mais antigo)
+  const todayEntriesSorted = useMemo(() => {
+    return allEntriesSorted.filter(e => e.date === todayStr);
+  }, [allEntriesSorted, todayStr]);
+
+  // Lançamento atualmente exibido
+  const displayedEntry = useMemo(() => {
+    if (viewedEntryId) {
+      const entry = allEntriesSorted.find(e => e.id === viewedEntryId);
+      if (entry) return entry;
+    }
+    // Mostra por padrão o último lançamento de hoje
+    return todayEntriesSorted[0] || null;
+  }, [viewedEntryId, allEntriesSorted, todayEntriesSorted]);
+
+  // Índice do lançamento exibido na lista completa de lançamentos
+  const displayedIndex = useMemo(() => {
+    if (!displayedEntry) return -1;
+    return allEntriesSorted.findIndex(e => e.id === displayedEntry.id);
+  }, [displayedEntry, allEntriesSorted]);
+
+  // Vai para um lançamento anterior (mais antigo no tempo -> índice aumenta na lista ordenada)
+  const handleOlder = () => {
+    if (allEntriesSorted.length === 0) return;
+    if (displayedIndex === -1) {
+      // Se não havia lançamento no dia, puxa o último lançamento geral feito
+      setViewedEntryId(allEntriesSorted[0].id);
+    } else if (displayedIndex < allEntriesSorted.length - 1) {
+      setViewedEntryId(allEntriesSorted[displayedIndex + 1].id);
+    }
+  };
+
+  // Vai para um lançamento mais recente (mais novo no tempo -> índice diminui)
+  const handleNewer = () => {
+    if (displayedIndex > 0) {
+      setViewedEntryId(allEntriesSorted[displayedIndex - 1].id);
+    } else if (displayedIndex === 0) {
+      // Se já está no mais novo, volta a mostrar o estado de hoje (padrão)
+      setViewedEntryId(null);
+    }
+  };
+
+  // Dia em questão (se estiver visualizando um lançamento antigo, pega a data dele)
+  const activeDate = useMemo(() => {
+    return displayedEntry ? displayedEntry.date : todayStr;
+  }, [displayedEntry, todayStr]);
+
+  // Filtra as corridas (ganhos) do dia em questão
+  const activeDayIncomeEntries = useMemo(() => {
+    return entries
+      .filter(e => e.date === activeDate && e.grossAmount > 0)
+      .sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
+  }, [entries, activeDate]);
+
+  // Índice do ganho em exibição nas corridas do dia em questão
+  const activeDayIncomeIndex = useMemo(() => {
+    if (!displayedEntry || displayedEntry.grossAmount <= 0) return -1;
+    return activeDayIncomeEntries.findIndex(e => e.id === displayedEntry.id);
+  }, [displayedEntry, activeDayIncomeEntries]);
+
+  // Todos os lançamentos do dia em questão
+  const activeDayAllEntries = useMemo(() => {
+    return entries
+      .filter(e => e.date === activeDate)
+      .sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
+  }, [entries, activeDate]);
+
+  // Índice de todos os lançamentos do dia em questão
+  const activeDayAllIndex = useMemo(() => {
+    if (!displayedEntry) return -1;
+    return activeDayAllEntries.findIndex(e => e.id === displayedEntry.id);
+  }, [displayedEntry, activeDayAllEntries]);
+
+  // Detalhes estilizados do lançamento exibido
+  const displayedEntryDetails = useMemo(() => {
+    if (!displayedEntry) return null;
+    
+    const isIncome = displayedEntry.grossAmount > 0;
+    let category: 'income' | 'fuel' | 'food' | 'maintenance' | 'others' = 'income';
+    let amount = displayedEntry.grossAmount;
+    let label = 'Ganho';
+    let colorClass = 'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20';
+    let icon = <TrendingUp size={20} />;
+
+    if (!isIncome) {
+      if (displayedEntry.fuel > 0) {
+        category = 'fuel';
+        amount = displayedEntry.fuel;
+        label = 'Combustível';
+        colorClass = 'text-rose-500 bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20';
+        icon = <Fuel size={20} />;
+      } else if (displayedEntry.food > 0) {
+        category = 'food';
+        amount = displayedEntry.food;
+        label = 'Alimentação';
+        colorClass = 'text-amber-500 bg-amber-50 dark:bg-amber-500/10 border-amber-100 dark:border-amber-500/20';
+        icon = <Utensils size={20} />;
+      } else if (displayedEntry.maintenance > 0) {
+        category = 'maintenance';
+        amount = displayedEntry.maintenance;
+        label = 'Manutenção';
+        colorClass = 'text-blue-500 bg-blue-50 dark:bg-blue-500/10 border-blue-100 dark:border-blue-500/20';
+        icon = <Wrench size={20} />;
+      } else {
+        category = 'others';
+        amount = displayedEntry.others;
+        label = 'Outros';
+        colorClass = 'text-slate-500 bg-slate-50 dark:bg-slate-500/10 border-slate-100 dark:border-slate-500/20';
+        icon = <Wallet size={20} />;
+      }
+    }
+
+    return {
+      category,
+      amount,
+      label,
+      colorClass,
+      icon,
+      isIncome
+    };
+  }, [displayedEntry]);
+
+  const getPaymentIcon = (method?: string) => {
+    switch (method) {
+      case 'pix': return <Smartphone size={12} className="text-slate-400" />;
+      case 'money': return <Banknote size={12} className="text-slate-400" />;
+      case 'debito': return <CreditCard size={12} className="text-slate-400" />;
+      case 'caderno': return <BookOpen size={12} className="text-slate-400" />;
+      default: return <Wallet size={12} className="text-slate-400" />;
+    }
+  };
+
+  const todayEntries = entries.filter(e => e.date === activeDate);
   const todaySum = { ...getWeeklySummary(todayEntries), count: todayEntries.filter(e => e.grossAmount > 0).length };
   const isGoalReached = todaySum.totalGross >= config.dailyGoal;
 
@@ -84,7 +348,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
   const generalSum = getWeeklySummary(entries);
 
   // Cálculo de Horas Trabalhadas Hoje em Tempo Real
-  const todayTimeEntries = timeEntries.filter(t => t.date === todayStr);
+  const todayTimeEntries = timeEntries.filter(t => t.date === activeDate);
   const todayWorkedSeconds = todayTimeEntries.reduce((acc, curr) => {
     if (curr.startTime && curr.endTime) {
       return acc + calculateDuration(curr.startTime, curr.endTime, curr.breakDuration || 0);
@@ -165,17 +429,37 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
       className="space-y-4 pb-20"
     >
       {/* 0. Botão de Ponto Rápido */}
-      <motion.div variants={itemVariants} className="sticky top-[72px] z-30 flex justify-center pointer-events-none">
+      <motion.div 
+        animate={{
+          opacity: isButtonVisible ? 1 : 0,
+          scale: isButtonVisible ? 1 : 0.85,
+          y: isButtonVisible ? 0 : -80,
+        }}
+        transition={{ duration: 0.25, ease: 'easeInOut' }}
+        className="sticky top-[72px] z-30 flex justify-center pointer-events-none"
+        style={{
+          pointerEvents: isButtonVisible ? 'auto' : 'none'
+        }}
+      >
         <button 
           onClick={onToggleShift}
-          className={`pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border backdrop-blur-md ${
-            todayTimeEntries.find(t => !t.endTime)
-              ? 'bg-rose-500/10 border-rose-500/40 text-rose-600 dark:text-rose-400' 
-              : 'bg-emerald-500/10 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+          className={`pointer-events-auto relative overflow-hidden flex items-center gap-2.5 px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 backdrop-blur-md border-0 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_10px_25px_-5px_rgba(100,116,139,0.1)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.3),0_10px_25px_-5px_rgba(0,0,0,0.5)] hover:scale-[1.04] active:scale-[0.96] cursor-pointer ${
+            activeShift
+              ? 'bg-white/80 dark:bg-slate-900/80 text-rose-500 dark:text-rose-400 hover:bg-white/90 dark:hover:bg-slate-900/90' 
+              : 'bg-white/80 dark:bg-slate-900/80 text-emerald-500 dark:text-emerald-400 hover:bg-white/90 dark:hover:bg-slate-900/90'
           }`}
         >
-          <Clock size={14} className={`${todayTimeEntries.find(t => !t.endTime) ? 'text-rose-500 animate-pulse' : 'text-emerald-500'}`} />
-          {todayTimeEntries.find(t => !t.endTime) ? 'Encerrar Ponto' : 'Iniciar Ponto'}
+          {/* Reflexo de Vidro Líquido Realista 3D de Curvatura (Glass Lens Curvature Reflection) */}
+          <div className="glass-specular-reflection" />
+          
+          <div className={`relative z-10 flex items-center gap-2.5 ${
+            activeShift 
+              ? 'drop-shadow-[0_0_2px_rgba(244,63,94,0.6)] dark:drop-shadow-[0_0_4px_rgba(244,63,94,0.8)]' 
+              : 'drop-shadow-[0_0_2px_rgba(16,185,129,0.6)] dark:drop-shadow-[0_0_4px_rgba(16,185,129,0.8)]'
+          }`}>
+            <Clock size={14} className={`${activeShift ? 'text-rose-500 animate-pulse' : 'text-emerald-500'}`} />
+            <span>{activeShift ? `Encerrar Ponto • ${activeShiftDuration}` : 'Iniciar Ponto'}</span>
+          </div>
         </button>
       </motion.div>
 
@@ -267,6 +551,218 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
               style={{ pointerEvents: 'none' }}
             />
           )}
+        </motion.div>
+
+        {/* Card do Último Lançamento feito */}
+        <motion.div 
+          variants={itemVariants}
+          whileHover={{ 
+            y: -4, 
+            transition: { duration: 0.2 } 
+          }}
+          className="md:col-span-2 p-5 rounded-[2.5rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between relative overflow-hidden group h-[255px]"
+        >
+          <div className="relative z-10 flex flex-col h-full justify-between">
+            <div className="flex flex-col h-[155px] justify-between">
+              <div className="flex justify-between items-center h-8">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <Clock size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-400 dark:text-slate-500 truncate leading-none">
+                      {!displayedEntry 
+                        ? 'Último Lançamento' 
+                        : (displayedEntry.date === todayStr ? 'Lançamento de Hoje' : 'Lançamento Anterior')}
+                    </h3>
+                    {displayedEntry && (
+                      <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 mt-1 block uppercase tracking-tight">
+                        {new Date(displayedEntry.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace(/^\w/, c => c.toUpperCase())}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Setas de navegação sutis */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {allEntriesSorted.length > 0 && (
+                    <div className="flex items-center bg-slate-50 dark:bg-slate-800/60 p-0.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                      {viewedEntryId !== null && (
+                        <button
+                          onClick={() => setViewedEntryId(null)}
+                          className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer mr-0.5"
+                          title="Voltar para o último lançamento"
+                        >
+                          <RotateCcw size={12} />
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={handleOlder}
+                        disabled={displayedIndex >= allEntriesSorted.length - 1}
+                        className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors cursor-pointer"
+                        title="Lançamento anterior"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      
+                      {displayedIndex !== -1 && (
+                        <span className="text-[9px] font-mono-num font-bold px-1 text-slate-400" title={`Lançamento ${displayedIndex + 1} de ${allEntriesSorted.length} geral`}>
+                          {displayedEntry && displayedEntry.grossAmount > 0 && activeDayIncomeIndex !== -1
+                            ? `${activeDayIncomeIndex + 1}/${activeDayIncomeEntries.length}`
+                            : `${activeDayAllIndex + 1}/${activeDayAllEntries.length}`
+                          }
+                        </span>
+                      )}
+
+                      <button
+                        onClick={handleNewer}
+                        disabled={displayedIndex <= 0 && viewedEntryId === null}
+                        className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors cursor-pointer"
+                        title="Lançamento mais recente"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  )}
+
+                  {displayedEntry && (
+                    <div className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest ${
+                      displayedEntry.isPaid 
+                        ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20' 
+                        : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-500/20'
+                    }`}>
+                      {displayedEntry.isPaid ? 'Pago' : 'Pend'}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {!displayedEntry ? (
+                <div className="flex flex-col items-center justify-center text-center h-[110px]">
+                  <span className="text-[10px] text-slate-450 dark:text-slate-500 font-bold max-w-[200px] leading-relaxed mb-2">
+                    Nenhum lançamento hoje.
+                  </span>
+                  {allEntriesSorted.length > 0 && (
+                    <button
+                      onClick={handleOlder}
+                      className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                    >
+                      <ChevronLeft size={12} />
+                      Ver último anterior
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="h-[110px] flex flex-col justify-between pt-1">
+                  <div className="flex justify-between items-start">
+                    <div className="flex gap-2.5 items-center min-w-0">
+                      <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${displayedEntryDetails?.colorClass}`}>
+                        {displayedEntryDetails?.icon}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-black text-slate-800 dark:text-white leading-tight text-sm truncate">
+                          {displayedEntry.storeName.replace('[GASTO]', '').trim()}
+                        </h4>
+                        <span className="text-[9px] font-bold text-slate-450 dark:text-slate-500 uppercase tracking-widest mt-0.5 block">
+                          {displayedEntryDetails?.label}
+                          {displayedEntry.grossAmount > 0 && activeDayIncomeIndex !== -1 && (
+                            <span className="text-indigo-500 dark:text-indigo-400 ml-1.5 bg-indigo-50 dark:bg-indigo-500/10 px-1 py-0.5 rounded text-[8px] font-black">
+                              {activeDayIncomeIndex + 1}ª Corrida
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className={`text-xl font-black font-mono-num tracking-tighter ${
+                        displayedEntryDetails?.isIncome ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'
+                      }`}>
+                        {hideNumbers ? 'R$ ••••' : formatCurrency(displayedEntryDetails?.amount || 0)}
+                      </div>
+                      <span className="text-[8px] text-slate-400 dark:text-slate-500 font-black uppercase tracking-widest">
+                        Valor
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 text-[9px] font-bold text-slate-400 dark:text-slate-500 border-t border-b border-slate-50 dark:border-slate-800/60 py-1">
+                    <span className="flex items-center gap-1">
+                      <Calendar size={11} className="text-slate-400" /> 
+                      {new Date(displayedEntry.date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                    </span>
+                    <span className="w-1 h-1 bg-slate-200 dark:bg-slate-800 rounded-full"></span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={11} className="text-slate-400" /> {displayedEntry.time}
+                    </span>
+                    {displayedEntry.paymentMethod && (
+                      <>
+                        <span className="w-1 h-1 bg-slate-200 dark:bg-slate-800 rounded-full"></span>
+                        <span className="flex items-center gap-1 uppercase tracking-tight">
+                          {getPaymentIcon(displayedEntry.paymentMethod)} 
+                          {config.paymentMethodLabels?.[displayedEntry.paymentMethod as keyof typeof config.paymentMethodLabels] || displayedEntry.paymentMethod}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="h-6 flex items-center">
+                    {displayedEntry.description ? (
+                      <p className="text-[9px] text-slate-450 dark:text-slate-400 italic bg-slate-50 dark:bg-slate-800/40 px-2 py-0.5 rounded-lg border border-slate-100/50 dark:border-slate-800/50 w-full truncate" title={displayedEntry.description}>
+                        &ldquo;{displayedEntry.description}&rdquo;
+                      </p>
+                    ) : (
+                      <p className="text-[9px] text-slate-350 dark:text-slate-650 italic px-1">
+                        Sem descrição adicional
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 mt-auto">
+              <button 
+                onClick={() => displayedEntry && onDelete(displayedEntry.id)}
+                disabled={!displayedEntry}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 dark:bg-slate-800/50 dark:hover:bg-rose-950/20 dark:hover:text-rose-400 rounded-xl transition-all ${
+                  displayedEntry ? 'active:scale-95 text-slate-500 dark:text-slate-400 cursor-pointer' : 'opacity-30 cursor-not-allowed text-slate-400'
+                }`}
+              >
+                <Trash2 size={12} className="text-rose-500 shrink-0" />
+                <span className="text-[9px] font-black uppercase tracking-widest">Excluir</span>
+              </button>
+              <button 
+                onClick={() => displayedEntry && onEdit(displayedEntry)}
+                disabled={!displayedEntry}
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-slate-800/50 dark:hover:bg-indigo-950/20 dark:hover:text-indigo-400 rounded-xl transition-all ${
+                  displayedEntry ? 'active:scale-95 text-slate-500 dark:text-slate-400 cursor-pointer' : 'opacity-30 cursor-not-allowed text-slate-400'
+                }`}
+              >
+                <Edit3 size={12} className="text-indigo-500 shrink-0" />
+                <span className="text-[9px] font-black uppercase tracking-widest">Editar</span>
+              </button>
+              {onUpdate && (
+                <button 
+                  onClick={() => displayedEntry && onUpdate({ ...displayedEntry, isPaid: !displayedEntry.isPaid })}
+                  disabled={!displayedEntry}
+                  className={`flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 dark:bg-slate-800/50 dark:hover:bg-emerald-950/20 dark:hover:text-emerald-400 rounded-xl transition-all ${
+                    displayedEntry ? 'active:scale-95 text-slate-500 dark:text-slate-400 cursor-pointer' : 'opacity-30 cursor-not-allowed text-slate-400'
+                  }`}
+                >
+                  <div className={displayedEntry ? (displayedEntry.isPaid ? 'text-emerald-500 shrink-0' : 'text-rose-500 shrink-0') : 'text-slate-400 shrink-0'}>
+                    {displayedEntry && displayedEntry.isPaid ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-widest">
+                    {displayedEntry ? (displayedEntry.isPaid ? 'Pago' : 'Pendente') : 'Status'}
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="absolute -right-4 -bottom-4 opacity-[0.02] group-hover:scale-110 group-hover:opacity-[0.04] transition-all duration-700 pointer-events-none">
+            <Clock size={160} />
+          </div>
         </motion.div>
 
         {/* Card Unificado: Hoje, Semana, Mês */}
