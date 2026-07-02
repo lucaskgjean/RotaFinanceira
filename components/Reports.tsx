@@ -38,7 +38,9 @@ import {
   MoreHorizontal,
   Lock,
   Sparkles,
-  Gauge
+  Gauge,
+  Scale,
+  Coins
 } from 'lucide-react';
 interface ReportsProps {
   entries: DailyEntry[];
@@ -380,6 +382,63 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       projectedTotal
     };
   }, [entries, timeEntries, startDate, endDate, selectedStore, currentTime, config.dailyGoal]);
+
+  const methodComparisonData = useMemo(() => {
+    const filtered = reportData.filteredEntries;
+    const income = filtered.filter(e => e.grossAmount > 0);
+    const expense = filtered.filter(e => e.grossAmount === 0 && e.storeName !== 'Fechamento de KM');
+
+    const methods: ('money' | 'pix' | 'caderno')[] = ['money', 'pix', 'caderno'];
+
+    const methodStats = methods.map(m => {
+      const methodIncome = income.filter(e => (e.paymentMethod || 'pix') === m);
+      const methodExpense = expense.filter(e => (e.paymentMethod || 'money') === m);
+
+      const faturado = methodIncome.reduce((acc, curr) => acc + curr.grossAmount, 0);
+      const recebido = methodIncome.filter(e => e.isPaid).reduce((acc, curr) => acc + curr.grossAmount, 0);
+      const pendente = methodIncome.filter(e => !e.isPaid).reduce((acc, curr) => acc + curr.grossAmount, 0);
+      
+      const gasto = methodExpense.reduce((acc, curr) => {
+        return acc + curr.fuel + curr.food + curr.maintenance + (curr.others || 0);
+      }, 0);
+
+      const totalMetodo = recebido - gasto;
+
+      const label = config.paymentMethodLabels?.[m] || (m === 'money' ? 'Dinheiro' : m === 'pix' ? 'PIX' : 'Caderno');
+      
+      let color = '#10b981'; // green for money
+      if (m === 'pix') color = '#06b6d4'; // cyan for pix
+      if (m === 'caderno') color = '#f59e0b'; // amber for notebook
+
+      return {
+        id: m,
+        label,
+        color,
+        faturado,
+        recebido,
+        pendente,
+        gasto,
+        totalMetodo
+      };
+    });
+
+    const totalGeralFaturado = methodStats.reduce((acc, curr) => acc + curr.faturado, 0);
+    const totalGeralRecebido = methodStats.reduce((acc, curr) => acc + curr.recebido, 0);
+    const totalGeralPendente = methodStats.reduce((acc, curr) => acc + curr.pendente, 0);
+    const totalGeralGasto = methodStats.reduce((acc, curr) => acc + curr.gasto, 0);
+    const totalGeralSaldo = totalGeralRecebido - totalGeralGasto;
+
+    return {
+      methodStats,
+      totals: {
+        faturado: totalGeralFaturado,
+        recebido: totalGeralRecebido,
+        pendente: totalGeralPendente,
+        gasto: totalGeralGasto,
+        saldo: totalGeralSaldo
+      }
+    };
+  }, [reportData.filteredEntries, config.paymentMethodLabels]);
 
   const exportToCSV = () => {
     const headers = ['Data', 'Hora', 'Loja/Descrição', 'Bruto', 'Combustível', 'Alimentação', 'Manutenção', 'Outros', 'Líquido', 'KM Rodados', 'Tipo KM', 'Pagamento'];
@@ -1539,6 +1598,177 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
           </div>
         </motion.div>
       </div>
+
+      {/* Comparativo de Fluxo Financeiro por Método de Pagamento */}
+      <motion.div 
+        variants={itemVariants}
+        className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800"
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 border-b border-slate-100 dark:border-slate-800 pb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner">
+              <Scale size={22} strokeWidth={2.2} />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-wider">Fluxo por Método de Pagamento</h3>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight mt-0.5">Análise gráfica de recebidos, pendentes e gastos por carteira</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-[9px] font-black uppercase tracking-wider self-start md:self-auto">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span>
+              <span className="text-slate-500 dark:text-slate-400">Recebido</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700"></span>
+              <span className="text-slate-500 dark:text-slate-400">Pendente</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-rose-500"></span>
+              <span className="text-slate-500 dark:text-slate-400">Gasto</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Unified Horizontal Layout Box */}
+        <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-100 dark:border-slate-800/80 rounded-[2.5rem] p-4 sm:p-6 md:p-8">
+          <div className="max-w-4xl mx-auto w-full flex flex-col gap-5">
+            {methodComparisonData.methodStats.map((item) => {
+              const maxVal = Math.max(...methodComparisonData.methodStats.map(m => Math.max(m.faturado, m.gasto)), 100);
+              
+              // Percentage calculation for the horizontal progress gauges
+              const recebidoPct = (item.recebido / maxVal) * 100;
+              const pendentePct = (item.pendente / maxVal) * 100;
+              const gastoPct = (item.gasto / maxVal) * 100;
+
+              return (
+                <div 
+                  key={item.id} 
+                  className="bg-white dark:bg-slate-900/60 rounded-3xl border border-slate-100 dark:border-slate-800/60 p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-300 group"
+                >
+                  {/* Grid layout - adapts beautifully to screen size */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-center">
+                    
+                    {/* 1. Payment Method Header (Label) */}
+                    <div className="lg:col-span-2 flex items-center gap-3">
+                      <div className={`w-2.5 h-9 rounded-full ${
+                        item.label === 'PIX' ? 'bg-teal-500' : item.label === 'Dinheiro' ? 'bg-emerald-500' : 'bg-indigo-500'
+                      }`} />
+                      <div>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block">
+                          Método
+                        </span>
+                        <span className="text-sm sm:text-base font-black text-slate-800 dark:text-white uppercase tracking-wider block mt-0.5">
+                          {item.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 2. Horizontal Mini-Gauges (Visual reference only, no text values on the bar) */}
+                    <div className="lg:col-span-3 flex flex-col gap-2 bg-slate-50/50 dark:bg-slate-950/40 rounded-2xl p-3 border border-slate-100/50 dark:border-slate-800/20">
+                      {/* Entradas gauge (Recebido + Pendente) */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 w-11 uppercase tracking-wider">
+                          Entradas
+                        </span>
+                        <div className="flex-1 h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-full overflow-hidden flex">
+                          {item.recebido > 0 && (
+                            <div 
+                              style={{ width: `${Math.max(recebidoPct, 2)}%` }} 
+                              className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-l-full"
+                            />
+                          )}
+                          {item.pendente > 0 && (
+                            <div 
+                              style={{ width: `${Math.max(pendentePct, 2)}%` }} 
+                              className="h-full bg-white dark:bg-slate-950 border-y border-r border-slate-300 dark:border-slate-700 rounded-r-full"
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Saídas gauge (Gasto) */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 w-11 uppercase tracking-wider">
+                          Saídas
+                        </span>
+                        <div className="flex-1 h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-full overflow-hidden">
+                          {item.gasto > 0 && (
+                            <div 
+                              style={{ width: `${Math.max(gastoPct, 2)}%` }} 
+                              className="h-full bg-gradient-to-r from-rose-500 to-rose-600 rounded-full"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. Horizontal Value Lineup */}
+                    <div className="lg:col-span-5 grid grid-cols-2 sm:grid-cols-4 gap-4 py-1 sm:py-0 px-1 sm:px-2">
+                      {/* Valor total por método */}
+                      <div className="flex flex-col">
+                        <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider text-[8px] sm:text-[9px]">
+                          Valor Total
+                        </span>
+                        <span className="font-mono text-slate-700 dark:text-slate-300 text-xs sm:text-sm font-semibold mt-1">
+                          {formatCurrency(item.faturado)}
+                        </span>
+                      </div>
+
+                      {/* Valor recebido */}
+                      <div className="flex flex-col">
+                        <span className="text-emerald-500/80 dark:text-emerald-400/80 font-bold uppercase tracking-wider text-[8px] sm:text-[9px]">
+                          Recebido
+                        </span>
+                        <span className="font-mono text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm font-semibold mt-1">
+                          {formatCurrency(item.recebido)}
+                        </span>
+                      </div>
+
+                      {/* Valor pendente */}
+                      <div className="flex flex-col">
+                        <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider text-[8px] sm:text-[9px]">
+                          Pendente
+                        </span>
+                        <span className="font-mono text-amber-600 dark:text-amber-500 text-xs sm:text-sm font-semibold mt-1">
+                          {formatCurrency(item.pendente)}
+                        </span>
+                      </div>
+
+                      {/* Gasto */}
+                      <div className="flex flex-col">
+                        <span className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider text-[8px] sm:text-[9px]">
+                          Gasto
+                        </span>
+                        <span className="font-mono text-rose-600 dark:text-rose-400 text-xs sm:text-sm font-semibold mt-1">
+                          -{formatCurrency(item.gasto)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 4. Valor Recebido Líquido (Destaque) */}
+                    <div className="lg:col-span-2">
+                      <div className="rounded-2xl bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/15 dark:border-indigo-500/30 px-3.5 py-2.5 text-center shadow-inner group-hover:bg-indigo-500/[0.12] transition-colors">
+                        <span className="text-indigo-600 dark:text-indigo-400 font-black uppercase tracking-wider text-[8px] sm:text-[9px] block mb-0.5">
+                          Líquido Rec.
+                        </span>
+                        <span className={`font-mono font-black text-xs sm:text-sm md:text-base block ${
+                          item.totalMetodo >= 0 
+                            ? 'text-emerald-600 dark:text-emerald-400' 
+                            : 'text-rose-600 dark:text-rose-400'
+                        }`}>
+                          {item.totalMetodo >= 0 ? '+' : ''}{formatCurrency(item.totalMetodo)}
+                        </span>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </motion.div>
 
       <AnimatePresence>
         {showRangePicker && (

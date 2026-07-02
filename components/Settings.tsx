@@ -4,7 +4,7 @@ import { AppConfig, DEFAULT_CONFIG, DailyEntry, TimeEntry } from '../types';
 import { formatCurrency, entriesToCSV } from '../utils/calculations';
 import CustomDialog from './CustomDialog';
 import CustomDateRangePicker from './CustomDateRangePicker';
-import { Sun, Moon, Monitor, Settings as SettingsIcon, Bell, Plus, Trash2, Clock, LogOut, User, Camera, Phone, Mail, Lock, ChevronRight, Sparkles, ShieldCheck, RefreshCw, AlertTriangle, Calendar, Wallet, ArrowUpRight, CreditCard, MoreHorizontal, Cloud } from 'lucide-react';
+import { Sun, Moon, Monitor, Settings as SettingsIcon, Bell, Plus, Trash2, Clock, LogOut, User, Camera, Phone, Mail, Lock, ChevronRight, Sparkles, ShieldCheck, RefreshCw, AlertTriangle, Calendar, Wallet, ArrowUpRight, CreditCard, MoreHorizontal, Cloud, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { notificationService } from '../services/notificationService';
 import { authService } from '../services/authService';
@@ -44,6 +44,17 @@ const Settings: React.FC<SettingsProps> = ({
   const [resetPeriod, setResetPeriod] = useState({ start: '', end: '' });
   const [showRangePicker, setShowRangePicker] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  
+  // Custom states for Password Change Modal
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
   const [dialog, setDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -257,6 +268,58 @@ const Settings: React.FC<SettingsProps> = ({
         }
       }
     });
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword) {
+      showToast("Por favor, digite sua senha atual.", "error");
+      return;
+    }
+    if (!newPassword) {
+      showToast("Por favor, digite a nova senha.", "error");
+      return;
+    }
+    if (newPassword.length < 6) {
+      showToast("A nova senha deve ter no mínimo 6 caracteres.", "error");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      showToast("A confirmação da nova senha não confere.", "error");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      // 1. Reautenticar
+      await authService.reauthenticate(currentPassword);
+      
+      // 2. Mudar senha
+      await authService.changePassword(newPassword);
+      
+      showToast("Senha alterada com sucesso!", "success");
+      
+      // Resetar estados e fechar
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmNewPassword(false);
+      setIsChangePasswordOpen(false);
+    } catch (error: any) {
+      console.error("Erro ao alterar senha:", error);
+      let errorMsg = "Não foi possível alterar a senha.";
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMsg = "Senha atual incorreta.";
+      } else if (error.code === 'auth/weak-password') {
+        errorMsg = "A nova senha é muito fraca. Digite uma senha mais forte (mínimo 6 caracteres).";
+      } else if (error.code === 'auth/requires-recent-login') {
+        errorMsg = "Sua sessão expirou. Por favor, faça login novamente para alterar a senha.";
+      }
+      showToast(errorMsg, "error");
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -632,7 +695,10 @@ const Settings: React.FC<SettingsProps> = ({
               <ChevronRight size={18} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl group cursor-pointer">
+            <div 
+              onClick={() => setIsChangePasswordOpen(true)}
+              className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl group cursor-pointer"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center text-slate-400">
                   <Lock size={18} />
@@ -725,6 +791,85 @@ const Settings: React.FC<SettingsProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* CARD: NOTIFICAÇÕES */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 dark:text-white">Notificações</h3>
+                <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Ative avisos de meta diária e alertas de manutenção</p>
+              </div>
+              <button
+                onClick={() => {
+                  const newVal = !localConfig.notificationsEnabled;
+                  setLocalConfig({ ...localConfig, notificationsEnabled: newVal });
+                  if (newVal) {
+                    notificationService.requestPermission().then(granted => {
+                      if (granted) {
+                        showToast("Notificações autorizadas!", "success");
+                        notificationService.sendNotification("Notificações Ativas! 🔔", {
+                          body: "Você receberá alertas de meta batida e manutenção aqui."
+                        });
+                      } else {
+                        showToast("Notificações ativadas! Verifique se seu navegador as autoriza.", "success");
+                      }
+                    });
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  localConfig.notificationsEnabled ? 'bg-indigo-600 animate-pulse' : 'bg-slate-200 dark:bg-slate-700'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    localConfig.notificationsEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {localConfig.notificationsEnabled && (
+              <div className="pt-3 border-t border-slate-50 dark:border-slate-800/60 space-y-3 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between py-1">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <Sparkles size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-800 dark:text-white">Meta Diária Batida</h4>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Notificar quando atingir a meta do dia</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-black text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-md uppercase tracking-wider">Ativo</span>
+                </div>
+
+                <div className="flex items-center justify-between py-1">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                      <AlertTriangle size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-800 dark:text-white">Manutenção do Veículo</h4>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Notificar quando itens de manutenção estiverem vencendo</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-black text-rose-500 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 rounded-md uppercase tracking-wider">Ativo</span>
+                </div>
+
+                <button
+                  onClick={() => {
+                    notificationService.sendNotification("Teste de Notificação 🔔", {
+                      body: "Este é um teste de notificação do RotaFinanceira!"
+                    });
+                    showToast("Notificação de teste enviada!", "success");
+                  }}
+                  className="w-full mt-2 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center cursor-pointer"
+                >
+                  Enviar Notificação de Teste
+                </button>
+              </div>
+            )}
           </div>
 
           {/* CARD: META */}
@@ -1049,6 +1194,162 @@ const Settings: React.FC<SettingsProps> = ({
           </button>
         </div>
       )}
+
+      {/* Modal Customizado de Troca de Senha */}
+      <AnimatePresence>
+        {isChangePasswordOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (!isChangingPassword) {
+                  setIsChangePasswordOpen(false);
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setConfirmNewPassword('');
+                  setShowCurrentPassword(false);
+                  setShowNewPassword(false);
+                  setShowConfirmNewPassword(false);
+                }
+              }}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            />
+            
+            {/* Modal Card */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-[2.5rem] p-6 shadow-2xl flex flex-col justify-between overflow-hidden z-10"
+            >
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest mb-1">
+                    Alterar Senha
+                  </h3>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">
+                    Por segurança, você deve reautenticar informando sua senha atual.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Senha Atual */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                      Senha Atual
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input 
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-12 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 ring-indigo-500/20 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                        disabled={isChangingPassword}
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors cursor-pointer"
+                      >
+                        {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Nova Senha */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                      Nova Senha
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input 
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Mínimo 6 caracteres"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-12 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 ring-indigo-500/20 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                        disabled={isChangingPassword}
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors cursor-pointer"
+                      >
+                        {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirmar Nova Senha */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                      Confirmar Nova Senha
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                      <input 
+                        type={showConfirmNewPassword ? 'text' : 'password'}
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl pl-12 pr-12 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 focus:ring-2 ring-indigo-500/20 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                        disabled={isChangingPassword}
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors cursor-pointer"
+                      >
+                        {showConfirmNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ações */}
+              <div className="flex gap-3 mt-8">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setIsChangePasswordOpen(false);
+                    setCurrentPassword('');
+                    setNewPassword('');
+                    setConfirmNewPassword('');
+                    setShowCurrentPassword(false);
+                    setShowNewPassword(false);
+                    setShowConfirmNewPassword(false);
+                  }}
+                  disabled={isChangingPassword}
+                  className="flex-1 py-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-500 dark:text-slate-450 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleChangePassword}
+                  disabled={isChangingPassword}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-indigo-500/10 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isChangingPassword ? (
+                    <>
+                      <RefreshCw size={12} className="animate-spin" />
+                      Alterando...
+                    </>
+                  ) : 'Alterar Senha'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

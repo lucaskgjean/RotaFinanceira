@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { authService } from '../services/authService';
 import { isFirebaseConfigured } from '../services/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, Sparkles, Settings, CheckCircle2, Chrome } from 'lucide-react';
+import { Mail, Lock, LogIn, UserPlus, AlertCircle, Loader2, Sparkles, Settings, CheckCircle2, Chrome, Eye, EyeOff } from 'lucide-react';
 import { TERMS_OF_USE } from '../constants';
 import CustomDialog from './CustomDialog';
 
@@ -24,6 +24,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [showTermsDialog, setShowTermsDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,13 +271,20 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
                 <input 
-                  type="password" 
+                  type={showPassword ? 'text' : 'password'} 
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-700 disabled:opacity-50"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-12 pr-12 py-4 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-700 disabled:opacity-50"
                 />
+                <button 
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
               {isLogin && (
                 <button 

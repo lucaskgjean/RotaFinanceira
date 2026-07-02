@@ -60,6 +60,7 @@ const App: React.FC = () => {
   const [isNavTouched, setIsNavTouched] = useState(false);
   const [touchPercent, setTouchPercent] = useState<number | null>(null);
   const navTouchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const setNavTouchedWithDelay = (value: boolean, delay: number = 0) => {
     if (navTouchTimeoutRef.current) {
@@ -315,7 +316,16 @@ const App: React.FC = () => {
   // Monitora a movimentação física do dedo e move o seletor em tempo real para a aba correspondente
   const handleNavTouch = (e: any) => {
     if (!bottomNavRef.current) return;
-    setNavTouchedWithDelay(true);
+    
+    if (isNavbarCollapsed) {
+      if (!holdTimerRef.current) {
+        holdTimerRef.current = setTimeout(() => {
+          setIsNavTouched(true);
+        }, 250); // Só aumenta se segurar por um pequeno tempo (250ms)
+      }
+    } else {
+      setIsNavTouched(true);
+    }
     
     // Calcula as dimensões físicas da barra no momento do toque
     const rect = bottomNavRef.current.getBoundingClientRect();
@@ -362,6 +372,10 @@ const App: React.FC = () => {
 
   // Efetiva a mudança de aba quando o usuário levanta o dedo da tela
   const handleNavTouchEnd = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
     setNavTouchedWithDelay(false, 300); // 300ms delay to expand/collapse smoothly
     setTouchPercent(null);
     if (draggedTab) {
@@ -1248,7 +1262,15 @@ const App: React.FC = () => {
             onTouchStart={handleNavTouch}
             onTouchMove={handleNavTouch}
             onTouchEnd={handleNavTouchEnd}
-            onTouchCancel={() => { setDraggedTab(null); setTouchPercent(null); setNavTouchedWithDelay(false, 300); }}
+            onTouchCancel={() => { 
+              if (holdTimerRef.current) {
+                clearTimeout(holdTimerRef.current);
+                holdTimerRef.current = null;
+              }
+              setDraggedTab(null); 
+              setTouchPercent(null); 
+              setNavTouchedWithDelay(false, 300); 
+            }}
             onMouseDown={(e) => {
               handleNavTouch(e);
               

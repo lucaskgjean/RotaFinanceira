@@ -13,7 +13,8 @@ import {
   EmailAuthProvider,
   User,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  updatePassword
 } from "firebase/auth";
 import { auth } from "./firebase";
 import { storageService } from "./storageService";
@@ -112,5 +113,10 @@ export const authService = {
     if (!auth || !auth.currentUser) throw new Error("Usuário não autenticado.");
     const user = auth.currentUser;
     return user.delete();
+  },
+
+  changePassword: async (newPassword: string) => {
+    if (!auth || !auth.currentUser) throw new Error("Usuário não autenticado.");
+    return updatePassword(auth.currentUser, newPassword);
   }
 };

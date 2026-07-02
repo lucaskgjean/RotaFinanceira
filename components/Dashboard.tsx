@@ -163,18 +163,20 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
   }, []);
 
   // Redireciona para o último lançamento automaticamente quando um novo lançamento é feito
-  const prevEntriesLength = useRef(entries.length);
+  const fastLaunchesCount = useMemo(() => entries.filter(e => e.grossAmount > 0).length, [entries]);
+  const prevEntriesLength = useRef(fastLaunchesCount);
   useEffect(() => {
-    if (entries.length > prevEntriesLength.current) {
+    if (fastLaunchesCount > prevEntriesLength.current) {
       setViewedEntryId(null);
     }
-    prevEntriesLength.current = entries.length;
-  }, [entries.length]);
+    prevEntriesLength.current = fastLaunchesCount;
+  }, [fastLaunchesCount]);
 
-  // Ordena todos os lançamentos cronologicamente (do mais novo para o mais antigo)
+  // Ordena todos os lançamentos cronologicamente (do mais novo para o mais antigo) - Apenas Lançamento Rápido
   const allEntriesSorted = useMemo(() => {
-    if (entries.length === 0) return [];
-    return [...entries].sort((a, b) => {
+    const fastLaunches = entries.filter(e => e.grossAmount > 0);
+    if (fastLaunches.length === 0) return [];
+    return [...fastLaunches].sort((a, b) => {
       const dateTimeA = `${a.date}T${a.time || '00:00'}`;
       const dateTimeB = `${b.date}T${b.time || '00:00'}`;
       return dateTimeB.localeCompare(dateTimeA);

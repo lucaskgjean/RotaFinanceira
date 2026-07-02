@@ -249,30 +249,57 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
     window.open(url, '_blank');
   };
 
-  const copyImageAndOpenWhatsApp = async () => {
+  const shareOnWhatsApp = async () => {
     if (!cachedShareFile) {
       alert("Aguarde a geração do cupom de cobrança...");
       return;
     }
     setIsCopyingImage(true);
+    
+    // Copia a chave Pix automaticamente para o clipboard
     try {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          [cachedShareFile.type]: cachedShareFile
-        })
-      ]);
-      
-      alert("✨ Cupom em IMAGEM copiado com SUCESSO!\n\nEstamos abrindo o WhatsApp. Ao entrar na conversa da loja, basta pressionar o campo de texto e selecionar 'Colar' para enviar a imagem do cupom!");
-
-      const text = `Olá! Segue o cupom de cobrança detalhado das entregas pendentes. O valor total é de *${formatCurrency(billingStore?.totalDue || 0)}*. (Favor colar o cupom em imagem que acabei de copiar para a sua área de transferência)`;
-      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-      window.open(url, '_blank');
-    } catch (err) {
-      console.error(err);
-      alert("O seu dispositivo ou WebView não suportou a cópia direta de imagens. Por favor, use a opção 'Enviar WhatsApp (Texto)' ou tire um print da tela.");
-    } finally {
-      setIsCopyingImage(false);
+      await navigator.clipboard.writeText(pixCode);
+    } catch (e) {
+      console.warn("Clipboard access denied", e);
     }
+
+    const shareText = pixCode; // O texto será a chave cópia e cola
+    let sharedSuccessfully = false;
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [cachedShareFile] })) {
+      try {
+        await navigator.share({
+          files: [cachedShareFile],
+          text: shareText
+        });
+        sharedSuccessfully = true;
+      } catch (err) {
+        console.warn("navigator.share failed, using fallback", err);
+      }
+    }
+
+    if (!sharedSuccessfully) {
+      try {
+        // Fallback: copia imagem para área de transferência e abre o whatsapp com o texto
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            [cachedShareFile.type]: cachedShareFile
+          })
+        ]);
+        
+        alert("✨ Cupom em IMAGEM copiado para sua Área de Transferência!\n\nEstamos abrindo o WhatsApp. Ao entrar na conversa da loja, basta pressionar o campo de texto e selecionar 'Colar' para enviar a imagem do cupom!\n\nO texto pré-preenchido já é o código Pix Copia e Cola.");
+
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+        window.open(url, '_blank');
+      } catch (err) {
+        console.error(err);
+        // Se ClipboardItem falhar (comum em webviews que não aceitam imagens no clip)
+        alert("Copiamos a chave Pix Copia e Cola para a área de transferência. Vamos abrir o WhatsApp agora.");
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+        window.open(url, '_blank');
+      }
+    }
+    setIsCopyingImage(false);
   };
 
   const getBase64Image = (imgUrl: string): Promise<string> => {
@@ -533,13 +560,21 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
       const fileName = `Relatorio_Cobranca_${billingStore.name.replace(/\s+/g, '_')}.pdf`;
       const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
+      let sharedSuccessfully = false;
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        await navigator.share({
-          files: [pdfFile],
-          title: `Relatório de Cobrança - ${billingStore.name}`,
-          text: `Olá! Segue o relatório detalhado de cobrança das entregas pendentes da loja *${billingStore.name}* no valor total de *${formatCurrency(billingStore.totalDue)}*.`
-        });
-      } else {
+        try {
+          await navigator.share({
+            files: [pdfFile],
+            title: `Relatório de Cobrança - ${billingStore.name}`,
+            text: `Olá! Segue o relatório detalhado de cobrança das entregas pendentes da loja *${billingStore.name}* no valor total de *${formatCurrency(billingStore.totalDue)}*.`
+          });
+          sharedSuccessfully = true;
+        } catch (shareErr) {
+          console.warn("navigator.share for PDF failed, falling back to direct download", shareErr);
+        }
+      }
+
+      if (!sharedSuccessfully) {
         const url = URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url;
@@ -768,85 +803,52 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
 
             {hasPixConfig && (
               <div className="w-full mt-4 space-y-3">
-                <div className="p-3 bg-indigo-50 dark:bg-slate-800/40 rounded-xl border border-indigo-100/50 dark:border-slate-800/80 text-center">
-                  <p className="text-[9px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wide leading-relaxed">
-                    💡 DICA PARA O APP MEDIAN:<br />
-                    Se o download de arquivos estiver travado, use os botões de WhatsApp ou Copiar Texto abaixo para enviar o relatório completo!
-                  </p>
-                </div>
+                <div className="space-y-2.5">
+                  {/* Opção 1: Compartilhar no WhatsApp (Envia a imagem e o texto é o copia e cola) */}
+                  <button
+                    onClick={shareOnWhatsApp}
+                    disabled={isGeneratingShare || !cachedShareFile}
+                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer h-12"
+                  >
+                    <MessageSquare size={14} className={isCopyingImage ? 'animate-pulse' : ''} />
+                    {isCopyingImage ? 'Processando...' : 'Compartilhar no WhatsApp'}
+                  </button>
 
-                {/* WhatsApp Text Report & Copy Text buttons (Highly reliable, 100% works in Median/WebViews) */}
-                <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
+                    {/* Opção 2: Exportar Relatório (PDF) */}
                     <button
-                      onClick={shareViaWhatsApp}
-                      className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                      id="export-report-button"
+                      onClick={exportReportAsPDF}
+                      disabled={isExporting}
+                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
                     >
-                      <MessageSquare size={12} />
-                      WhatsApp (Texto)
+                      <FileText size={12} className={isExporting ? 'animate-spin' : ''} />
+                      {isExporting ? 'Exportando...' : 'Exportar Relatório'}
                     </button>
 
+                    {/* Opção 3: Salvar (Baixar Imagem) */}
                     <button
-                      onClick={copyImageAndOpenWhatsApp}
+                      id="download-button"
+                      onClick={downloadImage}
                       disabled={isGeneratingShare || !cachedShareFile}
-                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-600/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                      className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-center gap-1.5 cursor-pointer h-11 disabled:opacity-50"
                     >
-                      <ImageIcon size={12} className={isCopyingImage ? 'animate-pulse' : ''} />
-                      {isCopyingImage ? 'Copiando...' : 'WhatsApp (Imagem)'}
+                      <Download size={12} />
+                      {isGeneratingShare ? 'Gerando...' : 'Salvar Imagem'}
                     </button>
                   </div>
-
-                  <button
-                    onClick={copyTextReportToClipboard}
-                    className={`w-full py-3 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer h-11 ${isTextCopied ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-700 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700'}`}
-                  >
-                    <Copy size={12} />
-                    {isTextCopied ? 'Texto de Cobrança Copiado!' : 'Copiar Texto de Cobrança'}
-                  </button>
                 </div>
 
                 <div className="h-[1px] bg-slate-200 dark:bg-slate-800/80 my-2" />
 
                 <button
-                  id="export-report-button"
-                  onClick={exportReportAsPDF}
-                  disabled={isExporting}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
-                >
-                  <FileText size={12} className={isExporting ? 'animate-spin' : ''} />
-                  {isExporting ? 'Exportando PDF...' : 'Exportar Relatório (PDF)'}
-                </button>
-
-                <button
                   id="screenshot-mode-button"
                   onClick={() => setPrintMode(true)}
-                  className="w-full py-3 bg-slate-600 hover:bg-slate-700 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-slate-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
+                  className="w-full py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg text-[8px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-1 cursor-pointer"
                 >
-                  <Camera size={12} />
+                  <Camera size={10} />
                   Modo Print de Tela
                 </button>
-
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <button
-                    id="share-button"
-                    onClick={() => handleShare(billingStore.name, billingStore.totalDue, pixCode)}
-                    disabled={isSharing || isGeneratingShare}
-                    className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-center gap-1.5 cursor-pointer h-11"
-                  >
-                    <Share2 size={12} className={(isSharing || isGeneratingShare) ? 'animate-spin' : ''} />
-                    Compartilhar
-                  </button>
-
-                  <button
-                    id="download-button"
-                    onClick={downloadImage}
-                    disabled={isGeneratingShare || !cachedShareFile}
-                    className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-center gap-1.5 cursor-pointer h-11 disabled:opacity-50"
-                  >
-                    <Download size={12} />
-                    {isGeneratingShare ? 'Gerando...' : 'Baixar Imagem'}
-                  </button>
-                </div>
               </div>
             )}
 
