@@ -162,26 +162,47 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
     };
   }, []);
 
-  // Redireciona para o último lançamento automaticamente quando um novo lançamento é feito
-  const fastLaunchesCount = useMemo(() => entries.filter(e => e.grossAmount > 0).length, [entries]);
-  const prevEntriesLength = useRef(fastLaunchesCount);
+  // Monitora se novos lançamentos foram adicionados e garante que o card foque imediatamente neles
+  const prevEntriesRef = useRef<DailyEntry[]>(entries);
   useEffect(() => {
-    if (fastLaunchesCount > prevEntriesLength.current) {
-      setViewedEntryId(null);
+    if (entries !== prevEntriesRef.current) {
+      const prevIds = new Set(prevEntriesRef.current.map(e => e.id));
+      const addedEntry = entries.find(e => !prevIds.has(e.id));
+      
+      if (addedEntry && addedEntry.grossAmount > 0) {
+        // Define como visualizado o id do novo lançamento para o card focar nele de imediato
+        setViewedEntryId(addedEntry.id);
+        setNavDirection(1);
+      }
+      prevEntriesRef.current = entries;
     }
-    prevEntriesLength.current = fastLaunchesCount;
-  }, [fastLaunchesCount]);
+  }, [entries]);
 
   // Ordena todos os lançamentos cronologicamente (do mais novo para o mais antigo) - Apenas Lançamento Rápido
   const allEntriesSorted = useMemo(() => {
     const fastLaunches = entries.filter(e => e.grossAmount > 0);
     if (fastLaunches.length === 0) return [];
-    return [...fastLaunches].sort((a, b) => {
-      const dateTimeA = `${a.date}T${a.time || '00:00'}`;
-      const dateTimeB = `${b.date}T${b.time || '00:00'}`;
-      return dateTimeB.localeCompare(dateTimeA);
-    });
+    return fastLaunches
+      .map((entry, index) => ({ entry, originalIndex: index }))
+      .sort((a, b) => {
+        const dateTimeA = `${a.entry.date}T${a.entry.time || '00:00'}`;
+        const dateTimeB = `${b.entry.date}T${b.entry.time || '00:00'}`;
+        
+        const cmp = dateTimeB.localeCompare(dateTimeA);
+        if (cmp !== 0) return cmp;
+        
+        // Se a data e hora forem idênticas, quem foi inserido por último fica primeiro (mais recente)
+        return b.originalIndex - a.originalIndex;
+      })
+      .map(item => item.entry);
   }, [entries]);
+
+  // Limpa o viewedEntryId se ele tiver sido excluído
+  useEffect(() => {
+    if (viewedEntryId && !allEntriesSorted.some(e => e.id === viewedEntryId)) {
+      setViewedEntryId(null);
+    }
+  }, [viewedEntryId, allEntriesSorted]);
 
   // Lançamentos de hoje ordenados (do mais novo para o mais antigo)
   const todayEntriesSorted = useMemo(() => {
@@ -739,7 +760,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
                         </div>
                         <div className="text-right shrink-0">
                           <div className={`text-xl font-black font-mono-num tracking-tighter ${
-                            displayedEntryDetails?.isIncome ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'
+                            displayedEntryDetails?.isIncome && displayedEntry.isPaid ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'
                           }`}>
                             {hideNumbers ? 'R$ ••••' : formatCurrency(displayedEntryDetails?.amount || 0)}
                           </div>
