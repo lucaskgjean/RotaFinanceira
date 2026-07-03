@@ -185,8 +185,8 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
 
     const maxHeatValue = Math.max(...heatMapData.flat(), 1);
 
-    // Odômetro Total (último valor lançado em km total do veículo)
-    const allKmEntries = entries.filter(e => e.kmAtMaintenance !== undefined && e.kmAtMaintenance > 0);
+    // Odômetro Total (último valor lançado em km total do veículo, ignorando manutenções que são informativas)
+    const allKmEntries = entries.filter(e => e.kmAtMaintenance !== undefined && e.kmAtMaintenance > 0 && e.category !== 'maintenance');
     const totalOdometer = allKmEntries.length > 0 
       ? Math.max(...allKmEntries.map(e => e.kmAtMaintenance || 0))
       : config.lastTotalKm || 0;

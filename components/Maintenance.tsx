@@ -382,14 +382,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({
             {alerts.map(alert => {
               const staticIsEditing = editingAlertId === alert.id;
 
-              const maintenanceForThis = entries.filter(e => 
-                e.maintenance > 0 && 
-                e.grossAmount === 0 && 
-                e.storeName.toLowerCase().includes(alert.description.toLowerCase())
-              );
-              const lastMaintenanceKm = maintenanceForThis.length > 0 
-                ? Math.max(...maintenanceForThis.map(e => e.kmAtMaintenance || 0))
-                : alert.lastKm;
+              const lastMaintenanceKm = alert.lastKm;
               
               const nextMaintenanceKm = lastMaintenanceKm + alert.kmInterval;
               const kmRemaining = nextMaintenanceKm - lastKmEntry;

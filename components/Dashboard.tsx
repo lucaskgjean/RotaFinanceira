@@ -511,12 +511,14 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
           {/* Reflexo de Vidro Líquido Realista 3D de Curvatura (Glass Lens Curvature Reflection) */}
           <div className="glass-specular-reflection" />
           
-          <div className={`relative z-10 flex items-center gap-2.5 ${
-            activeShift 
-              ? 'drop-shadow-[0_0_2px_rgba(244,63,94,0.6)] dark:drop-shadow-[0_0_4px_rgba(244,63,94,0.8)]' 
-              : 'drop-shadow-[0_0_2px_rgba(16,185,129,0.6)] dark:drop-shadow-[0_0_4px_rgba(16,185,129,0.8)]'
-          }`}>
-            <Clock size={14} className={`${activeShift ? 'text-rose-500 animate-pulse' : 'text-emerald-500'}`} />
+          <div className="relative z-10 flex items-center gap-2.5">
+            <div className={`flex items-center ${
+              activeShift 
+                ? 'drop-shadow-[0_0_2px_rgba(244,63,94,0.6)] dark:drop-shadow-[0_0_4px_rgba(244,63,94,0.8)]' 
+                : 'drop-shadow-[0_0_2px_rgba(16,185,129,0.6)] dark:drop-shadow-[0_0_4px_rgba(16,185,129,0.8)]'
+            }`}>
+              <Clock size={14} className={`${activeShift ? 'text-rose-500 animate-pulse' : 'text-emerald-500'}`} />
+            </div>
             <span>{activeShift ? `Encerrar Ponto • ${activeShiftDuration}` : 'Iniciar Ponto'}</span>
           </div>
         </button>

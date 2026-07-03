@@ -403,14 +403,7 @@ const App: React.FC = () => {
     const today = getLocalDateStr();
 
     config.maintenanceAlerts.forEach(alert => {
-      const maintenanceForThis = entries.filter(e => 
-        e.maintenance > 0 && 
-        e.grossAmount === 0 && 
-        e.storeName.toLowerCase().includes(alert.description.toLowerCase())
-      );
-      const lastMaintenanceKm = maintenanceForThis.length > 0 
-        ? Math.max(...maintenanceForThis.map(e => e.kmAtMaintenance || 0))
-        : alert.lastKm;
+      const lastMaintenanceKm = alert.lastKm;
 
       const remaining = alert.kmInterval - (lastKm - lastMaintenanceKm);
       
@@ -435,7 +428,7 @@ const App: React.FC = () => {
         }
       }
     });
-  }, [config.notificationsEnabled, config.lastTotalKm, config.maintenanceAlerts, entries]);
+  }, [config.notificationsEnabled, config.lastTotalKm, config.maintenanceAlerts]);
 
   // Auto-close shifts from previous days at midnight
   useEffect(() => {
@@ -695,8 +688,8 @@ const App: React.FC = () => {
       const dateCompare = a.date.localeCompare(b.date);
       if (dateCompare !== 0) return dateCompare;
       
-      // Se ambos tiverem odômetro, usa o valor do odômetro como critério de ordem
-      if (a.kmAtMaintenance && b.kmAtMaintenance) {
+      // Se ambos tiverem odômetro e não forem manutenções, usa o valor do odômetro como critério de ordem
+      if (a.kmAtMaintenance && b.kmAtMaintenance && a.category !== 'maintenance' && b.category !== 'maintenance') {
         return a.kmAtMaintenance - b.kmAtMaintenance;
       }
       
@@ -705,18 +698,15 @@ const App: React.FC = () => {
     
     let lastKm = 0;
     return sorted.map(entry => {
+      // Se for manutenção, o KM é apenas informativo ("salvo para consulta") e não afeta o cálculo do odômetro do veículo ou distância
+      if (entry.category === 'maintenance') {
+        return { ...entry, kmDriven: 0 };
+      }
+
       if (entry.kmAtMaintenance && entry.kmAtMaintenance > 0) {
         const currentKm = entry.kmAtMaintenance;
-        
-        // Se for manutenção, o KM é apenas informativo ("conhecimento")
-        // Mas ainda atualizamos o lastKm para que o próximo fechamento use este ponto como base
-        if (entry.category === 'maintenance') {
-          lastKm = currentKm;
-          return { ...entry, kmDriven: 0 };
-        }
 
-        // O delta é a diferença para o último odômetro conhecido
-        // Se for o primeiro registro ou o KM atual for menor que o anterior (reset de odômetro), delta é 0
+        // O delta é a diferença para o último odômetro conhecido (excluindo manutenções)
         const delta = (lastKm > 0 && currentKm >= lastKm) ? currentKm - lastKm : 0;
         lastKm = currentKm;
         
@@ -728,7 +718,7 @@ const App: React.FC = () => {
 
   const getLatestKmFromEntries = useCallback((allEntries: DailyEntry[]) => {
     const kmEntries = allEntries
-      .filter(e => (e.kmAtMaintenance || 0) > 0)
+      .filter(e => (e.kmAtMaintenance || 0) > 0 && e.category !== 'maintenance')
       .sort((a, b) => {
         const dateCompare = a.date.localeCompare(b.date);
         if (dateCompare !== 0) return dateCompare;
