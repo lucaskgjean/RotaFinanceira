@@ -403,7 +403,16 @@ const App: React.FC = () => {
     const today = getLocalDateStr();
 
     config.maintenanceAlerts.forEach(alert => {
-      const remaining = alert.kmInterval - (lastKm - alert.lastKm);
+      const maintenanceForThis = entries.filter(e => 
+        e.maintenance > 0 && 
+        e.grossAmount === 0 && 
+        e.storeName.toLowerCase().includes(alert.description.toLowerCase())
+      );
+      const lastMaintenanceKm = maintenanceForThis.length > 0 
+        ? Math.max(...maintenanceForThis.map(e => e.kmAtMaintenance || 0))
+        : alert.lastKm;
+
+      const remaining = alert.kmInterval - (lastKm - lastMaintenanceKm);
       
       let shouldNotify = false;
       if (alert.kmInterval >= 1000 && alert.kmInterval <= 3000) {
@@ -426,7 +435,7 @@ const App: React.FC = () => {
         }
       }
     });
-  }, [config.notificationsEnabled, config.lastTotalKm, config.maintenanceAlerts]);
+  }, [config.notificationsEnabled, config.lastTotalKm, config.maintenanceAlerts, entries]);
 
   // Auto-close shifts from previous days at midnight
   useEffect(() => {
