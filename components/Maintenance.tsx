@@ -97,8 +97,8 @@ const Maintenance: React.FC<MaintenanceProps> = ({
   const monthSum = getWeeklySummary(monthEntries);
 
   const todayKmStats = useMemo(() => {
-    const work = todayEntries.filter(e => e.kmType === 'work').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
-    const personal = todayEntries.filter(e => e.kmType === 'personal').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
+    const work = todayEntries.filter(e => (!e.kmType || e.kmType === 'work') && e.category !== 'maintenance').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
+    const personal = todayEntries.filter(e => e.kmType === 'personal' && e.category !== 'maintenance').reduce((acc, curr) => acc + (curr.kmDriven || 0), 0);
     return { work, personal, total: work + personal };
   }, [todayEntries]);
 
@@ -782,7 +782,7 @@ const Maintenance: React.FC<MaintenanceProps> = ({
               <span className="text-[10px] font-black uppercase tracking-widest">KM Trabalhado</span>
             </div>
             <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">
-              {kmHistoryEntries.filter(e => e.kmType === 'work').reduce((acc, curr) => acc + Math.max(0, curr.kmDriven || 0), 0).toFixed(1)}
+              {kmHistoryEntries.filter(e => !e.kmType || e.kmType === 'work').reduce((acc, curr) => acc + Math.max(0, curr.kmDriven || 0), 0).toFixed(1)}
               <span className="text-xs ml-1 opacity-50 uppercase">KM</span>
             </p>
           </div>

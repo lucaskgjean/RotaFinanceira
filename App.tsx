@@ -717,6 +717,21 @@ const App: React.FC = () => {
     });
   }, []);
 
+  const getLatestKmFromEntries = useCallback((allEntries: DailyEntry[]) => {
+    const kmEntries = allEntries
+      .filter(e => (e.kmAtMaintenance || 0) > 0)
+      .sort((a, b) => {
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        
+        const timeCompare = a.time.localeCompare(b.time);
+        if (timeCompare !== 0) return timeCompare;
+        
+        return (a.kmAtMaintenance || 0) - (b.kmAtMaintenance || 0);
+      });
+    return kmEntries.length > 0 ? (kmEntries[kmEntries.length - 1].kmAtMaintenance || 0) : 0;
+  }, []);
+
   const addEntry = (entry: DailyEntry) => {
     const isPro = config.profile?.isPro;
     const monthlyCount = getMonthlyEntriesCount();
@@ -758,19 +773,15 @@ const App: React.FC = () => {
         showToast("Lançamento salvo com sucesso!");
       }
 
+      // Atualiza o último KM global baseado no maior valor cronológico de forma 100% consistente
+      const newLastKm = getLatestKmFromEntries(updatedEntries);
+      setConfig(prevConfig => ({ ...prevConfig, lastTotalKm: newLastKm }));
+
       return updatedEntries;
     });
 
     if (entry.fuelPrice) {
       setConfig(prev => ({ ...prev, lastFuelPrice: entry.fuelPrice }));
-    }
-
-    // Atualiza o último KM global baseado no maior valor encontrado (exceto manutenções)
-    if (entry.kmAtMaintenance && entry.category !== 'maintenance') {
-      setConfig(prev => ({ 
-        ...prev, 
-        lastTotalKm: Math.max(prev.lastTotalKm || 0, entry.kmAtMaintenance || 0) 
-      }));
     }
   };
   
@@ -779,11 +790,7 @@ const App: React.FC = () => {
       const mapped = prev.map(e => e.id === updated.id ? updated : e);
       const recalculated = recalculateKmDeltas(mapped);
       
-      const kmEntries = recalculated
-        .filter(e => (e.kmAtMaintenance || 0) > 0 && e.category !== 'maintenance')
-        .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
-      
-      const newLastKm = kmEntries.length > 0 ? kmEntries[0].kmAtMaintenance : 0;
+      const newLastKm = getLatestKmFromEntries(recalculated);
       setConfig(prevConfig => ({ ...prevConfig, lastTotalKm: newLastKm }));
       
       return recalculated;
@@ -833,11 +840,7 @@ const App: React.FC = () => {
           const filtered = prev.filter(e => e.id !== id);
           const recalculated = recalculateKmDeltas(filtered);
           
-          const kmEntries = recalculated
-            .filter(e => (e.kmAtMaintenance || 0) > 0 && e.category !== 'maintenance')
-            .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
-          
-          const newLastKm = kmEntries.length > 0 ? kmEntries[0].kmAtMaintenance : 0;
+          const newLastKm = getLatestKmFromEntries(recalculated);
           setConfig(c => ({ ...c, lastTotalKm: newLastKm }));
           
           return recalculated;
@@ -846,7 +849,7 @@ const App: React.FC = () => {
         setDialog(prev => ({ ...prev, isOpen: false }));
       }
     });
-  }, [recalculateKmDeltas]);
+  }, [recalculateKmDeltas, getLatestKmFromEntries]);
 
   // Handlers de Ponto
   const addTimeEntry = (entry: TimeEntry) => {
