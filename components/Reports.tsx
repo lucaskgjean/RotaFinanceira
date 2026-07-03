@@ -476,7 +476,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
     csvRows.push(`Total Bruto,${reportData.summary.totalGross.toFixed(2)}`);
     csvRows.push(`Total Despesas,${reportData.totalExpenses.toFixed(2)}`);
     csvRows.push(`Lucro Líquido,${(reportData.summary.totalGross - reportData.totalExpenses).toFixed(2)}`);
-    csvRows.push(`KM Total,${reportData.totalKm.toFixed(1)}`);
+    csvRows.push(`KM Total,${reportData.totalKm.toFixed(0)}`);
     csvRows.push(`Ganhos por Hora,${reportData.avgGrossPerHour.toFixed(2)}`);
     csvRows.push(`Gasto por KM,${reportData.expensePerKm.toFixed(2)}`);
     csvRows.push(`Ganhos por KM,${reportData.earningsPerKm.toFixed(2)}`);
@@ -931,7 +931,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Quilometragem</span>
           <div className="flex items-center gap-2">
             <Navigation size={16} className="text-indigo-500" />
-            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.totalKm.toFixed(1)} <small className="text-[10px] opacity-40">km</small></p>
+            <p className="text-xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.totalKm.toFixed(0)} <small className="text-[10px] opacity-40">km</small></p>
           </div>
         </motion.div>
 
@@ -1079,21 +1079,21 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
               <Calendar size={12} className="text-blue-500" /> KM por Dia
             </span>
-            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerDay.toFixed(1)} <small className="text-xs opacity-40">km</small></p>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerDay.toFixed(0)} <small className="text-xs opacity-40">km</small></p>
           </div>
 
           <div className="space-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
               <Clock size={12} className="text-blue-500" /> KM por Hora
             </span>
-            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerHour.toFixed(1)} <small className="text-xs opacity-40">km</small></p>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerHour.toFixed(0)} <small className="text-xs opacity-40">km</small></p>
           </div>
 
           <div className="space-y-1">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center gap-1.5">
               <Package size={12} className="text-blue-500" /> KM por Entrega
             </span>
-            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerDelivery.toFixed(1)} <small className="text-xs opacity-40">km</small></p>
+            <p className="text-2xl font-black text-slate-800 dark:text-white font-mono-num">{reportData.avgKmPerDelivery.toFixed(0)} <small className="text-xs opacity-40">km</small></p>
           </div>
 
           <div className="space-y-1">

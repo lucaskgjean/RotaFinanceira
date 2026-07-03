@@ -959,7 +959,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, timeEntries, config, onE
       {/* 3. Métricas de Hoje - Improved Visuals */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {[
-          { label: 'KM Hoje', value: `${(todaySum.workKm || 0).toFixed(1)} km`, icon: <Navigation size={16} />, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
+          { label: 'KM Hoje', value: `${(todaySum.workKm || 0).toFixed(0)} km`, icon: <Navigation size={16} />, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
           { label: 'Horas Trab.', value: formatDuration(todayWorkedSeconds), icon: <Clock size={16} />, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
           { label: 'Litros Hoje', value: `${todaySum.totalLiters?.toFixed(1)} L`, icon: <Fuel size={16} />, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
           { label: 'Gasto Hoje', value: formatCurrency(todayTotalSpent), icon: <Wallet size={16} />, color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-500/10' },

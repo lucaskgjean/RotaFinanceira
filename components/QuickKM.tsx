@@ -145,7 +145,7 @@ const QuickKM: React.FC<QuickKMProps> = ({ onAdd, config, entries }) => {
                   animate={{ opacity: 1, y: 0 }}
                   className={`mt-1.5 text-[9px] font-black uppercase tracking-widest ml-1 ${kmType === 'work' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}
                 >
-                  {kmType === 'work' ? '+' : '-'} {(parseFloat(totalKm) - config.lastTotalKm).toFixed(1)} KM {kmType === 'work' ? 'rodados (Trabalho)' : 'rodados (Pessoal)'}
+                  {kmType === 'work' ? '+' : '-'} {(parseFloat(totalKm) - config.lastTotalKm).toFixed(0)} KM {kmType === 'work' ? 'rodados (Trabalho)' : 'rodados (Pessoal)'}
                 </motion.p>
               )}
             </AnimatePresence>
