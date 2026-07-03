@@ -14,7 +14,8 @@ import {
   Clock, 
   ChevronDown, 
   ChevronUp,
-  Zap
+  Zap,
+  X
 } from 'lucide-react';
 
 interface QuickLaunchProps {
@@ -119,13 +120,25 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
             <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">
               <Store size={12} className="text-indigo-500 dark:text-indigo-400" /> Loja
             </label>
-            <input
-              type="text"
-              value={storeName}
-              onChange={(e) => setStoreName(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition font-bold text-slate-700 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600"
-              placeholder="Onde foi?"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={storeName}
+                onChange={(e) => setStoreName(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl pl-5 pr-12 py-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition font-bold text-slate-700 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                placeholder="Onde foi?"
+              />
+              {storeName && (
+                <button
+                  type="button"
+                  onClick={() => setStoreName('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all cursor-pointer"
+                  title="Limpar loja"
+                >
+                  <X size={16} strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
             <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide -mx-1 px-1">
               {filteredStores.length > 0 ? (
                 filteredStores.map(store => (
@@ -158,10 +171,20 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl pl-12 pr-5 py-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition font-black text-slate-800 dark:text-white text-xl font-mono-num"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl pl-12 pr-12 py-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition font-black text-slate-800 dark:text-white text-xl font-mono-num"
                 placeholder="0.00"
                 required
               />
+              {amount && (
+                <button
+                  type="button"
+                  onClick={() => setAmount('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all cursor-pointer"
+                  title="Limpar valor"
+                >
+                  <X size={16} strokeWidth={2.5} />
+                </button>
+              )}
             </div>
             <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide -mx-1 px-1">
               {suggestionAmounts.map(val => (
