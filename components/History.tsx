@@ -652,7 +652,7 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
           <div className="border-t border-slate-800/60 my-1"></div>
 
           {hasPixConfig && (
-            <div className="flex flex-col items-center space-y-3">
+            <div className="flex flex-col items-center space-y-3 w-full">
               <div className="bg-white p-3 rounded-2xl shadow-lg flex items-center justify-center">
                 <img 
                   src={qrCodeUrl} 
@@ -661,9 +661,38 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <div className="text-center space-y-0.5">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Escaneie o QR Code acima para pagar</p>
-                <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest">Gerado por Rota Financeira</p>
+              <div className="text-center w-full space-y-2.5">
+                <div className="bg-indigo-950/60 border border-indigo-500/40 p-3 rounded-2xl text-center space-y-1 shadow-inner">
+                  <p className="text-[10px] font-black text-indigo-300 uppercase tracking-wider">
+                    👉 ESCANEIE O QR CODE ACIMA PARA PAGAR <br /> OU COPIE O PIX COPIA E COLA ABAIXO:
+                  </p>
+                </div>
+                
+                <div className="bg-slate-950/80 border border-slate-800 p-2.5 rounded-2xl flex items-center justify-between gap-2 w-full">
+                  <div className="flex-1 text-[9px] font-mono text-slate-300 select-all break-all text-left line-clamp-2 leading-relaxed">
+                    {pixCode}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(pixCode);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 cursor-pointer text-white select-none ${copied ? 'bg-emerald-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                  >
+                    {copied ? 'Copiado!' : 'Copiar'}
+                  </button>
+                </div>
+
+                {config.pixKey && (
+                  <div className="bg-slate-950/30 border border-slate-800/40 px-3 py-2 rounded-xl text-center">
+                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Chave Pix Direta</p>
+                    <p className="text-[10px] font-black text-emerald-400 font-mono select-all mt-0.5">{config.pixKey}</p>
+                  </div>
+                )}
+                
+                <p className="text-[8px] font-black text-indigo-400/80 uppercase tracking-widest pt-1">Gerado por Rota Financeira</p>
               </div>
             </div>
           )}
