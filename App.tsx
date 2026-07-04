@@ -61,9 +61,9 @@ const App: React.FC = () => {
   const [touchPercent, setTouchPercent] = useState<number | null>(null);
   const navTouchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isPopStateRef = useRef(false);
-  const isScrolledStatePushedRef = useRef(false);
-  const lastPushedTabRef = useRef<'dashboard' | 'expenses' | 'maintenance' | 'ponto' | 'history' | 'reports' | 'settings'>('dashboard');
+  const [isScrolled, setIsScrolled] = useState(false);
+  const trapActiveRef = useRef(false);
+  const ignorePopStateRef = useRef(false);
 
   const setNavTouchedWithDelay = (value: boolean, delay: number = 0) => {
     if (navTouchTimeoutRef.current) {
@@ -153,39 +153,65 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Back button APK custom history and scroll management
+  // Listen to window scrolling to track scrolled state
   useEffect(() => {
-    // Replace initial state on mount to have a clear baseline
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop;
+      setIsScrolled(scrollTop > 100);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  const canGoBack = activeTab !== 'dashboard' || isScrolled;
+
+  // Manage history trap state to intercept the back action
+  useEffect(() => {
+    if (canGoBack) {
+      if (!trapActiveRef.current) {
+        trapActiveRef.current = true;
+        window.history.pushState({ trap: true }, '');
+      }
+    } else {
+      if (trapActiveRef.current) {
+        trapActiveRef.current = false;
+        ignorePopStateRef.current = true;
+        window.history.back();
+      }
+    }
+  }, [canGoBack]);
+
+  // Intercept browser popstate / device back button
+  useEffect(() => {
     if (window.history.state === null) {
-      window.history.replaceState({ tab: 'dashboard', scrolled: false, index: 0 }, '');
+      window.history.replaceState({ root: true }, '');
     }
 
-    const handlePopState = (event: PopStateEvent) => {
-      const state = event.state;
-      if (state && state.tab) {
-        isPopStateRef.current = true;
-        setActiveTab(state.tab);
-        
-        // Handle scrolling state from history
-        if (state.tab === 'dashboard') {
-          if (!state.scrolled && isScrolledStatePushedRef.current) {
-            isScrolledStatePushedRef.current = false;
-            // Scroll to the very top smoothly
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            document.body.scrollTo({ top: 0, behavior: 'smooth' });
-            document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
-            if (topRef.current) {
-              topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          } else if (state.scrolled) {
-            isScrolledStatePushedRef.current = true;
+    const handlePopState = () => {
+      if (ignorePopStateRef.current) {
+        ignorePopStateRef.current = false;
+        return;
+      }
+
+      if (trapActiveRef.current) {
+        trapActiveRef.current = false;
+
+        if (activeTab !== 'dashboard') {
+          // Go back directly to the beginning (dashboard)
+          setActiveTab('dashboard');
+        } else if (isScrolled) {
+          // Go back to the top of the dashboard
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          document.body.scrollTo({ top: 0, behavior: 'smooth' });
+          document.documentElement.scrollTo({ top: 0, behavior: 'smooth' });
+          if (topRef.current) {
+            topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         }
-      } else {
-        // No state (went back before index 0), default to top of dashboard
-        isPopStateRef.current = true;
-        setActiveTab('dashboard');
-        isScrolledStatePushedRef.current = false;
       }
     };
 
@@ -193,54 +219,7 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, []);
-
-  // Listen to scrolling to push/pop extra history state for "back to top" behavior on dashboard
-  useEffect(() => {
-    if (activeTab !== 'dashboard') {
-      isScrolledStatePushedRef.current = false;
-      return;
-    }
-
-    const handleScroll = () => {
-      const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop;
-      
-      if (scrollTop > 100 && !isScrolledStatePushedRef.current) {
-        isScrolledStatePushedRef.current = true;
-        window.history.pushState({ tab: 'dashboard', scrolled: true, index: 1 }, '');
-      } else if (scrollTop <= 10 && isScrolledStatePushedRef.current) {
-        isScrolledStatePushedRef.current = false;
-        window.history.back();
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [activeTab]);
-
-  // Synchronize state pushes when tabs are clicked
-  useEffect(() => {
-    if (isPopStateRef.current) {
-      isPopStateRef.current = false;
-      lastPushedTabRef.current = activeTab;
-      return;
-    }
-
-    if (activeTab === lastPushedTabRef.current) {
-      return;
-    }
-
-    // Push new history state when a new tab is actively clicked
-    if (activeTab === 'dashboard') {
-      window.history.pushState({ tab: 'dashboard', scrolled: false, index: 0 }, '');
-    } else {
-      window.history.pushState({ tab: activeTab, scrolled: false, index: 1 }, '');
-    }
-    lastPushedTabRef.current = activeTab;
-    isScrolledStatePushedRef.current = false;
-  }, [activeTab]);
+  }, [activeTab, isScrolled]);
 
   // Scroll to top on tab change
   useEffect(() => {
