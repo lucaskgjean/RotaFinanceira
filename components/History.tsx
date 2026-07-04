@@ -954,7 +954,15 @@ const History: React.FC<HistoryProps> = ({
         (!filterEndDate || e.date <= filterEndDate)
       ) : true;
       
-      if (!matchRange) return;
+      const matchPayment = filterPayment ? e.paymentMethod === filterPayment : true;
+      
+      const matchStatus = filterStatus ? (
+        filterStatus === 'paid' ? e.isPaid === true : e.isPaid === false
+      ) : true;
+
+      const matchStore = filterStore ? e.storeName.toLowerCase().includes(filterStore.toLowerCase()) : true;
+      
+      if (!matchRange || !matchPayment || !matchStatus || !matchStore) return;
       
       const store = e.storeName || 'Geral';
       if (!map[store]) {
@@ -979,7 +987,7 @@ const History: React.FC<HistoryProps> = ({
         entryIds: data.entryIds
       }))
       .sort((a, b) => b.totalDue - a.totalDue);
-  }, [entries, filterStartDate, filterEndDate]);
+  }, [entries, filterStartDate, filterEndDate, filterPayment, filterStatus, filterStore]);
 
   const storesWithDues = useMemo(() => {
     return storePendingBalances.filter(item => item.totalDue > 0);
