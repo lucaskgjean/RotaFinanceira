@@ -26,6 +26,8 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   History as HistoryIcon,
   Layers,
   Banknote,
@@ -41,7 +43,9 @@ import {
   Image as ImageIcon,
   Download,
   FileText,
-  MessageSquare
+  MessageSquare,
+  Trophy,
+  Medal
 } from 'lucide-react';
 import QuickLaunch from './QuickLaunch';
 import PerformanceCalendar from './PerformanceCalendar';
@@ -942,6 +946,10 @@ const History: React.FC<HistoryProps> = ({
   const [cachedShareFile, setCachedShareFile] = useState<File | null>(null);
   const [isGeneratingShare, setIsGeneratingShare] = useState(false);
   const [confirmingStoreIds, setConfirmingStoreIds] = useState<string[] | null>(null);
+  const [confirmingStoreStatusName, setConfirmingStoreStatusName] = useState<string | null>(null);
+  const [expandedStores, setExpandedStores] = useState<Record<string, boolean>>({});
+  const [isAllStoresExpanded, setIsAllStoresExpanded] = useState(false);
+  const [summarySortByPending, setSummarySortByPending] = useState(false);
 
   const storePendingBalances = useMemo(() => {
     const map: Record<string, { totalDue: number; totalEntries: number; totalPaid: number; entryIds: string[] }> = {};
@@ -1209,6 +1217,48 @@ const History: React.FC<HistoryProps> = ({
 
   const stats = useMemo(() => getWeeklySummary(filteredEntries), [filteredEntries]);
   const dailyBreakdown = useMemo(() => getDailyStats(entries, timeEntries, config), [entries, timeEntries, config]);
+
+  const summaryStores = useMemo(() => {
+    const map: Record<string, { name: string; gross: number; count: number; paid: number; pending: number; entryIds: string[]; paymentMethods: string[] }> = {};
+    
+    filteredEntries.forEach(e => {
+      const store = e.storeName || 'Geral';
+      if (!map[store]) {
+        map[store] = {
+          name: store,
+          gross: 0,
+          count: 0,
+          paid: 0,
+          pending: 0,
+          entryIds: [],
+          paymentMethods: []
+        };
+      }
+      map[store].gross += e.grossAmount;
+      map[store].count += 1;
+      if (e.id) {
+        map[store].entryIds.push(e.id);
+      }
+      if (e.paymentMethod && !map[store].paymentMethods.includes(e.paymentMethod)) {
+        map[store].paymentMethods.push(e.paymentMethod);
+      }
+      if (e.isPaid) {
+        map[store].paid += e.grossAmount;
+      } else {
+        map[store].pending += e.grossAmount;
+      }
+    });
+
+    return Object.values(map).sort((a, b) => {
+      if (summarySortByPending || filterStatus === 'pending') {
+        if (b.pending !== a.pending) {
+          return b.pending - a.pending;
+        }
+        return b.gross - a.gross;
+      }
+      return b.gross - a.gross;
+    });
+  }, [filteredEntries, summarySortByPending, filterStatus]);
 
   const getPaymentIcon = (method?: string) => {
     switch (method) {
@@ -1819,6 +1869,267 @@ const History: React.FC<HistoryProps> = ({
 
       {/* Calendário de Performance */}
       <PerformanceCalendar dailyStats={dailyBreakdown} />
+
+      {/* Histórico Resumido */}
+      <motion.div 
+        variants={itemVariants} 
+        id="summary-history-section"
+        className="space-y-4"
+      >
+        <div id="summary-history-header" className="flex flex-wrap items-center justify-between gap-3 px-2">
+          <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-2">
+            <div className="w-1.5 h-4 bg-indigo-500 rounded-full"></div>
+            Histórico Resumido
+          </h3>
+          <div className="flex items-center gap-2">
+            {/* Filtro de alternância rápida de ordenação */}
+            <button
+              type="button"
+              onClick={() => setSummarySortByPending(prev => !prev)}
+              className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all cursor-pointer flex items-center gap-1.5 ${
+                summarySortByPending || filterStatus === 'pending'
+                  ? 'bg-rose-500 hover:bg-rose-600 text-white border-rose-500 shadow-sm shadow-rose-100 dark:shadow-none'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+              title="Priorizar as lojas com valores pendentes"
+            >
+              <AlertCircle size={11} className={summarySortByPending || filterStatus === 'pending' ? 'text-white' : 'text-rose-500'} />
+              <span>Pendentes no Topo</span>
+            </button>
+
+            {summaryStores.length > 0 && (
+              <span id="summary-history-count" className="text-[9px] font-black bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-full uppercase tracking-widest border border-indigo-100 dark:border-indigo-500/10">
+                {summaryStores.length} {summaryStores.length === 1 ? 'Loja' : 'Lojas'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {summaryStores.length === 0 ? (
+          <div id="summary-history-empty" className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 text-center text-slate-400 dark:text-slate-500 text-xs font-bold uppercase tracking-wider py-12">
+            Nenhuma loja encontrada para os filtros selecionados.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div id="summary-history-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {(isAllStoresExpanded ? summaryStores : summaryStores.slice(0, 5)).map((store, idx) => {
+                // Determine styles based on rank (1st: Gold/Yellow, 2nd: Silver/Gray, 3rd: Bronze/Brown, others: Indigo)
+                // Following the calendar pattern: clear/soft background, strong border, and matching text color
+                // If pending is active, prioritize warning/rose color
+                let rankStyle = "bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 dark:border-indigo-500/40";
+                if (store.pending > 0) {
+                  rankStyle = "bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 dark:border-rose-500/30";
+                } else if (idx === 0) {
+                  rankStyle = "bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 dark:border-amber-500/40";
+                } else if (idx === 1) {
+                  rankStyle = "bg-slate-500/10 dark:bg-slate-400/10 text-slate-600 dark:text-slate-300 border border-slate-500/30 dark:border-slate-400/30";
+                } else if (idx === 2) {
+                  rankStyle = "bg-amber-900/10 dark:bg-amber-700/15 text-amber-800 dark:text-amber-500 border border-amber-800/30 dark:border-amber-700/30";
+                }
+
+                const storeSlug = store.name.toLowerCase().replace(/\s+/g, '-');
+                const isExpanded = !!expandedStores[store.name];
+
+                const getPaymentLabel = (pm: string) => {
+                  switch (pm) {
+                    case 'pix': return 'PIX';
+                    case 'money': return 'Dinheiro';
+                    case 'debito': return 'Débito';
+                    case 'caderno': return 'Caderno';
+                    default: return pm.toUpperCase();
+                  }
+                };
+
+                return (
+                  <motion.div
+                    key={store.name}
+                    id={`summary-store-card-${storeSlug}`}
+                    variants={itemVariants}
+                    whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                    onClick={() => {
+                      setExpandedStores(prev => ({
+                        ...prev,
+                        [store.name]: !prev[store.name]
+                      }));
+                    }}
+                    className={`bg-white dark:bg-slate-900 rounded-[2rem] p-5 border transition-all flex flex-col gap-3 cursor-pointer select-none shadow-sm hover:shadow-md ${
+                      store.pending > 0
+                        ? 'border-rose-200/80 dark:border-rose-500/30 bg-rose-50/5 dark:bg-rose-950/5'
+                        : 'border-slate-100 dark:border-slate-800'
+                    }`}
+                  >
+                    {/* Cabeçalho do Card (Visível sempre) */}
+                    <div className="w-full flex items-center justify-between gap-3 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Ícone de Posição - Quadrado com bordas arredondadas seguindo o calendário, agora aumentado */}
+                        <div id={`summary-store-rank-${storeSlug}`} className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 transition-all ${rankStyle}`}>
+                          {idx + 1}
+                        </div>
+                        {/* Nome da Loja - Aumentado */}
+                        <h4 id={`summary-store-title-${storeSlug}`} className={`font-black text-sm sm:text-base truncate uppercase tracking-wider transition-all ${
+                          store.pending > 0 ? 'text-rose-700 dark:text-rose-400 font-extrabold' : 'text-slate-800 dark:text-white'
+                        }`}>
+                          {store.name}
+                        </h4>
+                      </div>
+
+                      {/* Valor Faturado total da loja e Chevron de expansão */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span id={`summary-store-gross-${storeSlug}`} className={`font-mono-num text-xs sm:text-sm font-black whitespace-nowrap transition-all ${
+                          store.pending > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-white'
+                        }`}>
+                          {formatCurrency(store.gross)}
+                        </span>
+                        {store.pending > 0 && (
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                        )}
+                        <div className="text-slate-400 dark:text-slate-500">
+                          {isExpanded ? <ChevronUp size={16} strokeWidth={2.5} /> : <ChevronDown size={16} strokeWidth={2.5} />}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Conteúdo Expandido com Animação */}
+                    <AnimatePresence initial={false}>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="w-full overflow-hidden flex flex-col gap-3 pt-3 border-t border-slate-100 dark:border-slate-800"
+                          onClick={(e) => e.stopPropagation()} // Previne fechar o card ao interagir com a parte interna
+                        >
+                          {/* Info Row: Entregas e Formas de Pagamento */}
+                          <div className="flex items-center justify-between text-xs px-1 border-b border-slate-50 dark:border-slate-800/50 pb-2.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Entregas</span>
+                              <span className="font-bold text-slate-700 dark:text-slate-300">
+                                {store.count} {store.count === 1 ? 'entrega' : 'entregas'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Pgto</span>
+                              <div className="flex flex-wrap gap-1">
+                                {store.paymentMethods && store.paymentMethods.length > 0 ? (
+                                  store.paymentMethods.map(pm => (
+                                    <span key={pm} className="text-[8px] font-black bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-lg uppercase tracking-wider border border-slate-100 dark:border-slate-800">
+                                      {getPaymentLabel(pm)}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="font-bold text-slate-400">-</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Stats Row: Recebido e Pendente lado a lado (Faturamento removido pois já está no valor total do cabeçalho) */}
+                          <div className="grid grid-cols-2 gap-1 bg-slate-50 dark:bg-slate-800/30 p-2.5 rounded-2xl border border-slate-100/50 dark:border-slate-800/40">
+                            {/* Recebido */}
+                            <div className="flex flex-col items-center justify-center text-center py-0.5 border-r border-slate-100 dark:border-slate-800/80">
+                              <span className="text-[8px] font-black text-emerald-500/90 dark:text-emerald-400/90 uppercase tracking-wider">Recebido</span>
+                              <span className="font-mono-num font-black text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                                {formatCurrency(store.paid)}
+                              </span>
+                            </div>
+
+                            {/* Pendente */}
+                            <div className="flex flex-col items-center justify-center text-center py-0.5">
+                              <span className={`text-[8px] font-black uppercase tracking-wider ${store.pending > 0 ? 'text-rose-500/90 dark:text-rose-400/90' : 'text-slate-400 dark:text-slate-500'}`}>Pendente</span>
+                              <span className={`font-mono-num font-black text-[11px] sm:text-xs mt-1 ${store.pending > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                                {formatCurrency(store.pending)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Botões de Ação */}
+                          <div className="grid grid-cols-2 gap-2 w-full pt-1 shrink-0">
+                            {/* Botão Pago/Pendente com 2 cliques para confirmação (à esquerda) */}
+                            {confirmingStoreStatusName === store.name ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onBulkUpdatePaidStatus && store.entryIds && store.entryIds.length > 0) {
+                                    onBulkUpdatePaidStatus(store.entryIds, store.pending > 0);
+                                  }
+                                  setConfirmingStoreStatusName(null);
+                                }}
+                                className="py-2 px-3 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-[9px] font-black uppercase tracking-wider transition-all animate-pulse flex items-center justify-center gap-1.5 h-9 cursor-pointer w-full"
+                              >
+                                <Check size={12} strokeWidth={3} />
+                                Confirmar?
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConfirmingStoreStatusName(store.name);
+                                }}
+                                className={`py-2 px-3 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 h-9 border cursor-pointer w-full ${
+                                  store.pending > 0
+                                    ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 border-rose-200/50 dark:border-rose-500/10'
+                                    : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 border-emerald-200/50 dark:border-emerald-500/10'
+                                }`}
+                              >
+                                <div className={`w-1.5 h-1.5 rounded-full ${store.pending > 0 ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+                                {store.pending > 0 ? 'Pendente' : 'Pago'}
+                              </button>
+                            )}
+
+                            {/* Botão de Cobrar (à direita) */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleBillStore({
+                                  name: store.name,
+                                  totalDue: store.pending,
+                                  entryIds: store.entryIds
+                                });
+                              }}
+                              disabled={store.pending <= 0}
+                              className="py-2 px-3 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 disabled:opacity-40 disabled:cursor-not-allowed text-indigo-600 dark:text-indigo-400 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 h-9 border border-indigo-100/50 dark:border-indigo-500/10 cursor-pointer w-full"
+                            >
+                              <Smartphone size={12} strokeWidth={2.5} />
+                              Cobrar
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {summaryStores.length > 5 && (
+              <div className="flex justify-center mt-4">
+                {!isAllStoresExpanded ? (
+                  <motion.button
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    onClick={() => setIsAllStoresExpanded(true)}
+                    className="w-full py-4 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    Ver Todas as Lojas ({summaryStores.length}) <ChevronRight size={14} />
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    onClick={() => setIsAllStoresExpanded(false)}
+                    className="w-full py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 hover:text-rose-500 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    Recolher Lojas <X size={12} />
+                  </motion.button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </motion.div>
+
 
       <AnimatePresence>
         {showRangePicker && (

@@ -47,6 +47,20 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
+  const updatePaymentMethodForStore = (name: string) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    
+    // Procura o lançamento mais recente da loja selecionada (percorrendo do fim para o início)
+    const lastEntryForStore = [...existingEntries]
+      .reverse()
+      .find(e => e.grossAmount > 0 && normalizeText(e.storeName) === normalizeText(trimmedName));
+
+    if (lastEntryForStore && lastEntryForStore.paymentMethod) {
+      setPaymentMethod(lastEntryForStore.paymentMethod);
+    }
+  };
+
   const allStores = Array.from(new Set(existingEntries.filter(e => e.grossAmount > 0).map(e => e.storeName).reverse())) as string[];
   
   const allDescriptions = Array.from(new Set(existingEntries.filter(e => e.description).map(e => e.description!).reverse())) as string[];
@@ -125,7 +139,14 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
               <input
                 type="text"
                 value={storeName}
-                onChange={(e) => setStoreName(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setStoreName(val);
+                  const matchedStore = allStores.find(s => normalizeText(s) === normalizeText(val));
+                  if (matchedStore) {
+                    updatePaymentMethodForStore(matchedStore);
+                  }
+                }}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl pl-5 pr-12 py-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition font-bold text-slate-700 dark:text-slate-200 placeholder:text-slate-300 dark:placeholder:text-slate-600"
                 placeholder="Onde foi?"
               />
@@ -148,7 +169,10 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
                     type="button"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => setStoreName(store)}
+                    onClick={() => {
+                      setStoreName(store);
+                      updatePaymentMethodForStore(store);
+                    }}
                     className={`text-[9px] font-black px-4 py-2 rounded-xl transition-all whitespace-nowrap flex-shrink-0 ${normalizeText(storeName) === normalizeText(store) ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
                   >
                     {store}
