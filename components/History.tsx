@@ -172,7 +172,7 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
     ? generatePixPayload(config.pixKey!, config.pixName || '', config.pixCity || '', billingStore.totalDue, billingStore.name)
     : '';
   const qrCodeUrl = (billingStore && hasPixConfig)
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=800x800&format=png&margin=1&data=${encodeURIComponent(pixCode)}`
     : '';
 
   const shareViaSystem = async () => {
@@ -261,6 +261,211 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
       }
     }
     setIsCopyingImage(false);
+  };
+
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const exportStoreReportPDF = () => {
+    if (!billingStore) return;
+    setIsGeneratingPdf(true);
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // Obter lançamentos pendentes desta loja
+      let storeItems: DailyEntry[] = [];
+      if (billingStore.entryIds && billingStore.entryIds.length > 0) {
+        const idSet = new Set(billingStore.entryIds);
+        storeItems = entries.filter(e => idSet.has(e.id));
+      } else {
+        storeItems = entries.filter(e => 
+          e.storeName?.toLowerCase().trim() === billingStore.name?.toLowerCase().trim() && 
+          !e.isPaid && 
+          e.grossAmount > 0
+        );
+      }
+
+      // Ordenar por data cronológica
+      storeItems.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''));
+
+      // Cabeçalho escuro premium
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.rect(0, 0, 210, 36, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ROTA FINANCEIRA', 14, 16);
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text('Relatório Operacional de Cobrança e Entregas', 14, 25);
+
+      const generatedAt = new Date().toLocaleString('pt-BR');
+      doc.setFontSize(8);
+      doc.text(`Emissão: ${generatedAt}`, 210 - 14, 25, { align: 'right' });
+
+      // Card de dados do Estabelecimento e Totais
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.roundedRect(14, 42, 182, 36, 3, 3, 'F');
+      doc.setDrawColor(226, 232, 240); // slate-200
+      doc.roundedRect(14, 42, 182, 36, 3, 3, 'D');
+
+      doc.setTextColor(100, 116, 139); // slate-500
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ESTABELECIMENTO', 20, 50);
+
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      const storeName = billingStore.name.length > 35 ? billingStore.name.substring(0, 35) + '...' : billingStore.name;
+      doc.text(storeName, 20, 58);
+
+      // Quantidade de Corridas
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('QUANTIDADE DE ENTREGAS', 120, 50);
+
+      const totalRuns = billingStore.totalEntries || storeItems.reduce((acc, curr) => acc + (curr.deliveryCount || 1), 0) || 1;
+      doc.setFontSize(12);
+      doc.setTextColor(79, 70, 229); // indigo-600
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${totalRuns} ${totalRuns === 1 ? 'corrida' : 'corridas'}`, 120, 58);
+
+      // Total a Pagar
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('TOTAL PENDENTE', 160, 50);
+
+      doc.setFontSize(13);
+      doc.setTextColor(225, 29, 72); // rose-600
+      doc.setFont('helvetica', 'bold');
+      doc.text(formatCurrency(billingStore.totalDue), 160, 58);
+
+      // Detalhes do Pix se houver
+      if (config.pixKey) {
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+        doc.setFont('helvetica', 'normal');
+        const pixInfo = `Chave Pix para pagamento: ${config.pixKey}${config.pixName ? ` • Favorecido: ${config.pixName}` : ''}`;
+        doc.text(pixInfo, 20, 71);
+      }
+
+      // Tabela de Detalhamento
+      let y = 86;
+      doc.setFillColor(241, 245, 249); // slate-100
+      doc.rect(14, y, 182, 8, 'F');
+      doc.setDrawColor(203, 213, 225);
+      doc.line(14, y + 8, 196, y + 8);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(71, 85, 105);
+      doc.text('DATA', 18, y + 5.5);
+      doc.text('HORA', 46, y + 5.5);
+      doc.text('DESCRIÇÃO / OBSERVAÇÃO', 70, y + 5.5);
+      doc.text('ENTREGAS', 145, y + 5.5, { align: 'center' });
+      doc.text('VALOR', 190, y + 5.5, { align: 'right' });
+
+      y += 8;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+
+      if (storeItems.length === 0) {
+        y += 8;
+        doc.setTextColor(148, 163, 184);
+        doc.text('Lançamento consolidado correspondente ao saldo pendente registrado.', 18, y);
+      } else {
+        storeItems.forEach((item, index) => {
+          if (y > 270) {
+            doc.addPage();
+            y = 20;
+            doc.setFillColor(241, 245, 249);
+            doc.rect(14, y, 182, 8, 'F');
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(71, 85, 105);
+            doc.text('DATA', 18, y + 5.5);
+            doc.text('HORA', 46, y + 5.5);
+            doc.text('DESCRIÇÃO / OBSERVAÇÃO', 70, y + 5.5);
+            doc.text('ENTREGAS', 145, y + 5.5, { align: 'center' });
+            doc.text('VALOR', 190, y + 5.5, { align: 'right' });
+            y += 8;
+            doc.setFont('helvetica', 'normal');
+          }
+
+          if (index % 2 === 1) {
+            doc.setFillColor(248, 250, 252);
+            doc.rect(14, y, 182, 7.5, 'F');
+          }
+
+          doc.setDrawColor(241, 245, 249);
+          doc.line(14, y + 7.5, 196, y + 7.5);
+
+          const dateFormatted = item.date ? item.date.split('-').reverse().join('/') : '-';
+          const timeFormatted = item.time || '-';
+          const desc = item.description || (item.shiftPeriod ? `Turno ${item.shiftPeriod}` : 'Entrega');
+          const deliveries = item.deliveryCount || 1;
+
+          doc.setTextColor(30, 41, 59);
+          doc.text(dateFormatted, 18, y + 5);
+          doc.setTextColor(100, 116, 139);
+          doc.text(timeFormatted, 46, y + 5);
+          doc.setTextColor(51, 65, 85);
+          doc.text(desc.length > 36 ? desc.substring(0, 33) + '...' : desc, 70, y + 5);
+          doc.setTextColor(79, 70, 229);
+          doc.text(String(deliveries), 145, y + 5, { align: 'center' });
+          doc.setTextColor(15, 23, 42);
+          doc.setFont('helvetica', 'bold');
+          doc.text(formatCurrency(item.grossAmount), 190, y + 5, { align: 'right' });
+          doc.setFont('helvetica', 'normal');
+
+          y += 7.5;
+        });
+      }
+
+      // Linha de total ao final
+      y += 4;
+      if (y > 265) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.setFillColor(238, 242, 255); // indigo-50
+      doc.roundedRect(14, y, 182, 13, 2, 2, 'F');
+      doc.setDrawColor(199, 210, 254);
+      doc.roundedRect(14, y, 182, 13, 2, 2, 'D');
+
+      doc.setTextColor(67, 56, 202); // indigo-700
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('TOTAL PENDENTE A RECEBER:', 20, y + 8.5);
+
+      doc.setTextColor(225, 29, 72); // rose-600
+      doc.setFontSize(12);
+      doc.text(formatCurrency(billingStore.totalDue), 190, y + 9, { align: 'right' });
+
+      // Rodapé
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Documento gerado pelo aplicativo Rota Financeira • Controle Financeiro para Entregadores', 105, 287, { align: 'center' });
+
+      const safeStoreName = billingStore.name.toLowerCase().replace(/[^a-z0-9]/gi, '_');
+      const safeDate = new Date().toISOString().split('T')[0];
+      doc.save(`relatorio_${safeStoreName}_${safeDate}.pdf`);
+    } catch (error) {
+      console.error('Erro ao gerar relatório PDF:', error);
+      alert('Não foi possível gerar o relatório PDF. Tente novamente.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   if (printMode && billingStore) {
@@ -491,19 +696,41 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
               </div>
             )}
 
-            {hasPixConfig && (
-              <div className="w-full mt-4 space-y-3">
+            {/* Botões de Ação: Relatório (vem antes) e Compartilhar na mesma linha */}
+            <div className="w-full mt-4">
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
-                  id="share-button"
-                  onClick={shareViaSystem}
-                  disabled={isGeneratingShare || !cachedShareFile}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer h-12 active:scale-[0.99]"
+                  id="export-report-button"
+                  onClick={exportStoreReportPDF}
+                  disabled={isGeneratingPdf}
+                  className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-600/20 flex items-center justify-center gap-2 cursor-pointer h-12 active:scale-[0.99]"
                 >
-                  <Share2 size={16} className={isCopyingImage ? 'animate-pulse' : ''} />
-                  {isCopyingImage ? 'Processando...' : 'Compartilhar'}
+                  <FileText size={16} className={isGeneratingPdf ? 'animate-pulse' : ''} />
+                  {isGeneratingPdf ? 'Gerando...' : 'Relatório'}
                 </button>
+
+                {hasPixConfig ? (
+                  <button
+                    id="share-button"
+                    onClick={shareViaSystem}
+                    disabled={isGeneratingShare || !cachedShareFile}
+                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer h-12 active:scale-[0.99]"
+                  >
+                    <Share2 size={16} className={isCopyingImage ? 'animate-pulse' : ''} />
+                    {isCopyingImage ? 'Processando...' : 'Compartilhar'}
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    title="Configure sua chave Pix nas Configurações para compartilhar"
+                    className="w-full py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-2xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 cursor-not-allowed h-12 opacity-60"
+                  >
+                    <Share2 size={16} />
+                    Compartilhar
+                  </button>
+                )}
               </div>
-            )}
+            </div>
 
             <div className="mt-3">
               <button 
@@ -703,24 +930,36 @@ const History: React.FC<HistoryProps> = ({
       billingStore.totalDue,
       billingStore.name
     );
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=800x800&format=png&margin=1&data=${encodeURIComponent(pixCode)}`;
 
     setIsGeneratingShare(true);
 
     const generate = async () => {
       try {
         const canvas = document.createElement('canvas');
-        canvas.width = 600;
-        canvas.height = 840;
+        // Ultra-HD 3x scale (1800 x 2520 px) for razor-sharp clarity on retina displays and WhatsApp
+        const scale = 3;
+        const baseWidth = 600;
+        const baseHeight = 840;
+        canvas.width = baseWidth * scale;
+        canvas.height = baseHeight * scale;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           setIsGeneratingShare(false);
           return;
         }
 
+        // Apply scale factor for all drawing operations
+        ctx.scale(scale, scale);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        const fontSans = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+        const fontMono = '"SF Pro Mono", "SF Mono", "Roboto Mono", Menlo, Consolas, monospace';
+
         // Helper for rounded rectangle fallback
         const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number) => {
-          if (ctx.roundRect) {
+          if (typeof ctx.roundRect === 'function') {
             ctx.roundRect(x, y, w, h, r);
           } else {
             ctx.moveTo(x + r, y);
@@ -730,7 +969,7 @@ const History: React.FC<HistoryProps> = ({
             ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
             ctx.lineTo(x + r, y + h);
             ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-            ctx.lineTo(x, y + r);
+            ctx.lineTo(x + r, y);
             ctx.quadraticCurveTo(x, y, x + r, y);
           }
         };
@@ -763,16 +1002,16 @@ const History: React.FC<HistoryProps> = ({
         ctx.stroke();
 
         ctx.fillStyle = '#818cf8';
-        ctx.font = '900 11px sans-serif';
+        ctx.font = `900 11px ${fontSans}`;
         ctx.fillText('ROTA FINANCEIRA', 300, 45);
 
         // Title
         ctx.fillStyle = '#ffffff';
-        ctx.font = '900 24px sans-serif';
+        ctx.font = `900 24px ${fontSans}`;
         ctx.fillText('Cobrança de Loja', 300, 82);
 
         ctx.fillStyle = '#94a3b8';
-        ctx.font = '500 12px sans-serif';
+        ctx.font = `500 12px ${fontSans}`;
         ctx.fillText('Comprovante de pagamento via Pix', 300, 102);
 
         // 2. Main Store & Info Card Container
@@ -787,11 +1026,11 @@ const History: React.FC<HistoryProps> = ({
 
         // Estabelecimento (Store Name highlighted in large bold white text)
         ctx.fillStyle = '#94a3b8';
-        ctx.font = 'bold 11px sans-serif';
+        ctx.font = `bold 11px ${fontSans}`;
         ctx.fillText('ESTABELECIMENTO', 56, 150);
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = '900 22px sans-serif';
+        ctx.font = `900 22px ${fontSans}`;
         const storeNameRaw = billingStore.name;
         const storeNameDisplay = storeNameRaw.length > 30 ? storeNameRaw.slice(0, 30) + '...' : storeNameRaw;
         ctx.fillText(storeNameDisplay, 56, 178);
@@ -814,11 +1053,11 @@ const History: React.FC<HistoryProps> = ({
         ctx.stroke();
 
         ctx.fillStyle = '#a5b4fc';
-        ctx.font = 'bold 10px sans-serif';
+        ctx.font = `bold 10px ${fontSans}`;
         ctx.fillText('QUANTIDADE DE ENTREGAS', 72, 230);
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = '900 24px monospace';
+        ctx.font = `900 24px ${fontMono}`;
         const deliveryCountText = `${billingStore.totalEntries || 1} ${Number(billingStore.totalEntries || 1) === 1 ? 'corrida' : 'corridas'}`;
         ctx.fillText(deliveryCountText, 72, 264);
 
@@ -835,11 +1074,11 @@ const History: React.FC<HistoryProps> = ({
         ctx.stroke();
 
         ctx.fillStyle = '#fda4af';
-        ctx.font = 'bold 10px sans-serif';
+        ctx.font = `bold 10px ${fontSans}`;
         ctx.fillText('TOTAL PENDENTE', 318, 230);
 
         ctx.fillStyle = '#f43f5e';
-        ctx.font = '900 26px monospace';
+        ctx.font = `900 26px ${fontMono}`;
         ctx.fillText(formatCurrency(billingStore.totalDue), 318, 265);
 
         // 3. QR Code Card Container
@@ -857,7 +1096,7 @@ const History: React.FC<HistoryProps> = ({
         const qrImg = new Image();
         qrImg.crossOrigin = 'anonymous';
 
-        await new Promise<void>((resolve, reject) => {
+        await new Promise<void>((resolve) => {
           qrImg.onload = () => {
             // White rounded container for QR Code
             ctx.fillStyle = '#ffffff';
@@ -865,12 +1104,24 @@ const History: React.FC<HistoryProps> = ({
             drawRoundedRect(165, qrBoxY + 22, 270, 270, 20);
             ctx.fill();
             
-            // Draw QR image
+            // Draw QR image with crisp smoothing
             ctx.drawImage(qrImg, 175, qrBoxY + 32, 250, 250);
             resolve();
           };
           qrImg.onerror = () => {
-            reject(new Error('Erro ao desenhar QR code'));
+            // Resilient fallback if offline/error loading QR
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            drawRoundedRect(165, qrBoxY + 22, 270, 270, 20);
+            ctx.fill();
+            ctx.fillStyle = '#0f172a';
+            ctx.font = `900 14px ${fontSans}`;
+            ctx.textAlign = 'center';
+            ctx.fillText('QR Code Pix', 300, qrBoxY + 145);
+            ctx.fillStyle = '#64748b';
+            ctx.font = `bold 11px ${fontSans}`;
+            ctx.fillText('Use a chave Copia e Cola', 300, qrBoxY + 170);
+            resolve();
           };
           qrImg.src = qrCodeUrl;
         });
@@ -887,16 +1138,17 @@ const History: React.FC<HistoryProps> = ({
         ctx.stroke();
 
         ctx.fillStyle = '#c7d2fe';
-        ctx.font = '900 13px sans-serif';
+        ctx.font = `900 13px ${fontSans}`;
         ctx.fillText('Escaneie o QR Code acima para pagar', 300, qrBoxY + 336);
 
         ctx.fillStyle = '#94a3b8';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.fillText('O código Pix Copia e Cola também foi copiado!', 300, qrBoxY + 360);
+        ctx.font = `bold 11px ${fontSans}`;
+        const subtext = config.pixName ? `Beneficiário: ${config.pixName}` : 'O código Pix Copia e Cola também foi copiado!';
+        ctx.fillText(subtext, 300, qrBoxY + 360);
 
         // Bottom Footer
         ctx.fillStyle = '#475569';
-        ctx.font = 'bold 10px sans-serif';
+        ctx.font = `bold 10px ${fontSans}`;
         ctx.fillText('Rota Financeira • Gestão para Entregadores', 300, 815);
 
         canvas.toBlob((blob) => {
