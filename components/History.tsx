@@ -140,7 +140,7 @@ export function generatePixPayload(key: string, name: string, city: string, amou
 }
 
 interface BillingModalPortalProps {
-  billingStore: { name: string; totalDue: number; entryIds?: string[] } | null;
+  billingStore: { name: string; totalDue: number; totalEntries?: number; entryIds?: string[] } | null;
   config: AppConfig;
   copied: boolean;
   setCopied: (copied: boolean) => void;
@@ -164,9 +164,7 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
   cachedShareFile,
   entries
 }) => {
-  const [isExporting, setIsExporting] = useState(false);
   const [printMode, setPrintMode] = useState(false);
-  const [isTextCopied, setIsTextCopied] = useState(false);
   const [isCopyingImage, setIsCopyingImage] = useState(false);
 
   const hasPixConfig = billingStore ? !!(config.pixKey && config.pixKey.trim().length > 0) : false;
@@ -177,447 +175,92 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
     ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`
     : '';
 
-  const pendingEntries = useMemo(() => {
-    if (!billingStore || !entries) return [];
-    return entries.filter(e => {
-      if (e.storeName !== billingStore.name) return false;
-      if (e.isPaid) return false;
-      if (e.grossAmount <= 0) return false;
-      if (billingStore.entryIds && billingStore.entryIds.length > 0) {
-        return billingStore.entryIds.includes(e.id);
-      }
-      return true;
-    }).sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.time || '12:00'}:00`);
-      const dateB = new Date(`${b.date}T${b.time || '12:00'}:00`);
-      return dateA.getTime() - dateB.getTime();
-    });
-  }, [billingStore, entries]);
-
-  const generateTextReport = () => {
-    if (!billingStore) return '';
-    let text = `🚨 *COBRANÇA - ${billingStore.name.toUpperCase()}* 🚨\n\n`;
-
-    let periodText = 'Todas as pendências';
-    if (pendingEntries.length > 0) {
-      const dates = pendingEntries.map(e => e.date).sort();
-      const firstDate = new Date(dates[0] + 'T12:00:00').toLocaleDateString('pt-BR');
-      const lastDate = new Date(dates[dates.length - 1] + 'T12:00:00').toLocaleDateString('pt-BR');
-      periodText = `${firstDate} até ${lastDate}`;
-    }
-
-    text += `📅 *Período:* ${periodText}\n`;
-    text += `📦 *Entregas:* ${pendingEntries.length}\n`;
-    text += `💰 *Total a Pagar:* *${formatCurrency(billingStore.totalDue)}*\n\n`;
-
-    text += `📋 *LISTA DE CORRIDAS:*\n`;
-    pendingEntries.forEach((entry, i) => {
-      const formattedDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR');
-      const timeStr = entry.time ? ` ${entry.time}` : '';
-      const desc = entry.description || 'Corrida de entrega';
-      const payMethod = config.paymentMethodLabels?.[entry.paymentMethod as keyof typeof config.paymentMethodLabels] || entry.paymentMethod || 'PIX';
-      text += `${i + 1}. *${formattedDate}${timeStr}* - ${desc} - *${formatCurrency(entry.grossAmount)}* (${payMethod.toUpperCase()})\n`;
-    });
-
-    text += `\n----------------------------------\n`;
-    text += `🔑 *DADOS DO PIX:*\n`;
-    text += `*Chave Pix:* \`${config.pixKey || 'Não configurada'}\`\n`;
-    text += `*Favorecido:* ${config.pixName || 'Não configurado'}\n`;
-    if (config.pixCity) {
-      text += `*Cidade:* ${config.pixCity}\n`;
-    }
-    text += `----------------------------------\n\n`;
-
-    text += `*Copia e Cola Pix (Toque para copiar no banco):*\n`;
-    text += `\`${pixCode}\`\n\n`;
-    text += `_Gerado por Rota Financeira_`;
-    return text;
-  };
-
-  const copyTextReportToClipboard = () => {
-    const text = generateTextReport();
-    if (!text) return;
-    try {
-      navigator.clipboard.writeText(text);
-      setIsTextCopied(true);
-      setTimeout(() => setIsTextCopied(false), 2000);
-      alert("✨ Relatório em formato texto copiado para a Área de Transferência!\n\nAgora você pode abrir o WhatsApp (ou qualquer outro app) e colar a mensagem inteira na conversa com o estabelecimento.");
-    } catch (err) {
-      console.error(err);
-      alert("Não foi possível copiar automaticamente. Tente selecionar o texto ou tirar print.");
-    }
-  };
-
-  const shareViaWhatsApp = () => {
-    const text = generateTextReport();
-    if (!text) return;
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-  };
-
-  const shareOnWhatsApp = async () => {
+  const shareViaSystem = async () => {
     if (!cachedShareFile) {
-      alert("Aguarde a geração do cupom de cobrança...");
+      alert("Aguarde a geração da imagem de cobrança...");
       return;
     }
     setIsCopyingImage(true);
     
-    // Copia a chave Pix automaticamente para o clipboard
+    // Copia o código Pix Copia e Cola automaticamente para a área de transferência para colar manualmente se desejar
+    let copiedToClipboard = false;
     try {
-      await navigator.clipboard.writeText(pixCode);
+      if (pixCode) {
+        await navigator.clipboard.writeText(pixCode);
+        setCopied(true);
+        copiedToClipboard = true;
+        setTimeout(() => setCopied(false), 3000);
+      }
     } catch (e) {
-      console.warn("Clipboard access denied", e);
+      console.warn("Clipboard access error", e);
     }
 
-    const shareText = pixCode; // O texto será a chave cópia e cola
+    const shareCaption = "Chave Pix cópia e cola abaixo ⤵️";
     let sharedSuccessfully = false;
 
+    // Compartilhamento nativo do celular (compartilha a imagem do cupom/QR Code com a legenda solicitada)
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [cachedShareFile] })) {
       try {
         await navigator.share({
           files: [cachedShareFile],
-          text: shareText
+          title: `Cobrança - ${billingStore?.name || 'Loja'}`,
+          text: shareCaption
         });
         sharedSuccessfully = true;
-      } catch (err) {
-        console.warn("navigator.share failed, using fallback", err);
+      } catch (err: any) {
+        // Se o usuário não cancelou explicitamente, faz fallback
+        if (err?.name !== 'AbortError') {
+          console.warn("navigator.share failed, using fallback", err);
+        } else {
+          sharedSuccessfully = true;
+        }
       }
     }
 
+    // Se o dispositivo não suporta compartilhamento com arquivos ou falhou
     if (!sharedSuccessfully) {
       try {
-        // Fallback: copia imagem para área de transferência e abre o whatsapp com o texto
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            [cachedShareFile.type]: cachedShareFile
-          })
-        ]);
+        // Tenta copiar a imagem para a área de transferência
+        if (navigator.clipboard && 'write' in navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              [cachedShareFile.type]: cachedShareFile
+            })
+          ]);
+        }
         
-        alert("✨ Cupom em IMAGEM copiado para sua Área de Transferência!\n\nEstamos abrindo o WhatsApp. Ao entrar na conversa da loja, basta pressionar o campo de texto e selecionar 'Colar' para enviar a imagem do cupom!\n\nO texto pré-preenchido já é o código Pix Copia e Cola.");
+        // Se puder compartilhar apenas texto pelo sistema
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: `Cobrança - ${billingStore?.name || 'Loja'}`,
+              text: `${shareCaption}\n\n${pixCode}`
+            });
+            sharedSuccessfully = true;
+          } catch (err: any) {
+            if (err?.name === 'AbortError') sharedSuccessfully = true;
+          }
+        }
 
-        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
-        window.open(url, '_blank');
+        if (!sharedSuccessfully) {
+          // Fallback para download da imagem + mensagem de Pix copiado
+          const url = URL.createObjectURL(cachedShareFile);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `cobranca_${billingStore?.name?.toLowerCase().replace(/\s+/g, '_') || 'loja'}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          alert("✨ Chave Pix copiada para a área de transferência!\n\nA imagem do cupom foi baixada para você enviar ao estabelecimento.");
+        }
       } catch (err) {
         console.error(err);
-        // Se ClipboardItem falhar (comum em webviews que não aceitam imagens no clip)
-        alert("Copiamos a chave Pix Copia e Cola para a área de transferência. Vamos abrir o WhatsApp agora.");
-        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
-        window.open(url, '_blank');
+        alert("✨ Chave Pix copiada para a área de transferência!");
       }
     }
     setIsCopyingImage(false);
-  };
-
-  const getBase64Image = (imgUrl: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/png'));
-        } else {
-          reject(new Error('Failed to get 2d context'));
-        }
-      };
-      img.onerror = (e) => reject(e);
-      img.src = imgUrl;
-    });
-  };
-
-  const exportReportAsPDF = async () => {
-    if (!billingStore) return;
-    setIsExporting(true);
-    try {
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      // Header Banner
-      doc.setFillColor(15, 23, 42); // slate-900
-      doc.rect(0, 0, 210, 35, 'F');
-
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(22);
-      doc.text('ROTA FINANCEIRA', 15, 18);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(148, 163, 184); // slate-400
-      doc.text('RELATÓRIO DETALHADO DE COBRANÇA', 15, 26);
-
-      doc.setFontSize(8);
-      doc.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}`, 195, 26, { align: 'right' });
-
-      // Store & Period Info Box
-      doc.setFillColor(248, 250, 252); // slate-50
-      doc.roundedRect(15, 45, 180, 32, 4, 4, 'F');
-      doc.setDrawColor(226, 232, 240); // slate-200
-      doc.roundedRect(15, 45, 180, 32, 4, 4, 'S');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139); // slate-500
-      doc.text('ESTABELECIMENTO COBRADO', 20, 52);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(15);
-      doc.setTextColor(99, 102, 241); // indigo-500
-      const sName = billingStore.name.length > 40 ? billingStore.name.substring(0, 37) + '...' : billingStore.name;
-      doc.text(sName, 20, 60);
-
-      let periodText = 'Todas as pendências';
-      if (pendingEntries.length > 0) {
-        const dates = pendingEntries.map(e => e.date).sort();
-        const firstDate = new Date(dates[0] + 'T12:00:00').toLocaleDateString('pt-BR');
-        const lastDate = new Date(dates[dates.length - 1] + 'T12:00:00').toLocaleDateString('pt-BR');
-        periodText = `${firstDate} até ${lastDate}`;
-      }
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(100, 116, 139); // slate-500
-      doc.text(`Período das corridas: ${periodText}`, 20, 68);
-      doc.text(`Total de entregas listadas: ${pendingEntries.length}`, 20, 73);
-
-      // Total Due Box
-      doc.setFillColor(254, 242, 242); // rose-50
-      doc.roundedRect(140, 49, 50, 24, 3, 3, 'F');
-      doc.setDrawColor(254, 226, 226); // rose-200
-      doc.roundedRect(140, 49, 50, 24, 3, 3, 'S');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(225, 29, 72); // rose-600
-      doc.text('TOTAL DEVIDO', 145, 55);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.text(formatCurrency(billingStore.totalDue), 145, 65);
-
-      // Detail Table Title
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42); // slate-900
-      doc.text('DETALHAMENTO DAS ENTREGAS / CORRIDAS PENDENTES', 15, 90);
-
-      // Table Header
-      doc.setFillColor(99, 102, 241); // indigo-500
-      doc.rect(15, 95, 180, 8, 'F');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(255, 255, 255);
-      doc.text('Data/Hora', 18, 100);
-      doc.text('Descrição / Detalhes', 55, 100);
-      doc.text('Meio Pag.', 140, 100);
-      doc.text('Valor', 192, 100, { align: 'right' });
-
-      // Table Rows
-      let y = 103;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-
-      pendingEntries.forEach((entry, index) => {
-        if (index % 2 === 0) {
-          doc.setFillColor(248, 250, 252); // slate-50
-          doc.rect(15, y, 180, 8, 'F');
-        }
-
-        doc.setTextColor(51, 65, 85); // slate-700
-
-        const formattedDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR');
-        const timeStr = entry.time || '--:--';
-        doc.text(`${formattedDate} ${timeStr}`, 18, y + 5.5);
-
-        let desc = entry.description || 'Corrida de entrega';
-        if (desc.length > 55) desc = desc.substring(0, 52) + '...';
-        doc.text(desc, 55, y + 5.5);
-
-        const payMethod = config.paymentMethodLabels?.[entry.paymentMethod as keyof typeof config.paymentMethodLabels] || entry.paymentMethod || 'PIX';
-        doc.text(payMethod.toUpperCase(), 140, y + 5.5);
-
-        doc.setFont('helvetica', 'bold');
-        doc.text(formatCurrency(entry.grossAmount), 192, y + 5.5, { align: 'right' });
-        doc.setFont('helvetica', 'normal');
-
-        y += 8;
-
-        if (y > 240) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(7);
-          doc.setTextColor(148, 163, 184);
-          doc.text('Relatório de Cobrança • Rota Financeira', 15, 285);
-          doc.text('Página continua...', 195, 285, { align: 'right' });
-
-          doc.addPage();
-
-          // Header on new page
-          doc.setFillColor(15, 23, 42);
-          doc.rect(0, 0, 210, 15, 'F');
-          doc.setTextColor(255, 255, 255);
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(10);
-          doc.text(`Relatório de Cobrança - ${billingStore?.name} (Continuação)`, 15, 10);
-
-          // Re-draw table header
-          doc.setFillColor(99, 102, 241);
-          doc.rect(15, 22, 180, 8, 'F');
-          doc.setFontSize(9);
-          doc.setTextColor(255, 255, 255);
-          doc.text('Data/Hora', 18, 27);
-          doc.text('Descrição / Detalhes', 55, 27);
-          doc.text('Meio Pag.', 140, 27);
-          doc.text('Valor', 192, 27, { align: 'right' });
-
-          y = 33;
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(8);
-        }
-      });
-
-      if (y > 195) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        doc.setTextColor(148, 163, 184);
-        doc.text('Relatório de Cobrança • Rota Financeira', 15, 285);
-
-        doc.addPage();
-        y = 20;
-      } else {
-        y += 10;
-      }
-
-      // Pix Payment Section
-      doc.setFillColor(248, 250, 252); // slate-50
-      doc.rect(15, y, 180, 65, 'F');
-      doc.setDrawColor(226, 232, 240); // slate-200
-      doc.rect(15, y, 180, 65, 'S');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(15, 23, 42); // slate-900
-      doc.text('INFORMAÇÕES DE PAGAMENTO (PIX)', 22, y + 8);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      doc.setTextColor(71, 85, 105); // slate-600
-      doc.text('Para realizar o pagamento do saldo total pendente, utilize a chave Pix abaixo:', 22, y + 15);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('Chave Pix:', 22, y + 24);
-      doc.setFont('helvetica', 'normal');
-      doc.text(config.pixKey || 'Não configurada', 48, y + 24);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('Beneficiário:', 22, y + 31);
-      doc.setFont('helvetica', 'normal');
-      doc.text(config.pixName || 'Não configurado', 48, y + 31);
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('Cidade:', 22, y + 38);
-      doc.setFont('helvetica', 'normal');
-      doc.text(config.pixCity || '', 48, y + 38);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(99, 102, 241);
-      doc.text('Pix Copia e Cola:', 22, y + 47);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.5);
-      doc.setTextColor(100, 116, 139);
-
-      const wrappedPix = doc.splitTextToSize(pixCode, 110);
-      doc.text(wrappedPix, 22, y + 52);
-
-      // Embed QR Code
-      if (hasPixConfig && qrCodeUrl) {
-        try {
-          const qrBase64 = await getBase64Image(qrCodeUrl);
-          doc.setFillColor(255, 255, 255);
-          doc.rect(142, y + 5, 48, 48, 'F');
-          doc.addImage(qrBase64, 'PNG', 144, y + 7, 44, 44);
-
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(7);
-          doc.setTextColor(100, 116, 139);
-          doc.text('Escaneie p/ Pagar', 166, y + 58, { align: 'center' });
-        } catch (qrErr) {
-          console.error('Error drawing QR Code inside PDF:', qrErr);
-        }
-      }
-
-      // Final PDF Footer
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(148, 163, 184); // slate-400
-      doc.text('Rota Financeira - Controle de Entregas e Finanças Pessoais', 15, 285);
-
-      doc.text('Página 1 de 1', 195, 285, { align: 'right' });
-
-      // Share PDF/Open With or Download
-      const pdfBlob = doc.output('blob');
-      const fileName = `Relatorio_Cobranca_${billingStore.name.replace(/\s+/g, '_')}.pdf`;
-      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
-
-      let sharedSuccessfully = false;
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-        try {
-          await navigator.share({
-            files: [pdfFile],
-            title: `Relatório de Cobrança - ${billingStore.name}`,
-            text: `Olá! Segue o relatório detalhado de cobrança das entregas pendentes da loja *${billingStore.name}* no valor total de *${formatCurrency(billingStore.totalDue)}*.`
-          });
-          sharedSuccessfully = true;
-        } catch (shareErr) {
-          console.warn("navigator.share for PDF failed, falling back to direct download", shareErr);
-        }
-      }
-
-      if (!sharedSuccessfully) {
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        alert(`✨ Relatório PDF gerado com SUCESSO!\n\nEle foi baixado como "${fileName}".\nAbra o arquivo para escolher qual aplicativo usar para visualizar, imprimir ou compartilhar!`);
-      }
-    } catch (err) {
-      console.error('Error generating PDF report:', err);
-      alert('Não foi possível gerar o relatório PDF. Tente novamente.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const downloadImage = () => {
-    if (!cachedShareFile) {
-      alert("Aguarde a geração do cupom de cobrança...");
-      return;
-    }
-    try {
-      const url = URL.createObjectURL(cachedShareFile);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `cobranca_${billingStore?.name?.toLowerCase().replace(/\s+/g, '_') || 'loja'}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error(err);
-      alert("Não foi possível realizar o download automático. Tente copiar a imagem ou tirar um print.");
-    }
   };
 
   if (printMode && billingStore) {
@@ -649,9 +292,15 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
               <span className="block text-base font-black text-white leading-tight">{billingStore.name}</span>
             </div>
 
-            <div>
-              <span className="block text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Valor Pendente</span>
-              <span className="block text-2xl font-black text-rose-500 font-mono-num">{formatCurrency(billingStore.totalDue)}</span>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-slate-800/40 p-2 rounded-xl border border-slate-700/50">
+                <span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Entregas</span>
+                <span className="block text-lg font-black text-indigo-400 font-mono-num">{billingStore.totalEntries || 1}</span>
+              </div>
+              <div className="bg-rose-500/10 p-2 rounded-xl border border-rose-500/20">
+                <span className="block text-[8px] font-black text-rose-400 uppercase tracking-widest mb-0.5">Valor Pendente</span>
+                <span className="block text-lg font-black text-rose-500 font-mono-num">{formatCurrency(billingStore.totalDue)}</span>
+              </div>
             </div>
           </div>
 
@@ -785,9 +434,15 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
                 <span className="block text-sm font-black text-slate-800 dark:text-white">{billingStore.name}</span>
               </div>
 
-              <div className="p-3 bg-rose-500/5 dark:bg-rose-500/10 rounded-xl border border-rose-500/10">
-                <span className="block text-[8px] font-black text-rose-500 uppercase tracking-widest mb-0.5">Valor Não Recebido (Pendente)</span>
-                <span className="block text-lg font-black text-rose-600 dark:text-rose-400 font-mono-num">{formatCurrency(billingStore.totalDue)}</span>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 bg-indigo-50/60 dark:bg-indigo-500/10 rounded-xl border border-indigo-100/60 dark:border-indigo-500/10">
+                  <span className="block text-[8px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest mb-0.5">Qtd. Entregas</span>
+                  <span className="block text-base font-black text-indigo-600 dark:text-indigo-300 font-mono-num">{billingStore.totalEntries || 1}</span>
+                </div>
+                <div className="p-3 bg-rose-500/5 dark:bg-rose-500/10 rounded-xl border border-rose-500/10">
+                  <span className="block text-[8px] font-black text-rose-500 uppercase tracking-widest mb-0.5">Valor Pendente</span>
+                  <span className="block text-base font-black text-rose-600 dark:text-rose-400 font-mono-num">{formatCurrency(billingStore.totalDue)}</span>
+                </div>
               </div>
             </div>
 
@@ -838,51 +493,14 @@ const BillingModalPortal: React.FC<BillingModalPortalProps> = ({
 
             {hasPixConfig && (
               <div className="w-full mt-4 space-y-3">
-                <div className="space-y-2.5">
-                  {/* Opção 1: Compartilhar no WhatsApp (Envia a imagem e o texto é o copia e cola) */}
-                  <button
-                    onClick={shareOnWhatsApp}
-                    disabled={isGeneratingShare || !cachedShareFile}
-                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer h-12"
-                  >
-                    <MessageSquare size={14} className={isCopyingImage ? 'animate-pulse' : ''} />
-                    {isCopyingImage ? 'Processando...' : 'Compartilhar no WhatsApp'}
-                  </button>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* Opção 2: Exportar Relatório (PDF) */}
-                    <button
-                      id="export-report-button"
-                      onClick={exportReportAsPDF}
-                      disabled={isExporting}
-                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer h-11"
-                    >
-                      <FileText size={12} className={isExporting ? 'animate-spin' : ''} />
-                      {isExporting ? 'Exportando...' : 'Exportar Relatório'}
-                    </button>
-
-                    {/* Opção 3: Salvar (Baixar Imagem) */}
-                    <button
-                      id="download-button"
-                      onClick={downloadImage}
-                      disabled={isGeneratingShare || !cachedShareFile}
-                      className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-center gap-1.5 cursor-pointer h-11 disabled:opacity-50"
-                    >
-                      <Download size={12} />
-                      {isGeneratingShare ? 'Gerando...' : 'Salvar Imagem'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="h-[1px] bg-slate-200 dark:bg-slate-800/80 my-2" />
-
                 <button
-                  id="screenshot-mode-button"
-                  onClick={() => setPrintMode(true)}
-                  className="w-full py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg text-[8px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-1 cursor-pointer"
+                  id="share-button"
+                  onClick={shareViaSystem}
+                  disabled={isGeneratingShare || !cachedShareFile}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-md hover:shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer h-12 active:scale-[0.99]"
                 >
-                  <Camera size={10} />
-                  Modo Print de Tela
+                  <Share2 size={16} className={isCopyingImage ? 'animate-pulse' : ''} />
+                  {isCopyingImage ? 'Processando...' : 'Compartilhar'}
                 </button>
               </div>
             )}
@@ -942,7 +560,7 @@ const History: React.FC<HistoryProps> = ({
   const [visibleCount, setVisibleCount] = useState(3);
   const [isEditingStoreName, setIsEditingStoreName] = useState(false);
   const [newStoreName, setNewStoreName] = useState('');
-  const [billingStore, setBillingStore] = useState<{ name: string; totalDue: number; entryIds?: string[] } | null>(null);
+  const [billingStore, setBillingStore] = useState<{ name: string; totalDue: number; totalEntries?: number; entryIds?: string[] } | null>(null);
   const [copied, setCopied] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [cachedShareFile, setCachedShareFile] = useState<File | null>(null);
@@ -1011,7 +629,7 @@ const History: React.FC<HistoryProps> = ({
     return storePendingBalances.filter(item => item.totalDue > 0);
   }, [storePendingBalances]);
 
-  const handleBillStore = (store: { name: string; totalDue: number; entryIds?: string[] }) => {
+  const handleBillStore = (store: { name: string; totalDue: number; totalEntries?: number; entryIds?: string[] }) => {
     setBillingStore(store);
     setCopied(false);
   };
@@ -1027,7 +645,7 @@ const History: React.FC<HistoryProps> = ({
         console.warn("Clipboard access denied", e);
       }
 
-      const shareText = `Olá! Segue cobrança da loja *${storeName}* no valor de *${formatCurrency(amount)}*.\n\nVocê pode pagar escaneando o QR Code na imagem ou utilizando o Pix Copia e Cola abaixo:\n\n${pixCode}`;
+      const shareText = `Chave Pix cópia e cola abaixo ⤵️\n\n${pixCode}`;
 
       // If we have a cached file and navigator.share with files is supported
       if (cachedShareFile && navigator.share && navigator.canShare && navigator.canShare({ files: [cachedShareFile] })) {
@@ -1093,60 +711,146 @@ const History: React.FC<HistoryProps> = ({
       try {
         const canvas = document.createElement('canvas');
         canvas.width = 600;
-        canvas.height = 750;
+        canvas.height = 840;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           setIsGeneratingShare(false);
           return;
         }
 
-        // Draw background
-        const grad = ctx.createLinearGradient(0, 0, 0, 750);
-        grad.addColorStop(0, '#0f172a');
-        grad.addColorStop(1, '#020617');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 600, 750);
+        // Helper for rounded rectangle fallback
+        const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number) => {
+          if (ctx.roundRect) {
+            ctx.roundRect(x, y, w, h, r);
+          } else {
+            ctx.moveTo(x + r, y);
+            ctx.lineTo(x + w - r, y);
+            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+            ctx.lineTo(x + w, y + h - r);
+            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            ctx.lineTo(x + r, y + h);
+            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+            ctx.lineTo(x, y + r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+          }
+        };
 
-        // Header
-        ctx.fillStyle = '#6366f1';
-        ctx.font = '900 14px sans-serif';
-        ctx.fillText('ROTA FINANCEIRA', 50, 60);
+        // 1. Draw rich dark premium background
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, 840);
+        bgGrad.addColorStop(0, '#0f172a');
+        bgGrad.addColorStop(0.4, '#090d16');
+        bgGrad.addColorStop(1, '#020617');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, 600, 840);
 
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '900 24px sans-serif';
-        ctx.fillText('Cobrança de Loja', 50, 100);
+        // Subtle decorative gradient glow behind header
+        const glowGrad = ctx.createRadialGradient(300, 70, 10, 300, 70, 260);
+        glowGrad.addColorStop(0, 'rgba(99, 102, 241, 0.15)');
+        glowGrad.addColorStop(1, 'rgba(99, 102, 241, 0)');
+        ctx.fillStyle = glowGrad;
+        ctx.fillRect(0, 0, 600, 200);
 
-        // Separator
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.lineWidth = 1;
+        // Header: Brand Tag & Title
+        ctx.textAlign = 'center';
+        
+        // Brand Badge
+        ctx.fillStyle = 'rgba(99, 102, 241, 0.18)';
         ctx.beginPath();
-        ctx.moveTo(50, 130);
-        ctx.lineTo(550, 130);
+        drawRoundedRect(220, 28, 160, 26, 13);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
+        ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Establishment Info
+        ctx.fillStyle = '#818cf8';
+        ctx.font = '900 11px sans-serif';
+        ctx.fillText('ROTA FINANCEIRA', 300, 45);
+
+        // Title
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 24px sans-serif';
+        ctx.fillText('Cobrança de Loja', 300, 82);
+
         ctx.fillStyle = '#94a3b8';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.fillText('ESTABELECIMENTO', 50, 165);
+        ctx.font = '500 12px sans-serif';
+        ctx.fillText('Comprovante de pagamento via Pix', 300, 102);
+
+        // 2. Main Store & Info Card Container
+        ctx.textAlign = 'left';
+        ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
+        ctx.beginPath();
+        drawRoundedRect(36, 122, 528, 185, 20);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Estabelecimento (Store Name highlighted in large bold white text)
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText('ESTABELECIMENTO', 56, 150);
 
         ctx.fillStyle = '#ffffff';
-        ctx.font = '900 18px sans-serif';
-        const storeNameText = billingStore.name.length > 35 ? billingStore.name.slice(0, 35) + '...' : billingStore.name;
-        ctx.fillText(storeNameText, 50, 195);
+        ctx.font = '900 22px sans-serif';
+        const storeNameRaw = billingStore.name;
+        const storeNameDisplay = storeNameRaw.length > 30 ? storeNameRaw.slice(0, 30) + '...' : storeNameRaw;
+        ctx.fillText(storeNameDisplay, 56, 178);
 
-        // Due value
-        ctx.fillStyle = '#f43f5e';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.fillText('VALOR PENDENTE', 50, 245);
-
-        ctx.fillStyle = '#f43f5e';
-        ctx.font = 'bold 32px monospace';
-        ctx.fillText(formatCurrency(billingStore.totalDue), 50, 285);
-
-        // Separator
+        // Subtle divider inside card
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
         ctx.beginPath();
-        ctx.moveTo(50, 320);
-        ctx.lineTo(550, 320);
+        ctx.moveTo(56, 196);
+        ctx.lineTo(544, 196);
+        ctx.stroke();
+
+        // Two sub-cards: Left = Quantidade de Entregas, Right = Valor a Pagar (highlighted)
+        // Entregas sub-card
+        ctx.fillStyle = 'rgba(99, 102, 241, 0.1)';
+        ctx.beginPath();
+        drawRoundedRect(56, 208, 230, 80, 14);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = '#a5b4fc';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText('QUANTIDADE DE ENTREGAS', 72, 230);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '900 24px monospace';
+        const deliveryCountText = `${billingStore.totalEntries || 1} ${Number(billingStore.totalEntries || 1) === 1 ? 'corrida' : 'corridas'}`;
+        ctx.fillText(deliveryCountText, 72, 264);
+
+        // Valor a Pagar (Total Due highlighted with rose gradient background)
+        const valGrad = ctx.createLinearGradient(302, 208, 544, 288);
+        valGrad.addColorStop(0, 'rgba(244, 63, 94, 0.16)');
+        valGrad.addColorStop(1, 'rgba(225, 29, 72, 0.08)');
+        ctx.fillStyle = valGrad;
+        ctx.beginPath();
+        drawRoundedRect(302, 208, 242, 80, 14);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.fillStyle = '#fda4af';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText('TOTAL PENDENTE', 318, 230);
+
+        ctx.fillStyle = '#f43f5e';
+        ctx.font = '900 26px monospace';
+        ctx.fillText(formatCurrency(billingStore.totalDue), 318, 265);
+
+        // 3. QR Code Card Container
+        const qrBoxY = 325;
+        const qrBoxHeight = 405;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
+        ctx.beginPath();
+        drawRoundedRect(36, qrBoxY, 528, qrBoxHeight, 20);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
         ctx.stroke();
 
         // QR Code load and draw
@@ -1155,15 +859,14 @@ const History: React.FC<HistoryProps> = ({
 
         await new Promise<void>((resolve, reject) => {
           qrImg.onload = () => {
+            // White rounded container for QR Code
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
-            if (ctx.roundRect) {
-              ctx.roundRect(175, 360, 250, 250, 24);
-            } else {
-              ctx.rect(175, 360, 250, 250);
-            }
+            drawRoundedRect(165, qrBoxY + 22, 270, 270, 20);
             ctx.fill();
-            ctx.drawImage(qrImg, 185, 370, 230, 230);
+            
+            // Draw QR image
+            ctx.drawImage(qrImg, 175, qrBoxY + 32, 250, 250);
             resolve();
           };
           qrImg.onerror = () => {
@@ -1172,12 +875,29 @@ const History: React.FC<HistoryProps> = ({
           qrImg.src = qrCodeUrl;
         });
 
-        // Instructions
+        // Instructions Badge below QR code
+        ctx.textAlign = 'center';
+        
+        ctx.fillStyle = 'rgba(99, 102, 241, 0.15)';
+        ctx.beginPath();
+        drawRoundedRect(60, qrBoxY + 310, 480, 72, 12);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.25)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = '#c7d2fe';
+        ctx.font = '900 13px sans-serif';
+        ctx.fillText('Escaneie o QR Code acima para pagar', 300, qrBoxY + 336);
+
         ctx.fillStyle = '#94a3b8';
         ctx.font = 'bold 11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Escaneie o QR Code acima para pagar', 300, 640);
-        ctx.fillText('O Pix Copia e Cola também foi copiado!', 300, 660);
+        ctx.fillText('O código Pix Copia e Cola também foi copiado!', 300, qrBoxY + 360);
+
+        // Bottom Footer
+        ctx.fillStyle = '#475569';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText('Rota Financeira • Gestão para Entregadores', 300, 815);
 
         canvas.toBlob((blob) => {
           if (blob) {
@@ -1794,12 +1514,16 @@ const History: React.FC<HistoryProps> = ({
                     </button>
                     <button 
                       onClick={() => onUpdate({ ...entry, isPaid: !entry.isPaid })}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 pr-4 pl-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all active:scale-95 group/btn"
+                      className={`flex-1 flex items-center justify-center gap-2 py-3 pr-4 pl-3 rounded-2xl transition-all active:scale-95 group/btn border ${
+                        entry.isPaid
+                          ? 'bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 border-rose-200 dark:border-rose-800/50 text-rose-600 dark:text-rose-400'
+                      }`}
                     >
-                      <div className={entry.isPaid ? 'text-emerald-500' : 'text-rose-500'}>
+                      <div className={entry.isPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
                         {entry.isPaid ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
                       </div>
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                      <span className="text-[10px] font-black uppercase tracking-widest">
                         {entry.isPaid ? 'Pago' : 'Pendente'}
                       </span>
                     </button>

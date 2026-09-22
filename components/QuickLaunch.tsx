@@ -113,18 +113,6 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
 
   const suggestionAmounts = [6, 7, 8, 10, 12, 17, 18, 22, 25, 30, 40];
 
-  // Validação para habilitar os botões de salvamento
-  const isSaveDisabled = useMemo(() => {
-    if (mode === 'single') {
-      const num = parseFloat(singleAmount);
-      return isNaN(num) || num <= 0;
-    } else {
-      const numTotal = parseFloat(shiftTotalAmount);
-      const parsedCount = parseInt(deliveryCount, 10);
-      return isNaN(numTotal) || numTotal <= 0 || isNaN(parsedCount) || parsedCount < 1;
-    }
-  }, [mode, singleAmount, shiftTotalAmount, deliveryCount]);
-
   // Aplica o cálculo da diária fixa + taxas ao valor total do turno
   const handleApplyShiftCalculation = () => {
     const daily = parseFloat(fixedDailyRate) || 0;
@@ -165,11 +153,15 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
     } else {
       // Modo Turno / Fechamento
       const numTotal = parseFloat(shiftTotalAmount);
-      if (isNaN(numTotal) || numTotal <= 0) return;
-
       const parsedCount = parseInt(deliveryCount, 10);
-      // Não é possível salvar turno sem a quantidade de corridas válida (mínimo 1)
-      if (isNaN(parsedCount) || parsedCount < 1) return;
+
+      // Não é possível salvar turno sem a quantidade de corridas (mínimo 1) ou sem valor
+      if (isNaN(parsedCount) || parsedCount < 1) {
+        return;
+      }
+      if (isNaN(numTotal) || numTotal <= 0) {
+        return;
+      }
 
       const finalCount = parsedCount;
       const finalStoreName = storeName.trim();
@@ -781,29 +773,21 @@ const QuickLaunch: React.FC<QuickLaunchProps> = ({ onAdd, existingEntries, confi
         {/* Botões de Ação de Salvamento */}
         <div className="grid grid-cols-2 gap-4">
           <motion.button 
-            whileTap={isSaveDisabled ? {} : { scale: 0.98 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => handleSave(true)}
             type="button" 
-            disabled={isSaveDisabled}
-            className={`flex-1 font-black py-4 rounded-2xl transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border shadow-sm ${
-              isSaveDisabled
-                ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-transparent cursor-not-allowed opacity-60'
-                : 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-400/50 cursor-pointer'
-            }`}
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black py-4 rounded-2xl transition-all uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 border border-emerald-500 shadow-md shadow-emerald-600/25 cursor-pointer"
           >
             <Plus size={16} strokeWidth={3} /> Salvar Pago
           </motion.button>
           
           <motion.button 
-            whileTap={isSaveDisabled ? {} : { scale: 0.98 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => handleSave(false)}
             type="button" 
-            disabled={isSaveDisabled}
-            className={`flex-1 font-black py-4 rounded-2xl transition-all uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border shadow-sm ${
-              isSaveDisabled
-                ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-transparent cursor-not-allowed opacity-60'
-                : 'bg-rose-500 hover:bg-rose-600 text-white border-rose-400/50 cursor-pointer'
-            }`}
+            className="flex-1 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-black py-4 rounded-2xl transition-all uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 border border-rose-500 shadow-md shadow-rose-600/25 cursor-pointer"
           >
             <Plus size={16} strokeWidth={3} /> Pendente
           </motion.button>

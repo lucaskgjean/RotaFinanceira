@@ -1,5 +1,6 @@
 {
   "name": "RotaFinanceira",
   "description": "Controle financeiro premium para motoristas e entregadores. Gestão automática de reservas para combustível, alimentação e manutenção.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

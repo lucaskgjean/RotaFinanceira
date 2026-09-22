@@ -3,7 +3,7 @@ import localforage from 'localforage';
 import CryptoJS from 'crypto-js';
 import { DailyEntry, TimeEntry, AppConfig } from '../types';
 import { db, auth } from './firebase';
-import { doc, setDoc, getDoc, collection, writeBatch, query, where, getDocs, deleteDoc, getDocFromServer } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, writeBatch, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 
 enum OperationType {
   CREATE = 'create',
@@ -112,21 +112,6 @@ let syncCache: {
 } = {};
 
 let oldEntriesCleared: Set<string> = new Set(); // userId -> boolean
-
-async function testConnection() {
-  if (!db) return;
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-    console.log("[storageService] Conexão com Firestore testada com sucesso.");
-  } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("[storageService] Firestore Offline: Verifique sua conexão. ");
-    } else {
-      console.warn("[storageService] Falha silenciosa no teste de conexão (esperado em alguns ambientes):", error);
-    }
-  }
-}
-testConnection();
 
 // Helper to get/set cache safely
 const getSyncCache = (userId: string) => {
