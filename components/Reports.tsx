@@ -134,7 +134,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, timeEntries, config, onAddEn
       return acc;
     }, { fuel: 0, food: 0, maintenance: 0, others: 0 });
 
-    const quickLaunchesCount = incomeEntries.length;
+    const quickLaunchesCount = incomeEntries.reduce((acc, curr) => acc + (curr.deliveryCount && curr.deliveryCount > 0 ? curr.deliveryCount : 1), 0);
     
     const totalSeconds = filteredTime.reduce((acc, curr) => {
       if (curr.startTime && curr.endTime) {

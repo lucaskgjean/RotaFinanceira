@@ -37,7 +37,10 @@ export const calculateDailyEntry = (
   fuelPrice?: number,
   paymentMethod?: 'money' | 'pix' | 'debito' | 'caderno',
   isPaid?: boolean,
-  description?: string
+  description?: string,
+  entryType?: 'single' | 'shift',
+  deliveryCount?: number,
+  shiftPeriod?: 'almoco' | 'jantar' | 'integral' | 'outro'
 ): DailyEntry => {
   const fuel = gross * config.percFuel;
   const food = gross * config.percFood;
@@ -61,7 +64,10 @@ export const calculateDailyEntry = (
     paymentMethod,
     isPaid: isPaid ?? (paymentMethod === 'money'),
     category: 'income',
-    description
+    description,
+    entryType: entryType || 'single',
+    deliveryCount: deliveryCount !== undefined ? deliveryCount : 1,
+    shiftPeriod
   };
 };
 
@@ -279,7 +285,7 @@ export const calculateFuelMetrics = (entries: DailyEntry[]) => {
   const totalFuelReserved = incomeEntries.reduce((acc, curr) => acc + curr.fuel, 0);
   const totalFuelSpent = expenseEntries.reduce((acc, curr) => acc + curr.fuel, 0);
   const totalLiters = expenseEntries.reduce((acc, curr) => acc + (curr.liters || 0), 0);
-  const totalDeliveries = incomeEntries.length;
+  const totalDeliveries = incomeEntries.reduce((acc, curr) => acc + (curr.deliveryCount && curr.deliveryCount > 0 ? curr.deliveryCount : 1), 0);
 
   return {
     costPerKm: totalKm > 0 ? totalFuelSpent / totalKm : 0,

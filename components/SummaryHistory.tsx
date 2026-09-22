@@ -320,6 +320,12 @@ export const SummaryHistory: React.FC<SummaryHistoryProps> = ({
                                           {getPaymentLabel(entry.paymentMethod)}
                                         </span>
                                       )}
+
+                                      {entry.deliveryCount && entry.deliveryCount > 1 && (
+                                        <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 shrink-0">
+                                          {entry.deliveryCount} corridas
+                                        </span>
+                                      )}
                                     </div>
 
                                     {/* Lado Direito: Valor e Chevron suave */}
@@ -349,6 +355,18 @@ export const SummaryHistory: React.FC<SummaryHistoryProps> = ({
                                         className="overflow-hidden border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/20 px-3 py-2.5 space-y-2.5"
                                       >
                                         {/* Sub-informações da corrida */}
+                                        {entry.deliveryCount && entry.deliveryCount > 1 && (
+                                          <div className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40 px-3 py-2 rounded-xl border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between">
+                                            <span className="flex items-center gap-1.5">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                              Fechamento de Turno: {entry.deliveryCount} corridas
+                                            </span>
+                                            <span className="font-mono-num font-black">
+                                              Média: {formatCurrency(entry.grossAmount / entry.deliveryCount)}/corrida
+                                            </span>
+                                          </div>
+                                        )}
+
                                         <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
                                           <div className="flex items-center gap-1.5 flex-wrap">
                                             {/* Badge Status completo */}

@@ -19,6 +19,9 @@ export interface DailyEntry {
   isPaid?: boolean;
   category?: 'income' | 'fuel' | 'food' | 'maintenance' | 'others';
   description?: string;
+  entryType?: 'single' | 'shift';
+  deliveryCount?: number;
+  shiftPeriod?: 'almoco' | 'jantar' | 'integral' | 'outro';
 }
 
 export interface WeeklySummary {

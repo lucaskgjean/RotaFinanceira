@@ -38,6 +38,9 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
   const [category, setCategory] = useState<'fuel' | 'food' | 'maintenance' | 'others'>(
     entry.fuel > 0 ? 'fuel' : entry.food > 0 ? 'food' : entry.maintenance > 0 ? 'maintenance' : 'others'
   );
+  const [deliveryCount, setDeliveryCount] = useState<string>(
+    entry.deliveryCount ? entry.deliveryCount.toString() : '1'
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -74,8 +77,24 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
         id: entry.id
       };
     } else if (isIncome) {
+      const parsedDeliveryCount = parseInt(deliveryCount);
+      const finalCount = !isNaN(parsedDeliveryCount) && parsedDeliveryCount > 0 ? parsedDeliveryCount : 1;
       updated = {
-        ...calculateDailyEntry(parseFloat(amount), date, time, description, config, numKm, numFuelPrice, paymentMethod, isPaid, entryNotes),
+        ...calculateDailyEntry(
+          parseFloat(amount),
+          date,
+          time,
+          description,
+          config,
+          numKm,
+          numFuelPrice,
+          paymentMethod,
+          isPaid,
+          entryNotes,
+          finalCount > 1 ? 'shift' : (entry.entryType || 'single'),
+          finalCount,
+          entry.shiftPeriod
+        ),
         id: entry.id
       };
     } else {
@@ -208,6 +227,29 @@ const EditModal: React.FC<EditModalProps> = ({ entry, config, onSave, onClose })
                     </div>
                   )}
                 </div>
+
+                {isIncome && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                        Qtd. de Corridas / Entregas
+                      </label>
+                      {parseInt(deliveryCount) > 1 && parseFloat(amount) > 0 && (
+                        <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 font-mono-num">
+                          Média: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(amount) / parseInt(deliveryCount))}/corrida
+                        </span>
+                      )}
+                    </div>
+                    <input 
+                      type="number"
+                      min="1"
+                      value={deliveryCount}
+                      onChange={(e) => setDeliveryCount(e.target.value)}
+                      placeholder="1"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-700 dark:text-slate-200 font-bold focus:border-indigo-500 outline-none transition-all font-mono-num"
+                    />
+                  </div>
+                )}
 
                 {!isIncome && (
                   <div className="space-y-5">

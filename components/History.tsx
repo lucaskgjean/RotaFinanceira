@@ -990,7 +990,7 @@ const History: React.FC<HistoryProps> = ({
       if (!e.isPaid) {
         map[store].totalDue += e.grossAmount;
         map[store].entryIds.push(e.id);
-        map[store].totalEntries += 1;
+        map[store].totalEntries += (e.deliveryCount && e.deliveryCount > 0 ? e.deliveryCount : 1);
       } else {
         map[store].totalPaid += e.grossAmount;
       }
@@ -1257,7 +1257,7 @@ const History: React.FC<HistoryProps> = ({
         };
       }
       map[store].gross += e.grossAmount;
-      map[store].count += 1;
+      map[store].count += (e.deliveryCount && e.deliveryCount > 0 ? e.deliveryCount : 1);
       map[store].entries.push(e);
       if (e.id) {
         map[store].entryIds.push(e.id);
@@ -1732,8 +1732,13 @@ const History: React.FC<HistoryProps> = ({
                         {getPaymentIcon(entry.paymentMethod)}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-black text-slate-800 dark:text-white leading-tight text-lg truncate">{entry.storeName.replace('[GASTO]', '').trim()}</h4>
+                          {entry.deliveryCount && entry.deliveryCount > 1 && (
+                            <span className="shrink-0 text-[10px] font-black bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 px-2 py-0.5 rounded-lg uppercase tracking-wider">
+                              Turno • {entry.deliveryCount} corridas
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center flex-nowrap gap-x-3 mt-1.5 whitespace-nowrap overflow-hidden">
                           <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight flex items-center gap-1.5">
@@ -1759,6 +1764,11 @@ const History: React.FC<HistoryProps> = ({
                       <div className={`text-xl font-black ${entry.isPaid ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
                         {entry.grossAmount > 0 ? formatCurrency(entry.grossAmount).replace('R$', '') : formatCurrency(entry.fuel + entry.food + entry.maintenance).replace('R$', '')}
                       </div>
+                      {entry.deliveryCount && entry.deliveryCount > 1 && entry.grossAmount > 0 && (
+                        <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 font-mono-num">
+                          {formatCurrency(entry.grossAmount / entry.deliveryCount)}/un
+                        </div>
+                      )}
                       <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight flex items-center justify-end gap-1">
                         <Banknote size={10} /> VALOR
                       </span>
