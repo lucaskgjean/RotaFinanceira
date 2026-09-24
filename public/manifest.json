@@ -1,8 +1,23 @@
 {
-  "id": "com.rotafinanceira.app",
+  "id": "/",
+  "name": "RotaFinanceira",
   "short_name": "RotaFin",
-  "name": "RotaFinanceira Driver",
+  "description": "Controle financeiro para motoristas e entregadores.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#4f46e5",
+  "background_color": "#4f46e5",
+  "lang": "pt-BR",
+  "categories": ["finance", "productivity", "utilities"],
   "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
@@ -10,18 +25,16 @@
       "purpose": "any"
     },
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
+      "src": "/maskable-icon-512.png",
+      "sizes": "512x512",
       "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     }
-  ],
-  "start_url": "/",
-  "display": "standalone",
-  "theme_color": "#4f46e5",
-  "background_color": "#f8fafc",
-  "orientation": "portrait",
-  "description": "Controle financeiro para motoristas e entregadores.",
-  "lang": "pt-BR",
-  "categories": ["finance", "productivity"]
+  ]
 }

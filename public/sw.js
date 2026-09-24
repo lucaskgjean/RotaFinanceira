@@ -1,9 +1,16 @@
 
-const CACHE_NAME = 'rota-financeira-v2';
+const CACHE_NAME = 'rota-financeira-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/icon.svg',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/maskable-icon-512.png',
+  '/apple-touch-icon.png',
+  '/favicon.png',
+  '/favicon.ico'
 ];
 
 // Instalação: Cacheia arquivos essenciais sem travar se algum falhar e força ativação imediata
