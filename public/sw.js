@@ -1,20 +1,25 @@
 
-const CACHE_NAME = 'rota-financeira-v1';
+const CACHE_NAME = 'rota-financeira-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/manifest.json',
-  'https://cdn-icons-png.flaticon.com/512/1165/1165961.png'
+  '/manifest.json'
 ];
 
-// Instalação: Cacheia arquivos essenciais e força ativação
+// Instalação: Cacheia arquivos essenciais sem travar se algum falhar e força ativação imediata
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      for (const url of ASSETS_TO_CACHE) {
+        try {
+          await cache.add(url);
+        } catch (e) {
+          console.warn('SW cache add item failed (non-critical):', url, e);
+        }
+      }
     })
   );
-  self.skipWaiting();
 });
 
 // Ativação: Limpa caches antigos e assume controle imediatamente
@@ -28,50 +33,52 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch: Estratégia Network First para garantir atualizações do Vercel
+// Fetch: Estratégia Network First com fallback para cache
 self.addEventListener('fetch', (event) => {
-  // Apenas para requisições GET
   if (event.request.method !== 'GET') return;
+
+  // Evita interceptar requisições para APIs externas ou rotas /api/
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api/')) return;
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Se a rede funcionar, atualiza o cache
-        const responseClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+        }
         return response;
       })
       .catch(() => {
-        // Se a rede falhar, tenta o cache
         return caches.match(event.request);
       })
   );
 });
 
-// Notificações: Listener para eventos de Push (útil para Median/Vercel)
+// Notificações: Listener para eventos de Push
 self.addEventListener('push', (event) => {
-  let data = { title: 'RotaFinanceira', body: 'Nova atualização disponível!' };
+  let data = { title: 'Rota Financeira', body: 'Nova atualização disponível!' };
   
   if (event.data) {
     try {
       data = event.data.json();
     } catch (e) {
-      data = { title: 'RotaFinanceira', body: event.data.text() };
+      data = { title: 'Rota Financeira', body: event.data.text() };
     }
   }
 
   const options = {
     body: data.body,
-    icon: 'https://cdn-icons-png.flaticon.com/512/1165/1165961.png',
-    badge: 'https://cdn-icons-png.flaticon.com/512/1165/1165961.png',
-    vibrate: [100, 50, 100],
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [150, 50, 150],
     data: {
       dateOfArrival: Date.now(),
       primaryKey: '1'
@@ -83,10 +90,19 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Clique na Notificação: Abre o app
+// Clique na Notificação: Traz a janela do app para o foco ou abre uma nova
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
-    clients.openWindow('/')
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow('/');
+      }
+    })
   );
 });

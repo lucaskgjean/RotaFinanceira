@@ -1,10 +1,10 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { AppConfig, DEFAULT_CONFIG, DailyEntry, TimeEntry } from '../types';
 import { formatCurrency, entriesToCSV } from '../utils/calculations';
 import CustomDialog from './CustomDialog';
 import CustomDateRangePicker from './CustomDateRangePicker';
-import { Sun, Moon, Monitor, Settings as SettingsIcon, Bell, Plus, Trash2, Clock, LogOut, User, Camera, Phone, Mail, Lock, ChevronRight, Sparkles, ShieldCheck, RefreshCw, AlertTriangle, Calendar, Wallet, ArrowUpRight, CreditCard, MoreHorizontal, Cloud, Eye, EyeOff } from 'lucide-react';
+import { Sun, Moon, Monitor, Settings as SettingsIcon, Bell, Plus, Trash2, Clock, LogOut, User, Camera, Phone, Mail, Lock, ChevronRight, Sparkles, ShieldCheck, RefreshCw, AlertTriangle, Calendar, Wallet, ArrowUpRight, CreditCard, MoreHorizontal, Cloud, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle, Info, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { notificationService } from '../services/notificationService';
 import { authService } from '../services/authService';
@@ -54,6 +54,14 @@ const Settings: React.FC<SettingsProps> = ({
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const browserInfo = useMemo(() => notificationService.getBrowserInfo(), []);
+  const [browserPerm, setBrowserPerm] = useState<NotificationPermission | 'unsupported'>(() => 
+    notificationService.getPermissionStatus()
+  );
+  const [showNotificationHelp, setShowNotificationHelp] = useState(false);
+  const [selectedBrowserTab, setSelectedBrowserTab] = useState<'opera' | 'chrome'>(() => 
+    notificationService.getBrowserInfo().isOpera ? 'opera' : 'chrome'
+  );
 
   const [dialog, setDialog] = useState<{
     isOpen: boolean;
@@ -801,20 +809,23 @@ const Settings: React.FC<SettingsProps> = ({
                 <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-tight">Ative avisos de meta diária e alertas de manutenção</p>
               </div>
               <button
-                onClick={() => {
+                onClick={async () => {
                   const newVal = !localConfig.notificationsEnabled;
                   setLocalConfig({ ...localConfig, notificationsEnabled: newVal });
                   if (newVal) {
-                    notificationService.requestPermission().then(granted => {
-                      if (granted) {
-                        showToast("Notificações autorizadas!", "success");
-                        notificationService.sendNotification("Notificações Ativas! 🔔", {
-                          body: "Você receberá alertas de meta batida e manutenção aqui."
-                        });
-                      } else {
-                        showToast("Notificações ativadas! Verifique se seu navegador as autoriza.", "success");
-                      }
-                    });
+                    const res = await notificationService.requestPermission();
+                    setBrowserPerm(res.status);
+                    if (res.granted) {
+                      showToast("Notificações autorizadas no navegador!", "success");
+                      await notificationService.sendNotification("Notificações Ativas! 🔔", {
+                        body: "Você receberá alertas de meta batida e manutenção no seu celular."
+                      });
+                    } else if (res.status === 'denied') {
+                      setShowNotificationHelp(true);
+                      showToast("Notificações bloqueadas pelo navegador. Veja como permitir.", "error");
+                    } else {
+                      showToast("Permissão de notificação não foi concedida.", "error");
+                    }
                   }
                 }}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
@@ -827,6 +838,93 @@ const Settings: React.FC<SettingsProps> = ({
                   }`}
                 />
               </button>
+            </div>
+
+            {/* Status do Navegador (Opera Android / Chrome) */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tight">
+                  Navegador detectado:
+                </span>
+                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-lg border border-indigo-200/50 dark:border-indigo-500/20">
+                  {browserInfo.isOpera ? 'Opera para Android 🔴' : browserInfo.isChrome ? 'Google Chrome 🟢' : 'Navegador Android'}
+                </span>
+              </div>
+
+              {browserPerm === 'granted' ? (
+                <div className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span className="text-[10px] font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                      Notificações Ativas no {browserInfo.isOpera ? 'Opera' : 'Navegador'}
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/20 px-2 py-0.5 rounded-full uppercase">
+                    Pronto
+                  </span>
+                </div>
+              ) : browserPerm === 'denied' ? (
+                <div className="p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-2xl space-y-2">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle size={16} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs font-black text-rose-800 dark:text-rose-200 leading-snug">
+                        Bloqueado no seu {browserInfo.isOpera ? 'Opera para Android' : 'navegador Android'}
+                      </p>
+                      <p className="text-[10px] text-rose-700 dark:text-rose-300 mt-0.5 leading-relaxed">
+                        {browserInfo.isOpera 
+                          ? 'O Opera bloqueou os avisos deste site. O Opera não reexibe o pop-up por segurança até você permitir nas opções.' 
+                          : 'O navegador bloqueou as notificações deste endereço. Veja o passo a passo para permitir.'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (browserInfo.isOpera) setSelectedBrowserTab('opera');
+                      setShowNotificationHelp(true);
+                    }}
+                    className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <HelpCircle size={14} />
+                    Como Desbloquear no {browserInfo.isOpera ? 'Opera' : 'Celular'}
+                  </button>
+                </div>
+              ) : (
+                <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl space-y-2">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs font-black text-amber-800 dark:text-amber-200 leading-snug">
+                        Aguardando Autorização no {browserInfo.isOpera ? 'Opera' : 'Navegador'}
+                      </p>
+                      <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-0.5 leading-relaxed">
+                        Toque no botão abaixo para abrir a janela de permissão do {browserInfo.isOpera ? 'Opera' : 'Android'} e toque em <strong>Permitir</strong>.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const res = await notificationService.requestPermission();
+                      setBrowserPerm(res.status);
+                      if (res.granted) {
+                        showToast(`Permissão concedida no ${browserInfo.isOpera ? 'Opera' : 'navegador'}!`, "success");
+                        setLocalConfig(prev => ({ ...prev, notificationsEnabled: true }));
+                        await notificationService.sendNotification("Notificações Ativas! 🔔", {
+                          body: `Notificações do Rota Financeira configuradas no seu ${browserInfo.isOpera ? 'Opera Android' : 'celular'}.`
+                        });
+                      } else if (res.status === 'denied') {
+                        if (browserInfo.isOpera) setSelectedBrowserTab('opera');
+                        setShowNotificationHelp(true);
+                        showToast("Notificações bloqueadas. Veja como liberar no Opera.", "error");
+                      }
+                    }}
+                    className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <Bell size={14} />
+                    Autorizar Notificações no {browserInfo.isOpera ? 'Opera' : 'Navegador'}
+                  </button>
+                </div>
+              )}
             </div>
 
             {localConfig.notificationsEnabled && (
@@ -858,14 +956,35 @@ const Settings: React.FC<SettingsProps> = ({
                 </div>
 
                 <button
-                  onClick={() => {
-                    notificationService.sendNotification("Teste de Notificação 🔔", {
-                      body: "Este é um teste de notificação do RotaFinanceira!"
+                  onClick={async () => {
+                    const current = notificationService.getPermissionStatus();
+                    setBrowserPerm(current);
+                    if (current === 'default') {
+                      const res = await notificationService.requestPermission();
+                      setBrowserPerm(res.status);
+                      if (!res.granted) {
+                        showToast("Permissão de notificação é necessária.", "error");
+                        return;
+                      }
+                    } else if (current === 'denied') {
+                      setShowNotificationHelp(true);
+                      showToast("Notificações bloqueadas no navegador.", "error");
+                      return;
+                    }
+
+                    const res = await notificationService.sendNotification("Teste de Notificação 🔔", {
+                      body: "Notificação do Rota Financeira funcionando perfeitamente no seu celular!",
                     });
-                    showToast("Notificação de teste enviada!", "success");
+
+                    if (res.success) {
+                      showToast("Notificação enviada! Olhe a barra de status do celular.", "success");
+                    } else {
+                      showToast(res.error || "Erro ao exibir notificação.", "error");
+                    }
                   }}
-                  className="w-full mt-2 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center cursor-pointer"
+                  className="w-full mt-2 py-2.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-center cursor-pointer flex items-center justify-center gap-2"
                 >
+                  <Bell size={14} />
                   Enviar Notificação de Teste
                 </button>
               </div>
@@ -1346,6 +1465,135 @@ const Settings: React.FC<SettingsProps> = ({
                   ) : 'Alterar Senha'}
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+        {/* Modal de Ajuda para Notificações no Android (Opera / Chrome) */}
+        {showNotificationHelp && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                  <Bell size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-800 dark:text-white leading-tight">
+                    Como Ativar Notificações
+                  </h3>
+                  <p className="text-xs text-slate-400 font-semibold">Passo a passo para o seu navegador</p>
+                </div>
+              </div>
+
+              {/* Seletor de Navegador: Opera vs Chrome */}
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setSelectedBrowserTab('opera')}
+                  className={`flex-1 py-1.5 text-xs font-black rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    selectedBrowserTab === 'opera' 
+                      ? 'bg-rose-500 text-white shadow-sm' 
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-800'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  Opera Android
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBrowserTab('chrome')}
+                  className={`flex-1 py-1.5 text-xs font-black rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    selectedBrowserTab === 'chrome' 
+                      ? 'bg-indigo-600 text-white shadow-sm' 
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-800'
+                  }`}
+                >
+                  Google Chrome
+                </button>
+              </div>
+
+              {selectedBrowserTab === 'opera' ? (
+                /* Instruções Opera para Android */
+                <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full bg-rose-500 text-white font-black text-xs flex items-center justify-center shrink-0">1</span>
+                    <p className="leading-snug">
+                      Na barra de endereços do <strong>Opera</strong> (ao lado do link do site), toque no ícone de <strong>Escudo 🛡️</strong> ou <strong>Cadeado 🔒</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full bg-rose-500 text-white font-black text-xs flex items-center justify-center shrink-0">2</span>
+                    <p className="leading-snug">
+                      Toque em <strong>Configurações do site</strong> (ou toque no <strong>"O" vermelho</strong> no canto inferior direito ➔ ⚙️ <strong>Configurações</strong> ➔ <strong>Privacidade</strong>).
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full bg-rose-500 text-white font-black text-xs flex items-center justify-center shrink-0">3</span>
+                    <p className="leading-snug">
+                      Toque em <strong>Notificações</strong> e selecione <strong>Permitir</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex items-start gap-2.5">
+                    <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-800 dark:text-amber-200 leading-snug">
+                      <strong>Economia de Dados no Opera:</strong> Se você usa "Economia de dados" no Opera, certifique-se de que não esteja no modo <em>Extremo</em> (pois o modo extremo desliga as notificações de segundo plano do Android).
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* Instruções Google Chrome */
+                <div className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">1</span>
+                    <p className="leading-snug">
+                      No topo do Chrome (ao lado do link), toque no ícone de <strong>Cadeado 🔒</strong> ou <strong>Ajustes / Permissões</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">2</span>
+                    <p className="leading-snug">
+                      Toque na opção <strong>Permissões</strong> (ou <strong>Configurações do site</strong>).
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">3</span>
+                    <p className="leading-snug">
+                      Procure por <strong>Notificações</strong> e mude de <em>Bloqueado</em> para <strong>Permitir</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-2xl flex items-start gap-2.5">
+                    <Info size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-800 dark:text-amber-200 leading-snug">
+                      <strong>Abriu pelo WhatsApp ou Instagram?</strong> Navegadores internos de redes sociais não suportam notificações. Toque nos <strong>3 pontinhos do topo ➔ "Abrir no Navegador"</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowNotificationHelp(false);
+                  const status = notificationService.getPermissionStatus();
+                  setBrowserPerm(status);
+                  if (status === 'granted') {
+                    showToast("Permissão reconhecida com sucesso! 🎉", "success");
+                  }
+                }}
+                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 shadow-lg shadow-indigo-500/20 cursor-pointer"
+              >
+                Entendi, Já Concedi Permissão
+              </button>
             </motion.div>
           </div>
         )}
